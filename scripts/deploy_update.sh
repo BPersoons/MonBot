@@ -48,7 +48,7 @@ done
 sudo mkdir -p logs data
 # Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs
 chmod 666 dashboard.json trade_log.json active_assets.json
-chmod 777 logs data
+sudo chmod 777 logs data
 
 # 6. Start fresh containers
 echo "Starting containers..."
