@@ -34,15 +34,28 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 5. Start fresh containers
+# 5. Ensure state files exist as files (not directories) before mounting
+echo "Initialising state files..."
+for f in dashboard.json trade_log.json active_assets.json; do
+    if [ -d "$f" ]; then
+        sudo rm -rf "$f"
+    fi
+    [ -f "$f" ] || echo '{}' > "$f"
+done
+# trade_log and active_assets are arrays
+[ "$(cat trade_log.json)" = '{}' ] && echo '[]' > trade_log.json
+[ "$(cat active_assets.json)" = '{}' ] && echo '[]' > active_assets.json
+sudo mkdir -p logs data
+
+# 6. Start fresh containers
 echo "Starting containers..."
 sudo docker-compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 
-# 6. Cleanup old images
+# 7. Cleanup old images
 echo "Cleaning up old images..."
 sudo docker image prune -f 2>/dev/null || true
 
-# 7. Verify
+# 8. Verify
 echo ""
 echo "=== Container Status ==="
 sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
