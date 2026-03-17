@@ -4,7 +4,9 @@ services:
     image: europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest
     container_name: agent_trader_swarm
     restart: always
-    env_file: .env.adk
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
