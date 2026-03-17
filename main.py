@@ -138,6 +138,11 @@ def main():
         missing_secrets = [k for k, v in secrets.items() if not v]
         loaded_secrets = [k for k, v in secrets.items() if v]
         
+        # Inject into os.environ so components using os.getenv() find them
+        for key, value in secrets.items():
+            if value and not os.environ.get(key):
+                os.environ[key] = value
+
         if loaded_secrets:
             logger.info(f"✅ Secrets loaded: {', '.join(loaded_secrets)}")
         
