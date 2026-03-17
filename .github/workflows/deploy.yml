@@ -53,10 +53,12 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
-      - name: SCP deploy script
+      - name: SCP deploy script and compose file
         run: |
           gcloud compute scp scripts/deploy_update.sh \
             "${VM_NAME}:~/deploy_update.sh" --zone="${ZONE}" --quiet
+          gcloud compute scp docker-compose.prod.yml \
+            "${VM_NAME}:~/docker-compose.prod.yml" --zone="${ZONE}" --quiet
       - name: SSH deploy
         run: |
           gcloud compute ssh "${VM_NAME}" --zone="${ZONE}" --quiet \

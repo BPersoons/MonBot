@@ -82,4 +82,4 @@ audit_log.txt
 curl_out.txt
 check.html
 swarm_vm.log
-docker-compose.prod.yml
+# docker-compose.prod.yml is committed — it has no secrets (refs .env.adk on VM)

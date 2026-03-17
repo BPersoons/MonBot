@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  agent-trader:
+    image: europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest
+    container_name: agent_trader_swarm
+    restart: always
+    env_file: .env.adk
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./dashboard.json:/app/dashboard.json
+      - ./trade_log.json:/app/trade_log.json
+      - ./active_assets.json:/app/active_assets.json
+    networks: [trader_net]
+
+networks:
+  trader_net:
+    driver: bridge
