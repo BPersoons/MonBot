@@ -7,6 +7,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
+    ports:
+      - "8080:8080"
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
