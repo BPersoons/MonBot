@@ -1,0 +1,16 @@
+{
+    "model_preferences": {
+        "primary": "claude-3-5-sonnet-latest",
+        "fallback": "gemini-2.5-flash",
+        "reasoning": "gemini-2.5-pro"
+    },
+    "context_limits": {
+        "max_file_read_lines": 800,
+        "max_total_context_tokens": 100000,
+        "auto_truncate_logs": true
+    },
+    "execution": {
+        "auto_run_safe_commands": true,
+        "parallel_tool_calling_enabled": true
+    }
+}

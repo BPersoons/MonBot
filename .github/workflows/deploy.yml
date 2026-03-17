@@ -1,0 +1,96 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: europe-west1
+  ZONE: europe-west1-b
+  VM_NAME: agent-trader-swarm-vm
+  IMAGE_BASE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/agent-trader/swarm
+
+jobs:
+  pre-flight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - run: python -m tests.pre_flight.check_imports
+
+  build-and-push:
+    needs: pre-flight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+      - name: Build & push via Cloud Build (dual tag)
+        run: |
+          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          gcloud builds submit \
+            --project="${PROJECT_ID}" \
+            --config=cloudbuild.yaml \
+            --substitutions="_SHA_SHORT=${SHA}" .
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+      - name: SCP deploy script
+        run: |
+          gcloud compute scp scripts/deploy_update.sh \
+            "${VM_NAME}:~/deploy_update.sh" --zone="${ZONE}" --quiet
+      - name: SSH deploy
+        run: |
+          gcloud compute ssh "${VM_NAME}" --zone="${ZONE}" --quiet \
+            --command="chmod +x ~/deploy_update.sh && ~/deploy_update.sh"
+      - name: Verify HTTP 200 (60s timeout)
+        run: |
+          gcloud compute ssh "${VM_NAME}" --zone="${ZONE}" --quiet --command='
+            for i in $(seq 1 12); do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ 2>/dev/null || echo "000")
+              echo "Attempt ${i}: HTTP ${CODE}"
+              [ "$CODE" = "200" ] && exit 0
+              sleep 5
+            done
+            sudo docker logs agent_trader_swarm 2>&1 | tail -30
+            exit 1'
+
+  notify:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Telegram — success
+        if: needs.deploy.result == 'success'
+        run: |
+          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="Markdown" \
+            -d text="✅ *Agent Trader deployed*%0ASHA: \`${SHA}\` | By: ${{ github.actor }}%0A[View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+      - name: Telegram — failure
+        if: needs.deploy.result != 'success'
+        run: |
+          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="Markdown" \
+            -d text="❌ *Agent Trader deploy FAILED*%0ASHA: \`${SHA}\`%0A[Investigate](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"

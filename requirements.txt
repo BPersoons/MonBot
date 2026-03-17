@@ -1,0 +1,39 @@
+# Core AI & Agent Framework
+google-cloud-aiplatform
+google-generativeai
+
+# GCP Cloud Integration
+google-cloud-secret-manager
+google-cloud-logging
+
+# Data Processing
+pandas
+numpy
+
+# Trading Infrastructure
+ccxt==4.5.35
+eth-account
+
+# Database & State Management
+redis
+supabase
+psycopg2-binary
+
+# Utilities
+python-dotenv
+pydantic
+aiohttp
+nest-asyncio
+
+# Web Intelligence
+beautifulsoup4
+requests
+duckduckgo-search
+
+# Dashboard
+streamlit
+plotly
+
+# Automation & Testing
+playwright
+pytest-playwright

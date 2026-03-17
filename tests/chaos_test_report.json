@@ -1,0 +1,48 @@
+{
+    "test_suite": "Chaos Test - Adversarial Testing",
+    "timestamp": "2026-02-03T13:37:33.222904",
+    "summary": {
+        "total": 6,
+        "passed": 4,
+        "failed": 2,
+        "success_rate": 66.66666666666666
+    },
+    "results": [
+        {
+            "test": "Corrupt Price (0) Detection",
+            "status": "PASSED",
+            "details": "Approved: False, Reason: CRITICAL ANOMALY DETECTED - Circuit Breaker OPEN",
+            "timestamp": "2026-02-03T13:37:33.219843"
+        },
+        {
+            "test": "Extreme Sentiment (999) Detection",
+            "status": "PASSED",
+            "details": "Approved: False, Reason: CRITICAL ANOMALY DETECTED - Circuit Breaker OPEN",
+            "timestamp": "2026-02-03T13:37:33.221361"
+        },
+        {
+            "test": "Flash Crash Detection",
+            "status": "PASSED",
+            "details": "Approved: False, Anomalies: 1",
+            "timestamp": "2026-02-03T13:37:33.221361"
+        },
+        {
+            "test": "Invalid Technical Data Detection",
+            "status": "FAILED",
+            "details": "Anomalies detected: 0",
+            "timestamp": "2026-02-03T13:37:33.221361"
+        },
+        {
+            "test": "Circuit Breaker Activation",
+            "status": "PASSED",
+            "details": "Can Trade: False, Circuit Breaker Status: OPEN",
+            "timestamp": "2026-02-03T13:37:33.222904"
+        },
+        {
+            "test": "Circuit Breaker Recovery",
+            "status": "FAILED",
+            "details": "Before: False, After: False",
+            "timestamp": "2026-02-03T13:37:33.222904"
+        }
+    ]
+}

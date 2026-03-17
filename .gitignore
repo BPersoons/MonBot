@@ -1,0 +1,85 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files (CRITICAL - Never commit these!)
+.env
+.env.local
+.env.adk
+*.env
+
+# Logs
+*.log
+heartbeat.log
+heartbeat_adk.log
+founder_notifications.log
+
+# Data & State
+dashboard.json
+reasoning_trace.json
+*.backup
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+
+# Credentials
+*.pem
+*.key
+credentials.json
+google-credentials.json
+github-ci-key.json
+new_api_key.txt
+*.txt.key
+
+# Claude local memory/session (not source)
+.claude/
+
+# Junk / OS artifacts
+nul
+logs.txt
+imports_log.txt
+models.txt
+pro_models.json
+dummy.txt
+
+# Remote state snapshots (pulled from VM for inspection)
+remote_dashboard.json
+remote_trade_log.json
+
+# Runtime state (VM-owned, not source)
+trade_log.json
+active_assets.json
+ticker_state.json
+pipeline_events.json
+decision_history.json
+cpo_state.json
+pl_status.json
+pl_meta.json
+data_cache.json
+learning_report.json
+swarm_health.json
+supabase_health.json
+audit_log.txt
+curl_out.txt
+check.html
+swarm_vm.log
+docker-compose.prod.yml

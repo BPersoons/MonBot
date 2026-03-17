@@ -1,0 +1,6 @@
+{
+    "technical": 1.0,
+    "fundamental": 1.0,
+    "sentiment": 1.0,
+    "score_threshold": 0.40
+}
