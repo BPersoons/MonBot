@@ -46,6 +46,9 @@ done
 [ "$(cat trade_log.json)" = '{}' ] && echo '[]' > trade_log.json
 [ "$(cat active_assets.json)" = '{}' ] && echo '[]' > active_assets.json
 sudo mkdir -p logs data
+# Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs
+chmod 666 dashboard.json trade_log.json active_assets.json
+chmod 777 logs data
 
 # 6. Start fresh containers
 echo "Starting containers..."
