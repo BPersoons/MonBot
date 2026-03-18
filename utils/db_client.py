@@ -206,24 +206,37 @@ class DatabaseClient:
         Returns:
             True if successful
         """
+        # Extract numeric ID from local trade_id (e.g. "trade_1234567890123" -> 1234567890123)
+        local_id = trade_data.get("id", "")
+        try:
+            numeric_id = int(local_id.replace("trade_", "")) if local_id.startswith("trade_") else None
+        except (ValueError, AttributeError):
+            numeric_id = None
+
         # Prepare complete record
         record = {
             "ticker": trade_data.get("ticker"),
             "action": trade_data.get("action"),
             "conviction": trade_data.get("conviction", 0.0),
-            "entry_price": trade_data.get("price", 0.0),
+            "entry_price": trade_data.get("entry_price") or trade_data.get("price", 0.0),
             "quantity": trade_data.get("quantity", 0.0),
             "risk_metrics": trade_data.get("risk_metrics", {}),
             "analyst_signals": trade_data.get("analyst_signals", {}),
-            "reasoning_trace": reasoning_trace,  # <-- NEW
-            "status": "OPEN",
+            "reasoning_trace": reasoning_trace,
+            "status": trade_data.get("status", "OPEN"),
             "created_at": datetime.now().isoformat()
         }
-        
+        if numeric_id:
+            record["id"] = numeric_id
+
         # Try database first
         if self.is_available():
             try:
-                result = self.client.table("trades").insert(record).execute()
+                # Upsert on id to prevent duplicates when the same trade is re-logged
+                if numeric_id:
+                    result = self.client.table("trades").upsert(record, on_conflict="id").execute()
+                else:
+                    result = self.client.table("trades").insert(record).execute()
                 logger.info(f"✅ Trade logged to Supabase: {record['ticker']} {record['action']}")
                 
                 # Sync any pending cache
