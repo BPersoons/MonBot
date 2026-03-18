@@ -41,8 +41,9 @@ for f in dashboard.json trade_log.json active_assets.json; do
         sudo rm -rf "$f"
     fi
 done
-[ -f "dashboard.json" ]    || echo '{}' > dashboard.json
-[ -f "active_assets.json" ] || echo '[]' > active_assets.json
+[ -f "dashboard.json" ]      || echo '{}' > dashboard.json
+[ -f "active_assets.json" ]  || echo '[]' > active_assets.json
+[ -f "pnl_snapshots.json" ]  || echo '[]' > pnl_snapshots.json
 # Recover trade_log.json from Supabase if missing or empty
 if [ ! -f "trade_log.json" ] || [ "$(cat trade_log.json)" = "[]" ] || [ "$(cat trade_log.json)" = "{}" ]; then
     echo "Recovering trade_log.json from Supabase..."
@@ -74,7 +75,7 @@ else:
 fi
 sudo mkdir -p logs data
 # Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs
-chmod 666 dashboard.json trade_log.json active_assets.json
+chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json
 sudo chmod 777 logs data
 
 # 6. Start fresh containers

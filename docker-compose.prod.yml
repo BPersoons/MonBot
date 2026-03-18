@@ -16,6 +16,7 @@ services:
       - ./dashboard.json:/app/dashboard.json
       - ./trade_log.json:/app/trade_log.json
       - ./active_assets.json:/app/active_assets.json
+      - ./pnl_snapshots.json:/app/pnl_snapshots.json
     networks: [trader_net]
 
 networks:
