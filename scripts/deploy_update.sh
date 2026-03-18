@@ -40,11 +40,38 @@ for f in dashboard.json trade_log.json active_assets.json; do
     if [ -d "$f" ]; then
         sudo rm -rf "$f"
     fi
-    [ -f "$f" ] || echo '{}' > "$f"
 done
-# trade_log and active_assets are arrays
-[ "$(cat trade_log.json)" = '{}' ] && echo '[]' > trade_log.json
-[ "$(cat active_assets.json)" = '{}' ] && echo '[]' > active_assets.json
+[ -f "dashboard.json" ]    || echo '{}' > dashboard.json
+[ -f "active_assets.json" ] || echo '[]' > active_assets.json
+# Recover trade_log.json from Supabase if missing or empty
+if [ ! -f "trade_log.json" ] || [ "$(cat trade_log.json)" = "[]" ] || [ "$(cat trade_log.json)" = "{}" ]; then
+    echo "Recovering trade_log.json from Supabase..."
+    sudo docker run --rm \
+        -e GOOGLE_CLOUD_PROJECT=gen-lang-client-0441524375 \
+        europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest \
+        python3 -c "
+import os, sys, json
+os.environ['GOOGLE_CLOUD_PROJECT'] = 'gen-lang-client-0441524375'
+from utils.gcp_secrets import get_all_trading_secrets
+s = get_all_trading_secrets()
+for k,v in s.items():
+    if v: os.environ[k] = v
+from utils.db_client import DatabaseClient
+db = DatabaseClient()
+if db.client:
+    all_trades = []
+    offset = 0
+    while True:
+        r = db.client.table('trades').select('*').order('created_at', desc=False).range(offset, offset+999).execute()
+        all_trades.extend(r.data)
+        if len(r.data) < 1000: break
+        offset += 1000
+    print(json.dumps(all_trades, default=str))
+else:
+    print('[]')
+" > trade_log.json 2>/dev/null || echo '[]' > trade_log.json
+    echo "Recovered $(python3 -c "import json; print(len(json.load(open('trade_log.json'))))" 2>/dev/null || echo '?') trades"
+fi
 sudo mkdir -p logs data
 # Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs
 chmod 666 dashboard.json trade_log.json active_assets.json
