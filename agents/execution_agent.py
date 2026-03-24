@@ -3,7 +3,6 @@ import math
 import os
 import time
 import logging
-import random
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from utils.db_client import DatabaseClient
@@ -26,8 +25,6 @@ def _sanitize_trade(obj):
     return obj
 
 from utils.pipeline_events import log_event as log_pipeline_event
-from utils.exchange_client import PaperExchange
-
 from utils.exchange_client import HyperliquidExchange
 
 class ExecutionAgent:
@@ -43,23 +40,160 @@ class ExecutionAgent:
         self.ensure_log_file()
         self.db = DatabaseClient()
         self.logger.info(f"Execution Agent initialized with approval threshold: ${APPROVAL_THRESHOLD}")
+        self._sync_open_positions_on_startup()
         try:
             from agents.strategy_manager import StrategyManager
             self.strategy_manager = StrategyManager()
         except Exception as e:
             self.logger.error(f"Failed to load StrategyManager: {e}")
             self.strategy_manager = None
-            
-        try:
-            from utils.llm_client import LLMClient
-            self.llm = LLMClient(model_name="gemini-3-flash-preview")
-        except:
-             self.llm = None
 
     def ensure_log_file(self):
         if not os.path.exists(TRADE_LOG_FILE):
             with open(TRADE_LOG_FILE, "w") as f:
                 json.dump([], f)
+
+    def _sync_open_positions_on_startup(self):
+        """On startup, reconcile live HL open positions into trade_log.json.
+
+        Prevents the dashboard from showing 0 open trades after a container
+        restart when positions were already open on Hyperliquid.
+        Any position not already tracked as OPEN/PLACED is added as an OPEN record
+        with source='HL_POSITION_SYNC'.
+        """
+        try:
+            ex = self.exchange
+            if not ex.signing_client:
+                return
+            user_addr = getattr(ex, 'vault_address', None) or ex.wallet_address
+            positions = ex.signing_client.fetch_positions(params={'user': user_addr})
+        except Exception as e:
+            self.logger.warning(f"Startup position sync skipped: {e}")
+            return
+
+        open_positions = [
+            p for p in positions
+            if abs(float((p.get('info') or {}).get('szi', 0) or p.get('contracts') or 0)) > 1e-9
+        ]
+        if not open_positions:
+            return
+
+        try:
+            with open(TRADE_LOG_FILE) as f:
+                trades = json.load(f)
+        except Exception:
+            trades = []
+
+        open_tickers = {
+            t["ticker"].split("/")[0].upper()
+            for t in trades
+            if t.get("status") in ("OPEN", "PLACED")
+        }
+
+        # Load StrategyManager locally for TP/SL calculation
+        try:
+            from agents.strategy_manager import StrategyManager
+            _sm = StrategyManager()
+        except Exception:
+            _sm = None
+
+        DEFAULT_SL_PCT = 10.0   # 10% SL from entry for synced positions
+        DEFAULT_RRR    = 1.5    # 1:1.5 risk/reward
+
+        # --- Backfill pass: patch existing OPEN trades that are missing TP/SL ---
+        backfilled = 0
+        if _sm:
+            for t in trades:
+                if t.get("status") not in ("OPEN", "PLACED"):
+                    continue
+                if t.get("take_profit") and t.get("stop_loss"):
+                    continue  # Already has levels
+                ep = t.get("entry_price", 0.0)
+                if not ep:
+                    continue
+                act = t.get("action", "BUY")
+                levels = _sm.calculate_levels(ep, act, DEFAULT_RRR, DEFAULT_SL_PCT)
+                t["take_profit"] = levels.get("take_profit", 0.0)
+                t["stop_loss"]   = levels.get("stop_loss", 0.0)
+                t.setdefault("sl_pct", DEFAULT_SL_PCT)
+                t.setdefault("sl_stage", 0)
+                t.setdefault("partial_tp1_taken", False)
+                t.setdefault("partial_exits", [])
+                backfilled += 1
+            if backfilled:
+                try:
+                    with open(TRADE_LOG_FILE, "w") as f:
+                        json.dump(trades, f, indent=2, default=str)
+                    self.logger.info(f"Startup position sync: backfilled TP/SL for {backfilled} existing OPEN trade(s)")
+                except Exception as e:
+                    self.logger.error(f"Startup position sync: failed to write backfilled TP/SL: {e}")
+
+        added = 0
+        now_ts = datetime.utcnow()
+        for pos in open_positions:
+            info = pos.get("info") or {}
+            symbol = pos.get("symbol", "")
+            base = symbol.split("/")[0].upper()
+            if base in open_tickers:
+                continue
+
+            ticker = symbol.split(":")[0]
+            contracts = float(info.get("szi") or pos.get("contracts") or 0)
+            qty = abs(contracts)
+            entry_price = float(pos.get("entryPrice") or info.get("entryPx") or 0)
+            mark_price = float(pos.get("markPrice") or info.get("markPx") or entry_price)
+            unrealized_pnl = float(pos.get("unrealizedPnl") or info.get("unrealizedPnl") or 0)
+            direction = "long" if contracts > 0 else "short"
+            trade_id = f"HL_OPEN_{base}_{int(now_ts.timestamp() * 1000)}"
+
+            # Compute TP/SL from entry price so evaluate_position can manage this trade
+            action = "BUY" if direction == "long" else "SELL"
+            tp, sl, sl_pct = 0.0, 0.0, DEFAULT_SL_PCT
+            if _sm and entry_price:
+                levels = _sm.calculate_levels(entry_price, action, DEFAULT_RRR, DEFAULT_SL_PCT)
+                tp    = levels.get("take_profit", 0.0)
+                sl    = levels.get("stop_loss", 0.0)
+                sl_pct = levels.get("sl_pct", DEFAULT_SL_PCT)
+
+            record = {
+                "id": trade_id,
+                "ticker": ticker,
+                "action": action,
+                "status": "OPEN",
+                "entry_price": entry_price,
+                "exit_price": None,
+                "quantity": qty,
+                "pnl": round(unrealized_pnl, 4),
+                "pnl_percent": round(
+                    ((entry_price - mark_price) / entry_price * 100 if direction == "short"
+                     else (mark_price - entry_price) / entry_price * 100), 2
+                ) if entry_price else 0.0,
+                "entry_fmt": now_ts.strftime("%Y-%m-%dT%H:%M:%S"),
+                "entry_time": now_ts.timestamp(),
+                "exit_time": None,
+                "close_reason": None,
+                "source": "HL_POSITION_SYNC",
+                "conviction": 0.0,
+                "fees": 0.0,
+                "take_profit": tp,
+                "stop_loss": sl,
+                "sl_pct": sl_pct,
+                "sl_stage": 0,
+                "partial_tp1_taken": False,
+                "partial_exits": [],
+                "analyst_signals": {},
+            }
+            trades.append(record)
+            open_tickers.add(base)
+            added += 1
+
+        if added:
+            try:
+                with open(TRADE_LOG_FILE, "w") as f:
+                    json.dump(trades, f, indent=2, default=str)
+                self.logger.info(f"Startup position sync: added {added} OPEN trade(s) from Hyperliquid (with TP/SL)")
+            except Exception as e:
+                self.logger.error(f"Startup position sync: failed to write trade_log.json: {e}")
 
     def log_trade(self, trade_data):
         """
@@ -529,10 +663,24 @@ class ExecutionAgent:
             except Exception as e:
                 self.logger.error(f"Failed to calculate levels: {e}")
 
-        # Logic Fork: 
-        # If Approval Required -> DO NOT EXECUTE YET. Log as PENDING. 
+        # ── Shadow mode intercept ────────────────────────────────────────
+        # When shadow_mode is active, record a paper trade instead of executing.
+        # The calling code sees a returned record just like a real trade.
+        try:
+            from utils.auto_params import AutoParams
+            if AutoParams().is_shadow_mode():
+                return self._log_shadow_trade(
+                    ticker, action, quantity, intended_price,
+                    take_profit, stop_loss, trade_proposal
+                )
+        except Exception as _se:
+            self.logger.warning(f"Shadow mode check failed (fail-open): {_se}")
+        # ─────────────────────────────────────────────────────────────────
+
+        # Logic Fork:
+        # If Approval Required -> DO NOT EXECUTE YET. Log as PENDING.
         # If No Approval -> Execute Immediately.
-        
+
         if requires_approval:
              # Create PENDING record (No mock execution yet)
              trade_record = {
@@ -750,6 +898,45 @@ class ExecutionAgent:
         except Exception as e:
             self.logger.error(f"Failed to close partial position: {e}")
             return False
+
+    def _log_shadow_trade(self, ticker: str, action: str, quantity: float,
+                          intended_price: float, take_profit: float,
+                          stop_loss: float, trade_proposal: dict) -> dict:
+        """Record a paper trade during shadow mode instead of executing on HL."""
+        try:
+            fill_price = self.exchange.get_market_price(ticker) or intended_price
+            record = {
+                "id":             f"shadow_{int(time.time()*1000)}",
+                "status":         "SHADOW_OPEN",
+                "source":         "SHADOW",
+                "ticker":         ticker,
+                "action":         action,
+                "quantity":       quantity,
+                "entry_price":    fill_price,
+                "intended_price": intended_price,
+                "take_profit":    take_profit,
+                "stop_loss":      stop_loss,
+                "entry_time":     time.time(),
+                "entry_fmt":      datetime.now().isoformat(),
+                "pnl":            0.0,
+                "pnl_percent":    0.0,
+                "exit_price":     None,
+                "exit_time":      None,
+                "analyst_signals": trade_proposal.get("analyst_signals", {}),
+                "conviction":     trade_proposal.get("conviction", 0),
+                "synthesis_report": trade_proposal.get("synthesis_report", ""),
+                "fees":           0.0,
+            }
+            from utils.shadow_comparator import ShadowComparator
+            ShadowComparator().record_shadow_trade(record)
+            self.logger.info(
+                f"[SHADOW] Paper trade: {ticker} {action} {quantity} @ {fill_price:.4f} "
+                f"(shadow mode active — no real order placed)"
+            )
+            return record
+        except Exception as e:
+            self.logger.error(f"Shadow trade logging failed: {e}")
+            return None
 
     def get_balance(self):
         """
