@@ -897,18 +897,40 @@ class TreasuryAgent:
             )
             return all_proposals, pending_notifs
 
-        # Best automated Arbitrum protocol by APY
-        auto_arb = [o for o in opportunities if o.get("automated") and o.get("chain", "").lower() == "arbitrum"]
+        # Risk-adjusted APY with raw fallback — the decision basis for switching.
+        def _ra(o):
+            return o.get("risk_adjusted_apy", o.get("apy", 0.0))
+
+        # Candidate switch DESTINATIONS: automated Arbitrum protocols that we can also
+        # withdraw from. Exclude immediate_withdraw=false (epoch-based, e.g. Gains gUSDC) —
+        # switching INTO a one-way vault traps the capital (no auto-exit; it then blocks
+        # diversification and HL rebalancing). Such protocols can still be funded by the
+        # LLM allocator's opportunistic tranche (which is capped), just not by this blind switch.
+        auto_arb = [
+            o for o in opportunities
+            if o.get("automated")
+            and o.get("chain", "").lower() == "arbitrum"
+            and (o.get("protocol_config") or {}).get("immediate_withdraw", True)
+        ]
         if not auto_arb:
             return all_proposals, pending_notifs
-        best     = max(auto_arb, key=lambda o: o.get("apy", 0))
+        # Rank by RISK-ADJUSTED APY, not raw — consistent with _pick_best_protocol() and
+        # _check_yield_diversification(). Ranking on raw APY alone consolidates everything
+        # into the highest-headline-yield vault regardless of counterparty risk.
+        best     = max(auto_arb, key=_ra)
         best_cfg = best.get("protocol_config") or {}
         best_id  = best_cfg.get("id", "")
-        best_apy = best.get("apy", 0.0)
+        best_apy = best.get("apy", 0.0)   # raw — for display / projected yield
+        best_ra  = _ra(best)              # risk-adjusted — for the switch decision
 
-        # APY lookup table for currently deployed protocols
+        # APY lookup tables for currently deployed protocols (raw for display, risk-adj for decision)
         apy_by_id = {
             (o.get("protocol_config") or {}).get("id", ""): o.get("apy", 0.0)
+            for o in opportunities
+            if o.get("protocol_config")
+        }
+        ra_by_id = {
+            (o.get("protocol_config") or {}).get("id", ""): _ra(o)
             for o in opportunities
             if o.get("protocol_config")
         }
@@ -935,9 +957,12 @@ class TreasuryAgent:
                 # 0% yield. Treat it as "unknown — don't move" to avoid a spurious switch.
                 logger.debug(f"TreasuryAgent: {pid} reports {current_apy}% APY — skipping switch (assume stale read)")
                 continue
-            spread = best_apy - current_apy
-            if spread < _YIELD_SWITCH_MIN_SPREAD:
+            # Decide on RISK-ADJUSTED spread; display the raw spread (real extra yield).
+            current_ra = ra_by_id.get(pid, current_apy)
+            spread_ra  = best_ra - current_ra
+            if spread_ra < _YIELD_SWITCH_MIN_SPREAD:
                 continue
+            spread = best_apy - current_apy
             now_str    = datetime.utcnow().strftime("%Y%m%d_%H%M")
             monthly    = round(deployed_bal * best_apy / 100 / 12, 2)
             yearly     = round(deployed_bal * best_apy / 100, 2)
@@ -962,6 +987,7 @@ class TreasuryAgent:
                 "apy":                  best_apy,
                 "from_apy":             current_apy,
                 "apy_spread":           round(spread, 2),
+                "apy_spread_risk_adj":  round(spread_ra, 2),
                 "projected_monthly":    monthly,
                 "projected_yearly":     yearly,
                 "rationale": (

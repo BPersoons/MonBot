@@ -450,6 +450,41 @@ def check_yield_switch_logic(r: _Result):
     else:
         r.fail("_check_yield_switch: triggered switch to same protocol — pid match check broken")
 
+    def _make_opp_ra(pid: str, apy: float, ra: float, immediate: bool = True) -> dict:
+        o = _make_opp(pid, apy)
+        o["risk_adjusted_apy"] = ra
+        o["protocol_config"]["immediate_withdraw"] = immediate
+        return o
+
+    # Case F: ranks on RISK-ADJUSTED APY, not raw. A high-headline-yield but high-risk
+    # destination must NOT trigger a switch when its risk-adjusted spread is below the
+    # threshold. Regression guard for the Gains-consolidation bug: raw spread 3.5% would
+    # have triggered, but risk-adjusted spread is 1.3% (< 1.5%).
+    opps_f = [
+        _make_opp_ra("aave-v3-arbitrum-usdc", 3.0, 2.5),
+        _make_opp_ra("highraw-lowriskadj", 6.5, 3.8),
+    ]
+    balances_f = {"aave-v3-arbitrum-usdc": 500.0}
+    result_f, _ = agent._check_yield_switch(opps_f, balances_f, [])
+    if not any(p.get("type") == "YIELD_SWITCH" for p in result_f):
+        r.ok("_check_yield_switch: ranks on risk-adjusted APY — no switch when risk-adj spread 1.3% < threshold (raw 3.5%)")
+    else:
+        r.fail("_check_yield_switch: switched on RAW APY spread — risk model ignored (Gains-consolidation regression)")
+
+    # Case G: an epoch-based destination (immediate_withdraw=false) must be excluded as a
+    # switch target — moving INTO a one-way vault traps the capital. Even a huge spread
+    # must not create a switch.
+    opps_g = [
+        _make_opp_ra("aave-v3-arbitrum-usdc", 3.0, 2.5, immediate=True),
+        _make_opp_ra("gains-epoch", 10.0, 8.0, immediate=False),
+    ]
+    balances_g = {"aave-v3-arbitrum-usdc": 500.0}
+    result_g, _ = agent._check_yield_switch(opps_g, balances_g, [])
+    if not any(p.get("type") == "YIELD_SWITCH" for p in result_g):
+        r.ok("_check_yield_switch: epoch-based (immediate_withdraw=false) excluded as switch destination")
+    else:
+        r.fail("_check_yield_switch: switched INTO an epoch-based vault — would trap capital")
+
 
 # ── 9. YIELD_SWITCH APPROVED → SWITCHING routing ─────────────────────────────
 
