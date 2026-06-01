@@ -1,0 +1,43 @@
+{
+  "score_threshold_propose": 0.65,
+  "score_threshold_monitor": 0.50,
+  "fast_score_threshold": 0.45,
+  "w_growth": 0.30,
+  "w_multiple": 0.30,
+  "w_management": 0.20,
+  "w_moat": 0.10,
+  "w_sentiment": 0.10,
+  "max_position_pct": 0.05,
+  "stop_loss_pct": 0.10,
+  "trailing_stop_activation_pct": 0.15,
+  "trailing_stop_distance_pct": 0.25,
+  "max_portfolio_positions": 10,
+  "sector_concentration_limit": 0.20,
+  "earnings_blackout_days": 5,
+  "fmp_daily_calls_budget": 200,
+  "portfolio_cash_usd": 20000,
+  "_meta": {
+    "last_changed_by": "init",
+    "last_changed_at": "2026-03-24T00:00:00+00:00",
+    "change_reason": "Initial config — Phase 1 (research only)"
+  },
+  "_initial": {
+    "score_threshold_propose": 0.65,
+    "score_threshold_monitor": 0.50,
+    "fast_score_threshold": 0.45,
+    "w_growth": 0.30,
+    "w_multiple": 0.30,
+    "w_management": 0.20,
+    "w_moat": 0.10,
+    "w_sentiment": 0.10,
+    "max_position_pct": 0.05,
+    "stop_loss_pct": 0.10,
+    "trailing_stop_activation_pct": 0.15,
+    "trailing_stop_distance_pct": 0.25,
+    "max_portfolio_positions": 10,
+    "sector_concentration_limit": 0.20,
+    "earnings_blackout_days": 5,
+    "fmp_daily_calls_budget": 200,
+    "portfolio_cash_usd": 20000
+  }
+}

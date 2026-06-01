@@ -19,13 +19,20 @@ class ProductOwner:
         self.trade_log_path = "trade_log.json"
         self.heartbeat_log_path = "heartbeat.log"
         self.state_file = "cpo_state.json"
-        
+
         try:
             from utils.llm_client import LLMClient
             self.llm = LLMClient(model_name="gemini-3.1-flash-lite-preview")
         except Exception as e:
             logger.critical(f"Failed to initialize LLMClient for CPO: {e}")
             self.llm = None
+
+        try:
+            from utils.auto_executor import AutoExecutor
+            self._auto_executor = AutoExecutor()
+        except Exception as e:
+            logger.warning(f"CPO: AutoExecutor unavailable: {e}")
+            self._auto_executor = None
             
     def _load_state(self):
         if os.path.exists(self.state_file):
@@ -54,12 +61,13 @@ class ProductOwner:
         # 1. Analyze Trade Log & Heartbeat
         issues = self._analyze_system_health()
         
-        # 2. Process Issues into Tasks
+        # 2. Process Issues into Tasks + dispatch AUTO_PARAM items
         new_tasks = 0
         for issue in issues:
             if self._create_backlog_task(issue):
                 new_tasks += 1
-                
+                self._maybe_queue_auto_param(issue)
+
         logger.info(f"CPO: Analysis complete. Created {new_tasks} new backlog tasks.")
         
         # 3. Health Heartbeat (Every 4 Hours)
@@ -100,7 +108,7 @@ class ProductOwner:
         
         try:
             if not self.llm: return False
-            summary = self.llm.analyze_text(prompt, agent_name="ProductOwner").strip().replace('"', '')
+            summary = self.llm.analyze_text(prompt, agent_name="ProductOwner", thinking=False).strip().replace('"', '')
             
             task_data = {
                 "title": "Executive Summary",
@@ -140,7 +148,7 @@ class ProductOwner:
         try:
             # Check for duplicates (Simple check by title) if not allowed
             if not allow_duplicates:
-                existing = self.db.client.table("system_backlog").select("id").eq("title", task_data['title']).eq("status", "NEW").execute()
+                existing = self.db.client.table("system_backlog").select("id").eq("title", task_data['title']).in_("status", ["PENDING", "IN_PROGRESS"]).execute()
                 if existing.data and len(existing.data) > 0:
                     logger.info(f"Task '{task_data['title']}' already exists in backlog.")
                     return False
@@ -263,6 +271,8 @@ class ProductOwner:
         prev_ideas_text = "\n".join(prev_ideas) if prev_ideas else "None"
 
         # ── 3. Build LLM Prompt ───────────────────────────────
+        auto_params_text = self._get_auto_params_context()
+
         prompt = f"""
     You are the Chief Product Officer (CPO) of an autonomous crypto trading system.
 
@@ -271,6 +281,9 @@ class ProductOwner:
 
     PREVIOUS CPO IDEAS (avoid duplicates):
     {prev_ideas_text}
+
+    TUNABLE PARAMETERS (can be changed autonomously via AUTO_PARAM):
+{auto_params_text}
 
     TASK:
     Analyze the system health and performance. Look for:
@@ -282,6 +295,12 @@ class ProductOwner:
 
     IMPORTANT: Do NOT repeat ideas already in the "PREVIOUS CPO IDEAS" list.
 
+    ITEM CLASSIFICATION:
+    Tag each backlog item with a "type" field:
+    - "AUTO_PARAM": Change one of the TUNABLE PARAMETERS listed above. Must include "param_key" (exact key name) and "proposed_value" (number within bounds).
+    - "CODE_CHANGE": Requires modifying Python source code — will be handed to a developer.
+    - "INFRA_CHANGE": Requires Docker or deployment changes — human only.
+
     OUTPUT:
     Generate a list of actionable 'Backlog Items' to improve the system.
     Rank the items based on their ICE score (Impact + Confidence + Ease) descending, so the most valuable ideas are first.
@@ -289,6 +308,9 @@ class ProductOwner:
     [
         {{
             "title": "Short Title",
+            "type": "AUTO_PARAM" | "CODE_CHANGE" | "INFRA_CHANGE",
+            "param_key": "score_threshold",
+            "proposed_value": 0.38,
             "description": "Detailed explanation of the finding and recommended action.",
             "impact": 8,
             "confidence": 7,
@@ -298,6 +320,7 @@ class ProductOwner:
         }}
     ]
 
+    Note: "param_key" and "proposed_value" are only required for AUTO_PARAM items.
     If the system is perfectly healthy with no improvements needed, return [].
     But if the system has been idle (no trades, low activity), ALWAYS suggest at least one improvement.
     """
@@ -325,6 +348,51 @@ class ProductOwner:
             logger.error(f"CPO AI Analysis failed: {e}")
 
         return issues
+
+    def _get_auto_params_context(self) -> str:
+        """Build a human-readable summary of current tunable params for the CPO prompt."""
+        try:
+            with open("config/auto_params.json") as f:
+                data = json.load(f)
+            bounds = data.get("_bounds", {})
+            lines = []
+            for k, v in bounds.items():
+                current = data.get(k, "?")
+                lines.append(f"  - {k}: current={current} | bounds=[{v[0]}, {v[1]}]")
+            return "\n".join(lines) if lines else "  (none)"
+        except Exception:
+            return "  (unavailable)"
+
+    def _maybe_queue_auto_param(self, issue: dict):
+        """If the issue is classified AUTO_PARAM and has valid fields, queue for auto-execution."""
+        if not self._auto_executor:
+            return
+        if issue.get("type") != "AUTO_PARAM":
+            return
+        param_key = issue.get("param_key", "").strip()
+        proposed_value = issue.get("proposed_value")
+        if not param_key or proposed_value is None:
+            logger.info(f"CPO: AUTO_PARAM item missing param_key/proposed_value — skipping auto-exec: {issue.get('title')}")
+            return
+        # CPO must not touch threshold params — only the Auditor manages these
+        # to prevent compounding tightening from two independent systems.
+        AUDITOR_ONLY_PARAMS = {"score_threshold", "tech_prefilter_min"}
+        if param_key in AUDITOR_ONLY_PARAMS:
+            logger.info(f"CPO: {param_key} is Auditor-only — skipping auto-exec for: {issue.get('title')}")
+            return
+        try:
+            from utils.auto_params import AutoParams
+            current = AutoParams().get(param_key)
+        except Exception:
+            current = "?"
+        reason = f"{issue.get('title', '')} | ICE={issue.get('impact',0)+issue.get('confidence',0)+issue.get('ease',0)}"
+        self._auto_executor.queue(
+            param_key=param_key,
+            proposed_value=proposed_value,
+            old_value=current,
+            reason=reason,
+            source="CPO",
+        )
 
     def _is_duplicate_topic(self, new_title: str) -> bool:
         """

@@ -83,3 +83,33 @@ curl_out.txt
 check.html
 swarm_vm.log
 # docker-compose.prod.yml is committed — it has no secrets (refs .env.adk on VM)
+
+# Runtime state not already listed above
+pnl_snapshots.json
+swarm_health.json
+
+# Dev one-off artifacts
+*.ps1.bak
+curl_out.txt
+new_api_key.txt
+
+# --- Repo hygiene (added 2026-06-01) ---
+# Base64 transfer artifacts from hot-patch deploys
+_b64_*.txt
+*_b64.txt
+# Local snapshots pulled from the VM for inspection
+*_live.json
+*_audit.json
+*_check.json
+trade_log_*.json
+decision_history_check.json
+scripts/replay_geometry_results.json
+# Ad-hoc local debug scripts (root-level and underscore-prefixed)
+/_*.py
+scripts/_*.py
+# Stocks pipeline runtime state (VM-owned, not source)
+stocks_active_positions.json
+stocks_decision_history.json
+stocks_pending_approval.json
+stocks_trade_log.json
+stocks_watchlist.json

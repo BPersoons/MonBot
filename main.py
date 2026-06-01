@@ -201,15 +201,22 @@ def main():
         logger.critical(f"   ❌ PerformanceAuditor FAILED: {e}", exc_info=True)
         return
     
-    # --- ProductOwner (CPO) ---
+    # --- ProductOwner (CPO) --- disabled to reduce Gemini API costs
+    cpo = None
+
+    # --- TreasuryAgent ---
+    treasury_agent = None
     try:
-        logger.info("   → Initializing ProductOwner (CPO)...")
-        from agents.product_owner import ProductOwner
-        cpo = ProductOwner()
-        logger.info("   ✅ ProductOwner (CPO) initialized successfully")
+        logger.info("   → Initializing TreasuryAgent...")
+        from agents.treasury_agent import TreasuryAgent
+        treasury_agent = TreasuryAgent(
+            exchange_client=project_lead.execution_agent.exchange if project_lead and hasattr(project_lead, 'execution_agent') else None,
+            db_client=global_db_client,
+        )
+        logger.info("   ✅ TreasuryAgent initialized successfully")
     except Exception as e:
-        logger.error(f"   ⚠️ ProductOwner FAILED (non-critical): {e}")
-        cpo = None  # CPO is optional, continue without it
+        logger.error(f"   ⚠️ TreasuryAgent FAILED (non-critical): {e}")
+        treasury_agent = None
 
     # --- SwarmLearner ---
     swarm_learner = None
@@ -237,8 +244,11 @@ def main():
         health_manager = SwarmHealthManager(global_db_client)
         health_manager.report_health("ProjectLead", "ACTIVE", 0)
         health_manager.report_health("PerformanceAuditor", "ACTIVE", 0)
-        health_manager.report_health("ProductOwner", "ACTIVE" if cpo else "ERROR", 0, 
-                                     last_error="Initialization failed" if not cpo else None)
+        # CPO is intentionally disabled (see line 204). Report IDLE (not ERROR)
+        # with an explanatory note. DISABLED isn't in the swarm_health CHECK constraint.
+        cpo_status = "ACTIVE" if cpo else "IDLE"
+        cpo_note   = None if cpo else "Disabled to reduce Gemini API costs (not an error)"
+        health_manager.report_health("ProductOwner", cpo_status, 0, last_error=cpo_note)
         health_manager.report_health("Heartbeat", "STARTING", 0)
         logger.info("   ✅ SwarmHealthManager initialized and agents reported")
     except Exception as e:
@@ -249,7 +259,10 @@ def main():
     # ===========================================
     swarm_monitor = None
     try:
-        swarm_monitor = SwarmMonitor(db_client=global_db_client)
+        swarm_monitor = SwarmMonitor(
+            db_client=global_db_client,
+            exchange_client=project_lead.execution_agent.exchange if project_lead and hasattr(project_lead, 'execution_agent') else None,
+        )
         swarm_monitor.start()
         logger.info("   ✅ SwarmMonitor watchdog started (checks every 5 min)")
     except Exception as e:
@@ -286,6 +299,8 @@ def main():
     
     # Main Loop
     cycle_count = 0
+    # Tracks tickers recently closed (ticker -> close_time) to prevent Pass 2 race condition
+    recently_closed: dict = {}
     
     while True:
         cycle_count += 1
@@ -307,7 +322,23 @@ def main():
                 }
             )
 
-        # 0a. SwarmLearner: Decision pipeline diagnostics (Every 60 cycles, ~1 hour)
+        # 0a. TreasuryAgent — two-speed:
+        #   Fast path (every 5 cycles, ~5 min): rebalance check + execute active proposals
+        #   Full run  (every 60 cycles, ~1 hr): yield discovery + new proposals
+        if treasury_agent is not None:
+            if cycle_count % 60 == 0 or cycle_count == 1:
+                logger.info("💰 TreasuryAgent: full run (yield discovery + execution)...")
+                try:
+                    treasury_agent.run()
+                except Exception as e:
+                    logger.error(f"⚠️ TreasuryAgent full run failed: {e}")
+            elif cycle_count % 5 == 0:
+                try:
+                    treasury_agent.run_fast()
+                except Exception as e:
+                    logger.error(f"⚠️ TreasuryAgent fast run failed: {e}")
+
+        # 0b. SwarmLearner: Decision pipeline diagnostics (Every 60 cycles, ~1 hour)
         if cycle_count % 60 == 0 and swarm_learner is not None:
             logger.info("🔬 SwarmLearner: Running decision pipeline analysis...")
             try:
@@ -315,8 +346,8 @@ def main():
             except Exception as e:
                 logger.error(f"⚠️ SwarmLearner failed: {e}")
 
-        # 0. CPO System Improvement Cycle (Every 10 cycles)
-        if cycle_count % 10 == 0 and cpo is not None:
+        # 0. CPO System Improvement Cycle (Every 30 cycles, ~30 min)
+        if cycle_count % 30 == 0 and cpo is not None:
             logger.info("👨‍💼 CPO is analyzing system logs for improvements & heartbeat...")
             if health_manager:
                 health_manager.report_health("ProductOwner", "ACTIVE", cycle_count, metadata={
@@ -405,6 +436,7 @@ def main():
                     current_market_state[setup_id]['timeframe'] = tf
                     current_market_state[setup_id]['strategy'] = p.get('strategy', 'Unknown')
                     current_market_state[setup_id]['direction'] = p.get('direction', 'LONG')
+                    current_market_state[setup_id]['market_regime'] = p.get('market_regime', {})
             
             # Open positions we're actively trading (must keep monitoring)
             open_positions = project_lead.get_active_assets()
@@ -454,11 +486,90 @@ def main():
             # ---------------------------------------------------
 
             # ===========================================
+            # PHASE 3.4: Re-analyze recovered positions (once per trade)
+            # RECOVERED/HL_POSITION_SYNC trades have generic 5%/10% TP/SL.
+            # Run the full council once to get LLM-derived stop_loss_pct and rrr.
+            # Marks source as REANALYZED so this only runs once per trade.
+            # ===========================================
+            _recovered_pending = [
+                t for t in active_trades_cache
+                if t.get('source') in ('RECONCILED', 'HL_POSITION_SYNC')
+                and not t.get('analyst_signals')
+            ]
+            for _rt in _recovered_pending:
+                _rt_ticker = _rt.get('ticker', '')
+                _rt_action = _rt.get('action', 'BUY')
+                _rt_direction = 'LONG' if _rt_action == 'BUY' else 'SHORT'
+                logger.info(f"[REANALYSIS] Running council for recovered position: {_rt_ticker} ({_rt_direction})")
+                try:
+                    _ra_result = project_lead.process_opportunity(
+                        _rt_ticker,
+                        market_context={_rt_ticker: {
+                            "direction": _rt_direction,
+                            "catalyst_reason": "POSITION_REANALYSIS",
+                        }},
+                        cycle_count=cycle_count,
+                    )
+                    _ra_sl_pct = float(_ra_result.get('stop_loss_pct') or 5.0)
+                    _ra_rrr_raw = _ra_result.get('rrr', '1:2')
+                    try:
+                        _ra_rrr = float(str(_ra_rrr_raw).split(':')[-1]) if ':' in str(_ra_rrr_raw) else float(_ra_rrr_raw)
+                    except Exception:
+                        _ra_rrr = 2.0
+                    _ra_entry = float(_rt.get('entry_price') or 0)
+                    if _ra_entry > 0:
+                        _ra_sm = project_lead.execution_agent.strategy_manager
+                        _ra_levels = _ra_sm.calculate_levels(_ra_entry, _rt_action, _ra_rrr, _ra_sl_pct)
+                        _ra_fields = {
+                            'take_profit':      _ra_levels['take_profit'],
+                            'sl_pct':           _ra_sl_pct,
+                            'source':           'REANALYZED',
+                            'analyst_signals':  _ra_result.get('analyst_signals', {}),
+                            'synthesis_report': _ra_result.get('synthesis_report', ''),
+                            'conviction':       abs(float(_ra_result.get('combined_score') or 0)),
+                        }
+                        # Only update stop_loss if not already trailed (sl_stage == 0)
+                        if _rt.get('sl_stage', 0) == 0:
+                            _ra_fields['stop_loss'] = _ra_levels['stop_loss']
+                        project_lead.execution_agent.update_trade_field(_rt['id'], _ra_fields)
+                        logger.info(
+                            f"[REANALYSIS] {_rt_ticker}: TP={_ra_levels['take_profit']:.4f} "
+                            f"SL_PCT={_ra_sl_pct}% RRR=1:{_ra_rrr} (sl_stage={_rt.get('sl_stage',0)})"
+                        )
+                        try:
+                            report_status(
+                                f"REANALYSIS: {_rt_ticker} levels updated — "
+                                f"TP ${_ra_levels['take_profit']:.4f}, SL_pct {_ra_sl_pct}%, RRR 1:{_ra_rrr}", "INFO"
+                            )
+                        except Exception:
+                            pass
+                except Exception as _ra_err:
+                    logger.warning(f"[REANALYSIS] Failed for {_rt_ticker}: {_ra_err}")
+
+            # ===========================================
             # PHASE 3.5: Active Position Management (TP/SL)
             # Run BEFORE ticker analysis so every cycle checks exits,
             # even when the analysis loop takes many minutes.
             # ===========================================
-            if active_trades_cache and hasattr(project_lead, 'execution_agent') and hasattr(project_lead.execution_agent, 'strategy_manager') and project_lead.execution_agent.strategy_manager:
+            _sm_available = (
+                hasattr(project_lead, 'execution_agent')
+                and hasattr(project_lead.execution_agent, 'strategy_manager')
+                and project_lead.execution_agent.strategy_manager
+            )
+            if active_trades_cache and not _sm_available:
+                # Open positions exist but TP/SL management is unavailable — this is a
+                # critical failure (positions sit with stale exits), not a benign skip.
+                logger.error(
+                    f"CRITICAL: StrategyManager unavailable with {len(active_trades_cache)} open "
+                    f"position(s) — TP/SL not evaluated this cycle. Restart re-initialises it."
+                )
+                if health_manager:
+                    health_manager.report_health(
+                        "StrategyManager", "ERROR", cycle_count,
+                        metadata={"reason": "unavailable with open positions",
+                                  "open_positions": len(active_trades_cache)}
+                    )
+            if active_trades_cache and _sm_available:
                 logger.info(f"   → Running Strategy Manager ({len(active_trades_cache)} open positions)...")
                 positions_status = {}
                 try:
@@ -467,24 +578,37 @@ def main():
                     # ── Sync entry prices & quantities from Hyperliquid each cycle ──
                     # This keeps trade_log in sync with reality so TP/SL and P&L are accurate.
                     try:
-                        vault_addr = getattr(hl_exchange, 'vault_address', None) or hl_exchange.wallet_address
-                        hl_positions_raw = hl_exchange.signing_client.fetch_positions(params={'user': vault_addr})
+                        hl_positions_raw = hl_exchange.fetch_all_positions()
                         hl_pos_map = {}  # base_symbol -> {entry_price, contracts}
                         for p in hl_positions_raw:
                             if float(p.get('contracts') or 0) == 0:
                                 continue
                             base = (p.get('symbol') or '').split('/')[0]
+                            # Determine signed contracts: prefer szi, then CCXT side + contracts.
+                            # XYZ-assets lack szi in info — use CCXT 'side' field instead.
+                            _szi = float((p.get('info') or {}).get('szi') or 0)
+                            _contracts_raw = float(p.get('contracts') or 0)
+                            if _szi != 0:
+                                _signed_contracts = _szi
+                            elif p.get('side') == 'short':
+                                _signed_contracts = -abs(_contracts_raw)
+                            else:
+                                _signed_contracts = abs(_contracts_raw)
                             hl_pos_map[base] = {
                                 'entry_price': float(p.get('entryPrice') or p.get('info', {}).get('entryPx') or 0),
-                                'contracts':   float(p.get('contracts') or 0),
+                                'contracts':   _signed_contracts,
                             }
-                        logger.info(f"   → Synced {len(hl_pos_map)} live HL positions for entry price/qty accuracy")
+                        _xyz_fetch_ok = getattr(hl_exchange, '_xyz_fetch_ok', True)
+                        logger.info(f"   → Synced {len(hl_pos_map)} live HL positions for entry price/qty accuracy (xyz_ok={_xyz_fetch_ok})")
                     except Exception as _sync_err:
                         hl_pos_map = {}
+                        _xyz_fetch_ok = False
                         logger.warning(f"   → Could not fetch HL positions for sync: {_sync_err}")
 
                     # Apply sync to trade_log in-memory and on disk
-                    if hl_pos_map:
+                    # Always run — even when hl_pos_map is empty, Pass 3 must detect
+                    # trades that disappeared from HL (liquidated/manually closed).
+                    if True:
                         try:
                             with open("trade_log.json") as _tlf:
                                 all_trades = json.load(_tlf)
@@ -510,7 +634,15 @@ def main():
                                 for _t in all_trades
                                 if _t.get('status') in ('OPEN', 'PLACED')
                             }
+                            # Prune recently_closed entries older than 10 minutes
+                            _now_rc = time.time()
+                            recently_closed = {t: ts for t, ts in recently_closed.items() if _now_rc - ts < 600}
+
                             for _base, _hl in hl_pos_map.items():
+                                _ticker_rc = f"{_base}/USDC"
+                                if _ticker_rc in recently_closed:
+                                    logger.info(f"[RECONCILE] Skipping {_ticker_rc} — closed {(_now_rc - recently_closed[_ticker_rc]):.0f}s ago (cooldown)")
+                                    continue
                                 if _base.upper() not in open_bases:
                                     _contracts = _hl['contracts']
                                     _action = 'BUY' if _contracts > 0 else 'SELL'
@@ -531,6 +663,26 @@ def main():
                                             _sl = _lvl.get('stop_loss', 0.0)
                                     except Exception:
                                         pass
+                                    # Try to restore entry_time from the earliest ghost-closed trade
+                                    _orig_entry_time = time.time()
+                                    _orig_entry_fmt = datetime.now().isoformat()
+                                    _orig_fields = {}
+                                    for _prev in all_trades:
+                                        if (_prev.get('ticker') == _ticker
+                                                and _prev.get('status') == 'CLOSED'
+                                                and _prev.get('close_reason') in ('GHOST_POSITION_SYNC', 'EXTERNAL_CLOSURE')
+                                                and _prev.get('entry_time')
+                                                and _prev['entry_time'] < _orig_entry_time):
+                                            _orig_entry_time = _prev['entry_time']
+                                            _orig_entry_fmt = _prev.get('entry_fmt', _orig_entry_fmt)
+                                            # Restore useful fields from the original trade
+                                            for _fk in ('timeframe', 'conviction', 'analyst_signals',
+                                                         'sl_pct', 'sl_stage', 'partial_tp1_taken',
+                                                         'peak_price', 'partial_exits', 'funding_rate'):
+                                                if _prev.get(_fk) is not None:
+                                                    _orig_fields[_fk] = _prev[_fk]
+                                            logger.info(f"[RECONCILE] Restoring entry_time from {_prev['id']} ({_orig_entry_fmt})")
+                                            break
                                     _recovery = {
                                         'id': f"RECOVERED_{_base}_{int(time.time())}",
                                         'ticker': _ticker,
@@ -542,18 +694,28 @@ def main():
                                         'stop_loss': _sl,
                                         'status': 'OPEN',
                                         'source': 'RECONCILED',
-                                        'entry_fmt': datetime.now().isoformat(),
-                                        'entry_time': time.time(),
+                                        'entry_fmt': _orig_entry_fmt,
+                                        'entry_time': _orig_entry_time,
                                         'fees': 0.0,
                                         'pnl': 0.0,
                                         'pnl_percent': 0.0,
-                                        'timeframe': '?',
-                                        'conviction': 0.0,
+                                        'timeframe': _orig_fields.get('timeframe', '?'),
+                                        'conviction': _orig_fields.get('conviction', 0.0),
                                         'synthesis_report': 'Recovered from Hyperliquid position reconciliation',
+                                        **{k: v for k, v in _orig_fields.items() if k not in ('timeframe', 'conviction')},
                                     }
                                     all_trades.append(_recovery)
                                     changed = True
                                     project_lead.add_active_asset(_ticker)
+                                    try:
+                                        project_lead.execution_agent.db.log_trade({
+                                            "ticker": _ticker, "action": _action, "conviction": 0.0,
+                                            "price": _entry, "quantity": _qty,
+                                            "risk_metrics": {"source": "RECONCILED", "take_profit": _tp, "stop_loss": _sl},
+                                            "analyst_signals": {},
+                                        })
+                                    except Exception:
+                                        pass
                                     try:
                                         report_status(
                                             f"⚠️ RECONCILE: Ghost position {_ticker} recovered from Hyperliquid. "
@@ -561,6 +723,60 @@ def main():
                                         )
                                     except Exception:
                                         pass
+
+                            # ── Pass 3: Detect OPEN trades no longer present on HL ──────────────
+                            # Positions gone from HL were closed externally (liquidation, manual, etc.)
+                            # 5-min guard avoids false-positive on orders still being processed by HL.
+                            # Skip entirely when hl_pos_map is empty (full fetch failure).
+                            _now_ts = time.time()
+                            if not hl_pos_map:
+                                logger.info("[RECONCILE] Pass 3 skipped — no HL position data available")
+                            for _t in (all_trades if hl_pos_map else []):
+                                if _t.get('status') not in ('OPEN', 'PLACED'):
+                                    continue
+                                _base = (_t.get('ticker') or '').split('/')[0].upper()
+                                if _base in hl_pos_map:
+                                    continue  # still live — fine
+                                # Skip XYZ trades if XYZ clearinghouse fetch failed
+                                if _base.startswith('XYZ-') and not _xyz_fetch_ok:
+                                    logger.info(f"[RECONCILE] Skipping {_base} — XYZ fetch failed, can't confirm closure")
+                                    continue
+                                _age_min = (_now_ts - float(_t.get('entry_time') or _now_ts)) / 60
+                                if _age_min < 5:
+                                    continue  # too new — HL may not have processed it yet
+                                _exit_px = _t.get('entry_price') or 0
+                                try:
+                                    _exit_px = hl_exchange.get_market_price(_t['ticker']) or _exit_px
+                                except Exception:
+                                    pass
+                                _qty   = float(_t.get('quantity') or 0)
+                                _entry = float(_t.get('entry_price') or _exit_px)
+                                _pnl   = round(
+                                    (_exit_px - _entry) * _qty if _t.get('action', 'BUY') == 'BUY'
+                                    else (_entry - _exit_px) * _qty, 4
+                                )
+                                _t['status']       = 'CLOSED'
+                                _t['exit_price']   = _exit_px
+                                _t['exit_time']    = datetime.now().isoformat()
+                                _t['close_reason'] = 'EXTERNAL_CLOSURE'
+                                _t['pnl']          = _pnl
+                                changed = True
+                                try:
+                                    project_lead.remove_active_asset(_t['ticker'])
+                                except Exception:
+                                    pass
+                                logger.warning(
+                                    f"[RECONCILE] EXTERNAL_CLOSURE: {_t['ticker']} was OPEN in trade_log "
+                                    f"but not found on HL (age={_age_min:.0f}min). "
+                                    f"Marked CLOSED, exit~${_exit_px:.4f}, pnl~${_pnl:.2f}"
+                                )
+                                try:
+                                    report_status(
+                                        f"RECONCILE: {_t['ticker']} closed externally on HL — "
+                                        f"marked CLOSED. PnL~${_pnl:.2f}", "WARNING"
+                                    )
+                                except Exception:
+                                    pass
 
                             if changed:
                                 with open("trade_log.json", "w") as _tlf:
@@ -586,7 +802,10 @@ def main():
                                 unrealized = (current_price - entry) * qty
                             else:
                                 unrealized = (entry - current_price) * qty
-                            pnl_pct = ((current_price - entry) / entry * 100) if entry else 0
+                            if trade.get('action', 'BUY').upper() == 'BUY':
+                                pnl_pct = ((current_price - entry) / entry * 100) if entry else 0
+                            else:
+                                pnl_pct = ((entry - current_price) / entry * 100) if entry else 0
                             positions_status[trade_ticker] = {
                                 'current_price': current_price,
                                 'unrealized_pnl': round(unrealized, 4),
@@ -610,7 +829,13 @@ def main():
                             if ev_action == 'CLOSE_FULL':
                                 icon = '🎯' if ev_reason == 'TAKE_PROFIT' else '🛑'
                                 logger.info(f"{icon} {ev_reason} for {trade_ticker} at {current_price}")
-                                project_lead.execution_agent.close_position(trade['id'], reason=ev_reason)
+                                closed_ok = project_lead.execution_agent.close_position(trade['id'], reason=ev_reason)
+                                if closed_ok:
+                                    recently_closed[trade_ticker] = time.time()
+                                    # Apply post-closure cooldown so the same ticker isn't
+                                    # immediately re-analyzed and re-entered (across any
+                                    # timeframe variant).
+                                    ticker_state.record_closure(trade_ticker, ev_reason)
                                 project_lead.remove_active_asset(trade_ticker)
 
                             elif ev_action == 'CLOSE_PARTIAL':
@@ -681,9 +906,30 @@ def main():
                             "time": datetime.now().strftime("%H:%M:%S")
                         })
                     continue
-                
+
+                # --- ALREADY IN POSITION: Skip tickers we already hold (saves 3-4 LLM calls) ---
+                try:
+                    _norm_t = lambda s: s.replace('/USDT', '/USDC') if s else s
+                    _open_tickers = set()
+                    if os.path.exists("trade_log.json"):
+                        with open("trade_log.json") as _tlf:
+                            _open_tickers = {_norm_t(t['ticker']) for t in json.load(_tlf) if t.get('status') in ('OPEN', 'PLACED')}
+                    if _norm_t(ticker) in _open_tickers:
+                        logger.info(f"⏭️ Skipping {setup_id} — already in position (saving LLM calls)")
+                        if setup_idx < len(cycle_decisions):
+                            cycle_decisions[setup_idx].update({
+                                "decision": "HOLD",
+                                "score": 0.0,
+                                "reason": "Already in position",
+                                "next_step": "HOLD",
+                                "time": datetime.now().strftime("%H:%M:%S")
+                            })
+                        continue
+                except Exception as _aip_err:
+                    logger.debug(f"Already-in-position check failed: {_aip_err}")
+
                 logger.info(f"--- Processing {setup_id} ---")
-                
+
                 if health_manager:
                     health_manager.report_health("ProjectLead", "ACTIVE", cycle_count, metadata={
                         "current_task": f"Analyzing {setup_id} ({setup_idx+1}/{len(active_setups)})",
@@ -714,6 +960,34 @@ def main():
                     bull_case = result.get("bull_case", "N/A")
                     bear_case = result.get("bear_case", "N/A")
                     next_step = result.get("next_step", decision)
+
+                    # MONITOR deadlock prevention: if a ticker has been stuck in MONITOR
+                    # for ≥50 consecutive cycles with adequate score, promote to BUILD_CASE
+                    # so it gets a chance to execute rather than looping forever.
+                    _MONITOR_DEADLOCK_MAX = 50
+                    if next_step == "MONITOR" and abs(score) >= 0.20:
+                        _mon_count = ticker_state.get_consecutive_monitor_count(setup_id)
+                        if _mon_count >= _MONITOR_DEADLOCK_MAX:
+                            # Only promote if the score clears the asset-class BUILD_CASE
+                            # threshold (XYZ 0.25, crypto 0.38). Promoting a sub-threshold
+                            # score would execute a trade the entry gate had rejected; in
+                            # that case force NO_GO to break the loop instead.
+                            _bc_threshold = 0.25 if ticker.startswith("XYZ-") else 0.38
+                            if abs(score) >= _bc_threshold:
+                                logger.warning(
+                                    f"[MONITOR_DEADLOCK] {setup_id}: {_mon_count} consecutive MONITOR cycles "
+                                    f"(score={score:.2f} >= {_bc_threshold}) — auto-promoting to BUILD_CASE"
+                                )
+                                next_step = "BUILD_CASE"
+                                decision = "BUILD_CASE"
+                            else:
+                                logger.warning(
+                                    f"[MONITOR_DEADLOCK] {setup_id}: {_mon_count} consecutive MONITOR cycles "
+                                    f"but score={score:.2f} < BUILD_CASE threshold {_bc_threshold} — NO_GO to break loop"
+                                )
+                                next_step = "NO_GO"
+                                decision = "NO_GO"
+
                     target_entry_price = result.get("target_entry_price", 0.0)
                     current_price = result.get("current_price", 0.0)
                     stop_loss_pct = result.get("stop_loss_pct", 5.0)
@@ -760,7 +1034,9 @@ def main():
                             "target_entry_price": target_entry_price,
                             "current_price": current_price,
                             "stop_loss_pct": stop_loss_pct,
-                            "rrr": rrr
+                            "rrr": rrr,
+                            "risk_status": result.get("risk_status", ""),
+                            "risk_metrics": result.get("risk_metrics", {}),
                         }
                         
                         try:

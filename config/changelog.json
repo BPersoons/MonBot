@@ -1,0 +1,44 @@
+[
+  {
+    "id": "chg_001",
+    "timestamp": "2026-05-01T10:00:00+00:00",
+    "title": "tech_prefilter_min verhoogd 0.10→0.20 (emergency gate)",
+    "category": "param_change",
+    "description": "Na verliesreeks: TA-prefilter verhoogd om zwakke signalen te blokkeren. Werkte maar overmatig — doodde alle activiteit."
+  },
+  {
+    "id": "chg_002",
+    "timestamp": "2026-05-18T09:54:39+00:00",
+    "title": "tech_prefilter_min teruggedraaid 0.20→0.10",
+    "category": "param_change",
+    "description": "Prefilter van 0.20 blokkeerde FA/SA-signalen in neutrale markt, waardoor ~0 trading. score_threshold=0.25 gebleven als kwaliteitsgate."
+  },
+  {
+    "id": "chg_003",
+    "timestamp": "2026-05-19T16:00:00+00:00",
+    "title": "SHORT scoring fix: alleen TA drijft SHORT-richting",
+    "category": "code_change",
+    "description": "FA/SA werden geïnverteerd voor SHORTs — structurele penalty die SHORT-trades bijna onmogelijk maakte. Fix: alleen TA + macro-vibe bepalen SHORT-score."
+  },
+  {
+    "id": "chg_004",
+    "timestamp": "2026-05-19T16:15:00+00:00",
+    "title": "XYZ-assets volledig losgekoppeld van BTC regime",
+    "category": "code_change",
+    "description": "Stocks/commodities werden geblokt door BTC 4h SMA-gate en BTC-richting-forcing. Fix: XYZ vrijgesteld in RiskManager, ResearchAgent en SentimentAnalyst global vibe."
+  },
+  {
+    "id": "chg_005",
+    "timestamp": "2026-05-19T17:30:00+00:00",
+    "title": "LLM BUILD_CASE drempel gesynchroniseerd: 0.50→0.38",
+    "category": "code_change",
+    "description": "LLM-prompt verwachtte score ≥ 0.50 maar score_threshold was 0.25 — alles zat in MONITOR purgatory. Fix: aligned op 0.38, MONITOR alleen bij concrete price/level."
+  },
+  {
+    "id": "chg_006",
+    "timestamp": "2026-05-19T20:10:00+00:00",
+    "title": "XYZ cap 2→3; SA gate 0.35→0.20 voor XYZ",
+    "category": "code_change",
+    "description": "XYZ-MSFT BUILD_CASE geblokt door concurrent cap van 2 (COPPER+BRENTOIL vol). XYZ-assets zijn ongecorreleerd dus cap naar 3. SA gate 0.35 blokkeerde XYZ longs in neutrale markt; verlaagd naar 0.20 voor stocks/commodities."
+  }
+]

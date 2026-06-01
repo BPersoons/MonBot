@@ -3,6 +3,12 @@ name: Deploy to Production
 on:
   push:
     branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'docker-compose.prod.yml'
+      - 'cloudbuild.yaml'
+      - '.github/workflows/deploy.yml'
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}

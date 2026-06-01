@@ -1,5 +1,7 @@
+import json
 import logging
 import os
+import time
 from core.circuit_breaker import CircuitBreaker
 # from google.cloud import aiplatform # ADK integration point
 # Assuming ADK might be a conceptual framework or specific library wrapper
@@ -20,6 +22,33 @@ class RiskManager:
         self.max_position_pct                = float(os.getenv("MAX_POSITION_PCT", "0.10"))
         self.displacement_min_conviction     = float(os.getenv("DISPLACEMENT_MIN_CONVICTION", "0.75"))
         self.displacement_weakness_threshold = float(os.getenv("DISPLACEMENT_WEAKNESS_THRESHOLD", "0.40"))
+        # Correlation gate — lazy import so RiskManager still imports if util fails.
+        self.correlation_max = float(os.getenv("CORRELATION_MAX", "0.65"))
+        try:
+            from utils.correlation_tracker import CorrelationTracker
+            self.correlation_tracker = CorrelationTracker()
+        except Exception as e:
+            self.logger.warning(f"CorrelationTracker unavailable (fail-open): {e}")
+            self.correlation_tracker = None
+
+    def _get_btc_regime(self) -> str:
+        """BEARISH/BULLISH/NEUTRAL based on BTC 4h price vs 20-SMA. Fail-open → NEUTRAL."""
+        try:
+            import ccxt as _ccxt
+            _ex = _ccxt.hyperliquid({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
+            candles = _ex.fetch_ohlcv("BTC/USDC:USDC", timeframe="4h", limit=25)
+            if not candles or len(candles) < 21:
+                return "NEUTRAL"
+            closes = [c[4] for c in candles]
+            sma20 = sum(closes[-20:]) / 20
+            current = closes[-1]
+            if current < sma20 * 0.995:
+                return "BEARISH"
+            elif current > sma20 * 1.005:
+                return "BULLISH"
+            return "NEUTRAL"
+        except Exception:
+            return "NEUTRAL"
 
     def check_trade_safety(self, win_probability: float, net_odds: float, bankroll: float = None) -> dict:
         """
@@ -42,8 +71,16 @@ class RiskManager:
         """
         if bankroll is None:
             if self.exchange_client:
-                bankroll = self.exchange_client.get_balance()
-                self.logger.info(f"Fetched live USDC balance: ${bankroll:.2f}")
+                # Use free margin (accountValue - totalMarginUsed) instead of total
+                # balance. Kelly sizing on total balance over-sized orders when the
+                # account was leveraged up, causing HL to fill only the sliver of
+                # actually-available margin (Bug #1, April 2026).
+                try:
+                    bankroll = self.exchange_client.get_free_margin()
+                except Exception as e:
+                    self.logger.warning(f"get_free_margin() failed, falling back to get_balance(): {e}")
+                    bankroll = self.exchange_client.get_balance()
+                self.logger.info(f"Fetched live free margin: ${bankroll:.2f}")
             else:
                 self.logger.warning("No exchange client or bankroll provided. Defaulting to $0.0 to block trade.")
                 bankroll = 0.0
@@ -55,25 +92,22 @@ class RiskManager:
         q = 1.0 - p
         b = net_odds
 
-        # Kelly Criterion Calculation
-        kelly_fraction = (b * p - q) / b
+        # Kelly Criterion: f* = (bp - q) / b
+        full_kelly = (b * p - q) / b
 
-        # Safety constraints
-        # Often we use "Half Kelly" or a fraction of Kelly to be safer
-        # But per spec, we implement the raw calculation first.
-        
+        # Half-Kelly: industry standard for safety — reduces variance by 75%
+        # while only sacrificing ~25% of expected growth
+        kelly_fraction = full_kelly * 0.5
+
         is_safe = kelly_fraction > 0
         recommended_size = 0.0
-        
+
         if is_safe:
-            recommended_size = kelly_fraction * bankroll
-            max_size = bankroll * self.max_position_pct
-            if recommended_size > max_size:
-                self.logger.info(
-                    f"Kelly size ${recommended_size:.2f} capped to ${max_size:.2f} "
-                    f"({self.max_position_pct*100:.0f}% of ${bankroll:.2f} balance)"
-                )
-                recommended_size = max_size
+            # Leverage multiplies buying power: Kelly sizes the notional,
+            # but margin needed is notional / leverage
+            leverage = int(os.getenv("DEFAULT_LEVERAGE", "3"))
+            effective_bankroll = bankroll * leverage
+            recommended_size = kelly_fraction * effective_bankroll
 
         result = {
             "safe": is_safe,
@@ -82,7 +116,9 @@ class RiskManager:
             "details": {
                 "p": p,
                 "b": b,
-                "q": q
+                "q": q,
+                "full_kelly": round(full_kelly, 4),
+                "half_kelly": round(kelly_fraction, 4),
             }
         }
         
@@ -218,6 +254,97 @@ class RiskManager:
                 self.logger.warning(f"check_portfolio_capacity: balance check failed ({e}), allowing trade")
         return {'has_room': True, 'needs_displacement': False, 'reason': "Capacity OK", 'free_pct': None}
 
+    # ── Max Portfolio Drawdown ──────────────────────────────────────────
+    _DRAWDOWN_FILE = "portfolio_peak.json"
+
+    def check_portfolio_drawdown(self) -> dict:
+        """
+        Tracks portfolio peak equity and blocks new trades if drawdown exceeds threshold.
+        Peak is tracked on REALIZED equity only (total - unrealized PnL) to prevent
+        temporary paper gains from inflating the peak and causing false drawdown halts
+        after normal market reversals. Drawdown is measured from realized peak to
+        current total equity (including unrealized).
+        """
+        max_drawdown_pct = float(os.getenv("MAX_DRAWDOWN_PCT", "15.0"))
+
+        if not self.exchange_client:
+            return {"ok": True, "drawdown_pct": 0.0}
+
+        try:
+            current_equity = self.exchange_client.get_balance()
+        except Exception as e:
+            self.logger.warning(f"Drawdown check: balance fetch failed ({e}), allowing trade")
+            return {"ok": True, "drawdown_pct": 0.0}
+
+        if current_equity <= 0:
+            return {"ok": True, "drawdown_pct": 0.0}
+
+        # Include capital deployed to external yield protocols (Aave, Morpho, etc.)
+        # so that treasury redeployments don't trigger a false drawdown halt.
+        deployed_yield = 0.0
+        try:
+            from utils.treasury_executor import get_total_yield_balance, _TREASURY_WALLET
+            deployed_yield = get_total_yield_balance(_TREASURY_WALLET)
+            if deployed_yield > 0:
+                self.logger.debug(f"Drawdown: adding ${deployed_yield:.2f} total yield balance to equity")
+        except Exception:
+            pass
+        current_equity += deployed_yield
+
+        # Realized equity = total - unrealized PnL (peak tracks only locked-in value)
+        unrealized_pnl = 0.0
+        try:
+            unrealized_pnl = self.exchange_client.get_unrealized_pnl()
+        except Exception:
+            pass
+        realized_equity = current_equity - unrealized_pnl
+
+        # Load persisted peak (realized-only basis)
+        peak_equity = realized_equity
+        try:
+            with open(self._DRAWDOWN_FILE, "r") as f:
+                data = json.load(f)
+                stored_peak = data.get("peak_equity", realized_equity)
+                # Sanity guard: stored peak > 3× current equity almost certainly means a
+                # double-count bug (e.g. mid-yield-switch state inflated the balance read).
+                # Cap it so a transient read error can't permanently lock out trading.
+                if stored_peak > realized_equity * 3:
+                    self.logger.warning(
+                        f"Drawdown: stored peak ${stored_peak:.2f} > 3× current realized "
+                        f"${realized_equity:.2f} — likely inflated, capping to current"
+                    )
+                    stored_peak = realized_equity
+                peak_equity = max(stored_peak, realized_equity)
+        except (FileNotFoundError, json.JSONDecodeError):
+            peak_equity = realized_equity
+
+        # Persist
+        try:
+            with open(self._DRAWDOWN_FILE, "w") as f:
+                json.dump({"peak_equity": peak_equity, "updated_at": time.time()}, f)
+        except Exception:
+            pass
+
+        # Drawdown: compare CURRENT total equity against realized peak
+        drawdown_pct = ((peak_equity - current_equity) / peak_equity) * 100 if peak_equity > 0 else 0.0
+
+        if drawdown_pct >= max_drawdown_pct:
+            self.logger.warning(
+                f"DRAWDOWN HALT: ${current_equity:.2f} (realized=${realized_equity:.2f}) "
+                f"is {drawdown_pct:.1f}% below realized peak ${peak_equity:.2f} (limit: {max_drawdown_pct}%)"
+            )
+            return {
+                "ok": False,
+                "drawdown_pct": round(drawdown_pct, 1),
+                "current_equity": current_equity,
+                "realized_equity": realized_equity,
+                "unrealized_pnl": unrealized_pnl,
+                "peak_equity": peak_equity,
+                "reason": f"Portfolio drawdown {drawdown_pct:.1f}% exceeds {max_drawdown_pct}% limit",
+            }
+
+        return {"ok": True, "drawdown_pct": round(drawdown_pct, 1), "peak_equity": peak_equity}
+
     def score_position_weakness(self, trade: dict, positions_status: dict = None) -> float:
         """
         Weakness score 0.0–2.0. Higher = weaker = displacement candidate.
@@ -246,6 +373,40 @@ class RiskManager:
         )
         return weakest if score >= self.displacement_weakness_threshold else None
 
+    # Setup-aware spread thresholds (bps of mid price). Swings mogen wijder: langer hold
+    # amortiseert spread-fee. Macro trades moeten strak — ronde-trip eet edge op korte termijn.
+    SPREAD_MAX_BPS = {"1h Macro": 15.0, "Macro News": 20.0, "4h Swing": 25.0}
+    SPREAD_MAX_DEFAULT = 15.0
+
+    def _check_spread(self, ticker: str, timeframe: str = None) -> dict:
+        """
+        Fetches L1 orderbook and rejects trade if spread exceeds setup-aware threshold.
+        Fail-open on any fetch/parse failure (don't block trades over transient errors).
+        """
+        if not self.exchange_client or not hasattr(self.exchange_client, 'get_l1_orderbook'):
+            return {'ok': True, 'spread_bps': None, 'reason': 'no exchange client'}
+        try:
+            ob = self.exchange_client.get_l1_orderbook(ticker)
+            if not ob or not ob.get('bid') or not ob.get('ask'):
+                return {'ok': True, 'spread_bps': None, 'reason': 'OB unavailable (fail-open)'}
+            bid = float(ob['bid']); ask = float(ob['ask'])
+            if bid <= 0 or ask <= 0 or ask <= bid:
+                return {'ok': True, 'spread_bps': None, 'reason': 'OB invalid (fail-open)'}
+            mid = (bid + ask) / 2.0
+            spread_bps = (ask - bid) / mid * 10000.0
+            tf = (timeframe or '').strip()
+            limit = self.SPREAD_MAX_BPS.get(tf, self.SPREAD_MAX_DEFAULT)
+            if spread_bps > limit:
+                self.logger.info(
+                    f"[SPREAD_GATE] {ticker}: blocked — spread {spread_bps:.1f} bps > {limit:.0f} bps (setup={tf or 'default'})"
+                )
+                return {'ok': False, 'spread_bps': round(spread_bps, 2),
+                        'reason': f"Spread {spread_bps:.1f} bps exceeds {limit:.0f} bps for {tf or 'default'}"}
+            return {'ok': True, 'spread_bps': round(spread_bps, 2), 'reason': f'{spread_bps:.1f} bps'}
+        except Exception as e:
+            self.logger.debug(f"_check_spread failed for {ticker} (fail-open): {e}")
+            return {'ok': True, 'spread_bps': None, 'reason': f'check failed: {e}'}
+
     def validate_trade_proposal(self, trade_proposal: dict, open_trades: list = None, positions_status: dict = None) -> dict:
         """
         Validates a trade proposal against Sharpe Ratio and Kelly Criterion.
@@ -257,6 +418,143 @@ class RiskManager:
         2. Check Kelly Criterion (f > 0).
         """
         ticker = trade_proposal.get('ticker', 'UNKNOWN')
+
+        # STEP -3: CIRCUIT BREAKER
+        if not self.circuit_breaker.can_trade():
+            return {'approved': False, 'reason': 'Circuit breaker open — trading paused',
+                    'metrics': {}, 'displacement_candidate': None}
+
+        # STEP -2.5: MACRO REGIME GATE
+        # LONGs blocked in BEARISH regime; SHORTs blocked in BULLISH regime.
+        # NEUTRAL passes both directions — only strong trending regimes gate entries.
+        # XYZ-* assets (stocks/commodities) are exempt: they don't correlate with BTC on 4h.
+        _action = trade_proposal.get('action', 'BUY')
+        _is_xyz = str(ticker).startswith('XYZ-')
+        if not _is_xyz:
+            _regime = self._get_btc_regime()
+            if _action == 'BUY' and _regime == 'BEARISH':
+                self.logger.info(f"[MACRO_GATE] {ticker}: BUY blocked — BTC 4h BEARISH")
+                return {'approved': False,
+                        'reason': 'Macro regime BEARISH: long entries blocked (BTC below 4h 20-SMA)',
+                        'metrics': {'regime': _regime}, 'displacement_candidate': None}
+            if _action == 'SELL' and _regime == 'BULLISH':
+                self.logger.info(f"[MACRO_GATE] {ticker}: SELL blocked — BTC 4h BULLISH")
+                return {'approved': False,
+                        'reason': 'Macro regime BULLISH: short entries blocked (BTC above 4h 20-SMA)',
+                        'metrics': {'regime': _regime}, 'displacement_candidate': None}
+        else:
+            self.logger.info(f"[MACRO_GATE] {ticker}: XYZ asset — BTC regime gate skipped")
+
+        # STEP -2.4: FUNDAMENTAL DIRECTION GATE
+        # Negative fundamental score on a LONG = fundamentally weak asset going up.
+        # Negative fundamental score on a SHORT = fundamentally weak asset (correct for short).
+        _fa = (trade_proposal.get('analyst_signals') or {}).get('fundamental', 0.0)
+        if _action == 'BUY' and isinstance(_fa, (int, float)) and _fa < 0:
+            self.logger.info(f"[FA_GATE] {ticker}: BUY blocked — FA score {_fa:.3f} < 0")
+            return {'approved': False,
+                    'reason': f'Fundamental score negative ({_fa:.3f}): long entry blocked',
+                    'metrics': {'fa_score': _fa}, 'displacement_candidate': None}
+
+        # STEP -2.3: SENTIMENT GATE
+        # Low sentiment on BUY = market narrative against us; analysis shows SA is the
+        # strongest discriminator between winners (avg 0.467) and losers (avg 0.394).
+        # Only applied to BUY — SELL direction uses inverted SA logic.
+        # XYZ stocks/commodities: SA is global macro vibe, not crypto social — lower bar
+        SA_MIN_BUY = 0.20 if _is_xyz else 0.35
+        _sa = (trade_proposal.get('analyst_signals') or {}).get('sentiment')
+        if _action == 'BUY' and isinstance(_sa, (int, float)) and _sa < SA_MIN_BUY:
+            self.logger.info(f"[SA_GATE] {ticker}: BUY blocked — SA score {_sa:.3f} < {SA_MIN_BUY}")
+            return {'approved': False,
+                    'reason': f'Sentiment score too low ({_sa:.3f} < {SA_MIN_BUY}): long entry blocked',
+                    'metrics': {'sa_score': _sa}, 'displacement_candidate': None}
+
+        # STEP -2.2: RSI ENTRY FILTER
+        # Block entries in overbought/oversold territory — empirically the weakest
+        # entry zone for trend-following. XYZ stocks use wider thresholds (70/30)
+        # because underlying volatility is lower than crypto (65/35).
+        _rsi = (trade_proposal.get('metrics') or {}).get('rsi_1h')
+        if isinstance(_rsi, (int, float)) and _rsi > 0:
+            _is_stock = str(ticker).startswith('XYZ-')
+            _rsi_buy_max  = 70 if _is_stock else 65
+            _rsi_sell_min = 30 if _is_stock else 35
+            if _action == 'BUY' and _rsi > _rsi_buy_max:
+                self.logger.info(
+                    f"[RSI_GATE] {ticker}: BUY blocked — RSI {_rsi:.1f} > {_rsi_buy_max} (overbought)"
+                )
+                return {'approved': False,
+                        'reason': f'RSI {_rsi:.1f} overbought (>{_rsi_buy_max}): wacht op pullback',
+                        'metrics': {'rsi_1h': _rsi}, 'displacement_candidate': None}
+            if _action == 'SELL' and _rsi < _rsi_sell_min:
+                self.logger.info(
+                    f"[RSI_GATE] {ticker}: SELL blocked — RSI {_rsi:.1f} < {_rsi_sell_min} (oversold)"
+                )
+                return {'approved': False,
+                        'reason': f'RSI {_rsi:.1f} oversold (<{_rsi_sell_min}): wacht op bounce',
+                        'metrics': {'rsi_1h': _rsi}, 'displacement_candidate': None}
+
+        # STEP -2: SPREAD GATE
+        # Illiquide perps (bv. Hyperliquid XYZ-* RWA) hebben spreads van 30-150 bps.
+        # Round-trip eet dan >0.6% vóór je edge realiseert. Setup-aware threshold.
+        spread_check = self._check_spread(ticker, trade_proposal.get('timeframe'))
+        if not spread_check['ok']:
+            return {'approved': False, 'reason': spread_check['reason'],
+                    'metrics': {'spread_bps': spread_check.get('spread_bps')},
+                    'displacement_candidate': None}
+
+        # STEP -1.7: CORRELATION GATE
+        # Block trades that would stack correlated same-direction exposure.
+        # Fail-open on missing tracker or unknown correlation (don't block on ignorance).
+        if open_trades and self.correlation_tracker is not None:
+            try:
+                _live = [t for t in open_trades if t.get('status') in ('OPEN', 'PLACED')]
+                if _live:
+                    _corr = self.correlation_tracker.weighted_exposure_correlation(
+                        new_ticker=ticker,
+                        new_direction=(trade_proposal.get('action') or 'BUY'),
+                        open_positions=_live,
+                    )
+                    if abs(_corr.get('weighted_corr', 0.0)) > self.correlation_max:
+                        self.logger.info(
+                            f"[CORRELATION_GATE] {ticker}: blocked — weighted_corr="
+                            f"{_corr['weighted_corr']:.2f} > {self.correlation_max} "
+                            f"(ref={_corr['reference_ticker']}, max={_corr['max_corr']:.2f})"
+                        )
+                        return {'approved': False,
+                                'reason': (f"Correlation cap: weighted {_corr['weighted_corr']:.2f} "
+                                           f"vs open positions > {self.correlation_max} "
+                                           f"(ref {_corr['reference_ticker']})"),
+                                'metrics': {'weighted_corr': _corr['weighted_corr'],
+                                            'max_corr': _corr['max_corr'],
+                                            'reference_ticker': _corr['reference_ticker']},
+                                'displacement_candidate': None}
+            except Exception as e:
+                self.logger.debug(f"Correlation gate failed for {ticker} (fail-open): {e}")
+
+        # STEP -1.5: SETUP CONCURRENCY CAP
+        # Swings bind margin for days — reserve portfolio slots for faster setups.
+        # Caps are split per asset class: XYZ-* tickers = macro (equities/commodities/indices),
+        # everything else = crypto. Separate pools prevent crypto volume from blocking equity entries.
+        if open_trades is not None:
+            _proposed_tf = (trade_proposal.get('timeframe') or '').strip()
+            SETUP_MAX_CONCURRENT = {
+                "4h Swing": {"crypto": 1, "macro": 1},
+                "1h Macro": {"crypto": 3, "macro": 3},
+            }
+            if _proposed_tf in SETUP_MAX_CONCURRENT:
+                _asset_cls = "macro" if (ticker or "").split("/")[0].startswith("XYZ-") else "crypto"
+                _cap = SETUP_MAX_CONCURRENT[_proposed_tf][_asset_cls]
+                _live = [t for t in open_trades
+                         if t.get('status') in ('OPEN', 'PLACED')
+                         and (t.get('timeframe') or '').strip() == _proposed_tf
+                         and (("macro" if (t.get('ticker') or "").split("/")[0].startswith("XYZ-") else "crypto") == _asset_cls)]
+                if len(_live) >= _cap:
+                    self.logger.info(
+                        f"[SETUP_CAP] {ticker}: blocked — {len(_live)} {_proposed_tf} ({_asset_cls}) already open "
+                        f"(cap {_cap})"
+                    )
+                    return {'approved': False,
+                            'reason': f"{_proposed_tf} concurrency cap ({_cap}) reached",
+                            'metrics': {}, 'displacement_candidate': None}
 
         # STEP -1: PORTFOLIO CAPACITY
         if open_trades is not None:
@@ -281,6 +579,15 @@ class RiskManager:
                 )
                 trade_proposal['_displacement_candidate'] = candidate
 
+        # STEP -0.5: PORTFOLIO DRAWDOWN CHECK
+        drawdown = self.check_portfolio_drawdown()
+        if not drawdown.get("ok", True):
+            return {
+                'approved': False,
+                'reason': drawdown['reason'],
+                'metrics': {'drawdown_pct': drawdown['drawdown_pct']},
+            }
+
         # STEP 0: ANOMALY DETECTION (Adversarial Testing)
         anomaly_result = self.detect_anomalies(trade_proposal)
         
@@ -294,7 +601,7 @@ class RiskManager:
                     self.logger.critical(f"  - {anomaly['type']}: {anomaly['detail']}")
                 
                 # Trigger circuit breaker
-                self.circuit_breaker.pause_system()
+                self.circuit_breaker.pause_system(reason=f"CRITICAL anomaly on {ticker}: {critical_anomalies[0]['type']}")
                 self.logger.critical("⛔ CIRCUIT BREAKER ACTIVATED - System PAUSED")
                 
                 # Circuit breaker is triggered - alert logged above

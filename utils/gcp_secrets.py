@@ -102,9 +102,12 @@ def get_all_trading_secrets() -> dict:
         "HL_WALLET_ADDRESS": get_secret("HL_WALLET_ADDRESS"),
         "HL_PRIVATE_KEY": get_secret("HL_PRIVATE_KEY"),
         "HL_VAULT_ADDRESS": get_secret("HL_VAULT_ADDRESS"),
+        "HL_VAULT_PRIVATE_KEY": get_secret("HL_VAULT_PRIVATE_KEY"),
+        "HL_TREASURY_PRIVATE_KEY": get_secret("HL_TREASURY_PRIVATE_KEY"),
         "SUPABASE_URL": get_secret("SUPABASE_URL"),
         "SUPABASE_KEY": get_secret("SUPABASE_KEY"),
         "TELEGRAM_CHAT_ID": get_secret("TELEGRAM_CHAT_ID"),
+        "TELEGRAM_BOT_TOKEN": get_secret("TELEGRAM_BOT_TOKEN"),
     }
 
 

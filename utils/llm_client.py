@@ -61,7 +61,7 @@ def get_llm_usage_stats() -> dict:
     for name, stats in _usage_accumulator.items():
         today_total = stats["today_input"] + stats["today_output"] + stats["today_thinking"]
         hour_total = stats["hour_input"] + stats["hour_output"] + stats["hour_thinking"]
-        # Approximate cost: $0.125 per 1M tokens blended (gemini-2.0-flash-ish)
+        # Approximate cost: $0.125 per 1M tokens blended (gemini-2.5-flash-lite-ish)
         today_cost_eur = round(today_total * 0.000000125 * 0.92, 4)  # USD to EUR ~0.92
         by_agent[name] = {
             "today": today_total,
@@ -120,8 +120,11 @@ class LLMClient:
                 self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
                 self.model = genai.GenerativeModel(self.model_name)
+                # Lightweight model for simple scoring prompts (no thinking tokens)
+                self.fast_model_name = os.getenv("GEMINI_FAST_MODEL", "gemini-2.5-flash-lite")
+                self.fast_model = genai.GenerativeModel(self.fast_model_name)
                 self.available = True
-                self.logger.info(f"LLMClient initialized with google.generativeai ({self.model_name})")
+                self.logger.info(f"LLMClient initialized with google.generativeai ({self.model_name}, fast={self.fast_model_name})")
             else:
                  self.logger.error("GOOGLE_API_KEY not found in environment.")
         except ImportError:
@@ -131,8 +134,10 @@ class LLMClient:
                 from vertexai.generative_models import GenerativeModel
                 self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
                 self.model = GenerativeModel(self.model_name)
+                self.fast_model_name = os.getenv("GEMINI_FAST_MODEL", "gemini-2.5-flash-lite")
+                self.fast_model = GenerativeModel(self.fast_model_name)
                 self.available = True
-                self.logger.info(f"LLMClient initialized with vertexai ({self.model_name})")
+                self.logger.info(f"LLMClient initialized with vertexai ({self.model_name}, fast={self.fast_model_name})")
             except Exception as e:
                 self.logger.critical(f"LLM initialization failed: {e}")
                 self.available = False
@@ -140,20 +145,23 @@ class LLMClient:
              self.logger.error(f"Error initializing Google GenAI: {e}")
              self.available = False
 
-    def analyze_text(self, prompt: str, agent_name: str = "Unknown") -> str:
+    def analyze_text(self, prompt: str, agent_name: str = "Unknown", thinking: bool = True) -> str:
         if not self.available or not self.model:
             error_msg = "CRITICAL: LLM Service unavailable. Cannot proceed with probabilistic reasoning."
             self.logger.error(error_msg)
             raise RuntimeError(error_msg)
 
         try:
-            self.logger.info(f"Generating content with model: {self.model.model_name}")
+            # Use fast model (no thinking tokens) for simple scoring prompts
+            active_model = self.model if thinking else getattr(self, 'fast_model', self.model)
+            active_model_name = self.model_name if thinking else getattr(self, 'fast_model_name', self.model_name)
+            self.logger.info(f"Generating content with model: {active_model_name} (thinking={'on' if thinking else 'off'})")
 
             # Wrap in timeout to prevent hangs
             import concurrent.futures
-            print(f"[DEBUG] Starting LLM generation (Model: {self.model_name}, Agent: {agent_name})...")
+            print(f"[DEBUG] Starting LLM generation (Model: {active_model_name}, Agent: {agent_name}, thinking={'on' if thinking else 'off'})...")
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(self.model.generate_content, prompt)
+                future = executor.submit(active_model.generate_content, prompt)
                 response = future.result(timeout=120)  # 120s timeout for thinking models
             print(f"[DEBUG] LLM generation complete.")
 

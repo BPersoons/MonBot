@@ -1,0 +1,20 @@
+{
+  "_comment": "Treasury allocation targets. TreasuryAgent enforces these each cycle.",
+  "target_trade_pct": 30,
+  "rebalance_drift_pct": 10,
+  "min_hl_buffer_usd": 200,
+  "min_trade_pct": 15,
+  "adapt_to_performance": true,
+  "perf_lookback_trades": 30,
+  "perf_high_wr_threshold": 45,
+  "perf_high_wr_boost_pp": 10,
+  "perf_low_wr_threshold": 30,
+  "perf_low_wr_reduce_pp": 10,
+  "adapt_to_regime": true,
+  "regime_adj_pp": {
+    "RANGING": -10,
+    "VOLATILE": 0,
+    "TRENDING_BULL": 0,
+    "TRENDING_BEAR": 0
+  }
+}

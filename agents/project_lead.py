@@ -1,15 +1,47 @@
 import logging
+import urllib.request
+import urllib.parse
+
+
+def _send_telegram(text: str):
+    """Send a Telegram notification from ProjectLead. Reads secrets lazily."""
+    try:
+        import os, json as _j
+        from utils.gcp_secrets import get_secret
+        token   = os.getenv("TELEGRAM_BOT_TOKEN") or get_secret("TELEGRAM_BOT_TOKEN") or ""
+        chat_id = os.getenv("TELEGRAM_CHAT_ID")   or get_secret("TELEGRAM_CHAT_ID")   or ""
+        if not token or not chat_id:
+            return
+        body = _j.dumps({"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}).encode('utf-8')
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=body, method="POST",
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as _e:
+        logging.getLogger("ProjectLead").warning(f"Telegram send failed: {_e}")
+
+
 from agents.technical_analyst import TechnicalAnalyst
+try:
+    from agents.xyz_technical_analyst import StockTechnicalAnalyst
+except ImportError:
+    StockTechnicalAnalyst = None
 from agents.fundamental_analyst import FundamentalAnalyst
 from agents.sentiment_analyst import SentimentAnalyst
 from agents.risk_manager import RiskManager
 from agents.execution_agent import ExecutionAgent
 from agents.research_agent import ResearchAgent
+try:
+    from agents.polymarket_analyst import PolymarketAnalyst
+except ImportError:
+    PolymarketAnalyst = None
 from utils.reporting import report_status
 from utils.pipeline_events import log_event as log_pipeline_event
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 from utils.dashboard_query_layer import DashboardDataProvider
@@ -18,17 +50,29 @@ class ProjectLead:
     def __init__(self, db_client=None):
         self.logger = logging.getLogger("ProjectLead")
         self.technical_analyst = TechnicalAnalyst()
+        self.stock_technical_analyst = StockTechnicalAnalyst() if StockTechnicalAnalyst else self.technical_analyst
         self.fundamental_analyst = FundamentalAnalyst(db_client=db_client)
         self.sentiment_analyst = SentimentAnalyst(db_client=db_client)
         self.execution_agent = ExecutionAgent()
         # Inject the live exchange client from ExecutionAgent into RiskManager
         self.risk_manager = RiskManager(exchange_client=self.execution_agent.exchange)
         self.research_agent = ResearchAgent(db_client=db_client)
+        # Polymarket shadow analyst (Phase 1: log only, no scoring impact)
+        try:
+            self.polymarket_analyst = PolymarketAnalyst(db_client=db_client) if PolymarketAnalyst else None
+        except Exception:
+            self.polymarket_analyst = None
         self.dashboard_provider = DashboardDataProvider(db_client=db_client)
         self.active_assets_file = "active_assets.json"
         self.weights_file = "core/agent_weights.json"
-        self.reasoning_history = [] # For Reasoning Stream
+        self.reasoning_history = []
+        self._risk_veto_alert_times: dict = {}  # ticker → last_sent datetime (1h cooldown)
         self.load_weights()
+        try:
+            from utils.auto_params import AutoParams
+            self._auto_params = AutoParams()
+        except Exception:
+            self._auto_params = None
         try:
             from utils.llm_client import LLMClient
             self.llm = LLMClient(model_name="gemini-3.1-pro-preview")
@@ -36,6 +80,12 @@ class ProjectLead:
              self.llm = None
 
     def _get_score_threshold(self) -> float:
+        # During shadow mode, use the candidate value so the test validates the proposed change
+        if self._auto_params:
+            try:
+                return float(self._auto_params.get_candidate_value("score_threshold"))
+            except Exception:
+                pass
         try:
             with open("core/agent_weights.json") as f:
                 return float(json.load(f).get("score_threshold", 0.40))
@@ -55,28 +105,31 @@ class ProjectLead:
             except Exception as e:
                 self.logger.error(f"Failed to load weights: {e}")
 
-    def _determine_strategic_weights(self, details: dict) -> tuple[dict, str]:
+    def _determine_strategic_weights(self, details: dict, direction: str = "LONG") -> tuple[dict, str]:
         """
         Dynamically adjusts weights based on market context (Timeframe Alignment).
+        For SHORT candidates, TA weight is boosted to dominate over direction-agnostic FA/SA.
         Returns: (weights_dict, strategy_name)
         """
         try:
-            # DEBUG: Print structure to find missing keys
-            # print(f"DEBUG_STRATEGY: details keys: {list(details.keys())}")
-            
             tech_data = details.get('technical', {}).get('timeframes', {})
-            
+
             # Signals: >0.2 (Bull), <-0.2 (Bear)
-            # Handle cases where data is missing (0)
             s15m = tech_data.get('15m', {}).get('score', 0)
             s4h = tech_data.get('4h', {}).get('score', 0)
-            
+
+            # SHORT_MOMENTUM: FA and SA are direction-agnostic and score bullish even in
+            # downtrends. For SHORT candidates, boost TA weight so bearish price action
+            # dominates; FA/SA bullishness reduces conviction (correctly) but doesn't veto.
+            if direction == "SHORT":
+                return {"technical": 0.60, "fundamental": 0.20, "sentiment": 0.20}, "SHORT_MOMENTUM"
+
             # Default Base Weights (Balanced)
             weights = {"technical": 0.4, "fundamental": 0.3, "sentiment": 0.3}
             strategy = "STANDARD"
 
             # 1. SCALP / CONTRA-TREND (High Volatility Play)
-            if abs(s15m) > 0.3 and (s15m * s4h < 0): 
+            if abs(s15m) > 0.3 and (s15m * s4h < 0):
                 strategy = "SCALP_CONTRA"
                 weights = {"technical": 0.7, "fundamental": 0.1, "sentiment": 0.2}
 
@@ -84,9 +137,9 @@ class ProjectLead:
             elif abs(s15m) > 0.3 and abs(s4h) > 0.3 and (s15m * s4h > 0):
                 strategy = "TREND_FOLLOW"
                 weights = {"technical": 0.5, "fundamental": 0.2, "sentiment": 0.3}
-                
+
             return weights, strategy
-            
+
         except Exception as e:
             self.logger.error(f"Strategy Weight Error: {e}")
             # Fallback
@@ -98,6 +151,26 @@ class ProjectLead:
         nest_asyncio.apply()
         return asyncio.run(self.synthesize_signals_async(ticker, market_context))
 
+    # Regime-specific threshold multipliers applied on top of the base score_threshold.
+    # RANGING keeps the same threshold — quality is enforced by the SA gate below, not by
+    # lowering the bar (which would let in more noise, not better signals).
+    # VOLATILE raises it so only the cleanest setups enter during high-volatility.
+    _REGIME_THRESHOLD_MULT = {
+        "TRENDING_BULL": 1.00,
+        "TRENDING_BEAR": 0.85,
+        "RANGING":       1.00,  # gate enforced by SA quality check, not threshold reduction
+        "VOLATILE":      1.10,
+    }
+
+    # In RANGING, the tech prefilter is relaxed so SA/FA can still run on moderate-TA setups.
+    # Without this, news-catalyst tickers (low TA but high SA) would never reach the SA gate.
+    # NEWS_SENTIMENT catalysts bypass the prefilter entirely — SA is the primary signal.
+    _RANGING_TECH_PREFILTER = 0.06
+
+    # RANGING quality gates: SA must signal a real catalyst; FA must not be a structural red flag.
+    _RANGING_SA_MIN   = 0.30   # below this → no clear catalyst in a ranging market
+    _RANGING_FA_FLOOR = -0.20  # below this → fundamental red flag, not worth the risk
+
     async def synthesize_signals_async(self, ticker: str, market_context: dict = None) -> dict:
         """
         Gather signals from analysts concurrently and synthesize using LLM Council Debate.
@@ -107,12 +180,16 @@ class ProjectLead:
         timeframe = "1h Macro"
         strategy = "Unknown"
         direction = "LONG"
-        
+        regime_info = {}
+
         if market_context and ticker in market_context:
-            catalyst = market_context[ticker].get('catalyst_reason', 'TA_BACKTEST')
-            timeframe = market_context[ticker].get('timeframe', '1h Macro')
-            strategy = market_context[ticker].get('strategy', 'Unknown')
-            direction = market_context[ticker].get('direction', 'LONG')
+            catalyst    = market_context[ticker].get('catalyst_reason', 'TA_BACKTEST')
+            timeframe   = market_context[ticker].get('timeframe', '1h Macro')
+            strategy    = market_context[ticker].get('strategy', 'Unknown')
+            direction   = market_context[ticker].get('direction', 'LONG')
+            regime_info = market_context[ticker].get('market_regime', {})
+
+        regime = regime_info.get("regime", "NEUTRAL")
 
         # 1. Gather Raw Signals — Technical first (pure math, no LLM cost)
         self.logger.info(f"[{ticker}] Launching Technical analysis (pre-filter)...")
@@ -121,16 +198,63 @@ class ProjectLead:
         fund_view = {"signal": 0.0, "status": "SKIPPED", "summary": "Skipped (tech pre-filter)"}
         sent_view = {"signal": 0.0, "status": "SKIPPED", "summary": "Skipped (tech pre-filter)"}
 
+        # Fix 2: XYZ stocks — skip analysis outside US market hours (14:30–21:00 UTC Mon–Fri).
+        # The 1h OHLCV filter discards overnight candles; outside hours it returns 0 rows and
+        # TA falls back to noisy 24/7 data. Deferring saves LLM cost and avoids false signals.
+        if ticker.startswith('XYZ-'):
+            _now_xyz = datetime.now(timezone.utc)
+            _xyz_market_open = (_now_xyz.weekday() < 5 and 14 <= _now_xyz.hour <= 20)
+            if not _xyz_market_open:
+                self.logger.debug(f"[{ticker}] XYZ market closed — deferring analysis")
+                return {
+                    "combined_score": 0.0,
+                    "details": {
+                        "technical": tech_view, "fundamental": fund_view,
+                        "sentiment": sent_view, "polymarket_shadow": {"signal": 0.0, "status": "SHADOW"},
+                    },
+                    "bull_case": "Skipped",
+                    "bear_case": "Skipped",
+                    "next_step": "NO_GO",
+                    "synthesis_report": "US market closed (outside 14:30–21:00 UTC Mon–Fri). Analysis deferred.",
+                    "has_conflict": False,
+                    "rrr": "1:1.5",
+                    "stop_loss_pct": 5.0,
+                    "target_entry_price": 0.0,
+                }
+
         try:
-            tech_view = await self.technical_analyst.analyze_async(ticker, catalyst=catalyst)
+            _ta = self.stock_technical_analyst if ticker.startswith('XYZ-') else self.technical_analyst
+            from core.strategy_logic import detect_asset_class as _detect_asset_class
+            _asset_class = _detect_asset_class(ticker)
+            tech_view = await _ta.analyze_async(ticker, catalyst=catalyst, direction=direction, regime=regime, asset_class=_asset_class)
         except Exception as e:
             self.logger.error(f"Technical Analyst failed for {ticker}: {e}")
             tech_view = {"signal": 0.0, "status": "ERROR", "timeframes": {}, "summary": f"TA Failed: {e}"}
 
         tech_signal = tech_view.get("signal", 0.0) if isinstance(tech_view, dict) else 0.0
 
-        # Technical pre-filter: only run LLM analysts if tech signal is meaningful
-        if abs(tech_signal) >= 0.30:
+        # Technical pre-filter: use candidate value during shadow mode, but cap at
+        # a hard ceiling so FA/SA can never be silenced by Auditor over-tightening.
+        # In RANGING regime the ceiling is relaxed so SA/FA can run on moderate-TA setups.
+        _TECH_PREFILTER_CEILING = 0.12
+        tech_prefilter_min = min(
+            self._auto_params.get_candidate_value("tech_prefilter_min") if self._auto_params else 0.15,
+            _TECH_PREFILTER_CEILING,
+        )
+        if regime == "RANGING":
+            if catalyst == "NEWS_SENTIMENT":
+                # News catalyst: SA is the primary signal — bypass tech prefilter entirely.
+                tech_prefilter_min = 0.0
+                self.logger.debug(f"[{ticker}] RANGING+NEWS_SENTIMENT: tech prefilter bypassed, SA will gate")
+            elif catalyst == "MEAN_REVERSION":
+                # Mean reversion: RSI/BB extremes are the signal — prefilter must be very low
+                # because momentum-mode TA scores are near zero on oversold/overbought setups.
+                tech_prefilter_min = 0.04
+                self.logger.debug(f"[{ticker}] RANGING+MEAN_REVERSION: tech prefilter set to 0.04")
+            else:
+                tech_prefilter_min = min(tech_prefilter_min, self._RANGING_TECH_PREFILTER)
+                self.logger.debug(f"[{ticker}] RANGING regime: tech_prefilter relaxed to {tech_prefilter_min}")
+        if abs(tech_signal) >= tech_prefilter_min:
             self.logger.info(f"[{ticker}] Tech pre-filter PASSED ({tech_signal:.2f}) → launching Fundamental & Sentiment...")
             try:
                 fund_task = self.fundamental_analyst.analyze_async(ticker)
@@ -145,14 +269,23 @@ class ProjectLead:
                 fund_view = {"signal": 0.0, "status": "ERROR", "summary": "Fundamental Analysis Failed"}
                 sent_view = {"signal": 0.0, "status": "ERROR", "summary": "Sentiment Analysis Failed"}
         else:
-            self.logger.info(f"[FUNNEL] {ticker}: TECH_PREFILTER_FAILED tech={tech_signal:.2f} < 0.30 → skipping LLM analysts")
+            self.logger.info(f"[FUNNEL] {ticker}: TECH_PREFILTER_FAILED tech={tech_signal:.2f} < {tech_prefilter_min} → skipping LLM analysts")
+
+        # --- POLYMARKET SHADOW SIGNAL (Phase 1: log only, no scoring impact) ---
+        poly_shadow = {"signal": 0.0, "status": "SHADOW", "markets_matched": 0}
+        try:
+            if self.polymarket_analyst:
+                poly_shadow = await self.polymarket_analyst.analyze_async(ticker)
+        except Exception as e:
+            self.logger.debug(f"Polymarket shadow failed for {ticker}: {e}")
 
         # --- FAST-FAIL CIRCUIT BREAKER ---
-        
+
         details = {
             "technical": tech_view,
             "fundamental": fund_view,
-            "sentiment": sent_view
+            "sentiment": sent_view,
+            "polymarket_shadow": poly_shadow,
         }
         
         # DEBUG: Log types to find the string indices error
@@ -161,37 +294,134 @@ class ProjectLead:
         if not isinstance(fund_view, dict): self.logger.error(f"CRITICAL: Fund view is not dict: {fund_view}")
         if not isinstance(sent_view, dict): self.logger.error(f"CRITICAL: Sent view is not dict: {sent_view}")
 
-        # 2. Dynamic Weighting
-        active_weights, strategy_mode = self._determine_strategic_weights(details)
-        
+        # 2. Dynamic Weighting — pass direction so SHORT gets TA-dominant weights
+        active_weights, strategy_mode = self._determine_strategic_weights(details, direction=direction)
+
         # 3. Calculate Weighted Score and apply Global Macro Vibe
         global_vibe = self.sentiment_analyst.get_global_vibe()
         global_vibe_score = global_vibe.get("signal", 0.0)
-        
-        raw_base_score = (
-            (tech_view['signal'] * active_weights['technical']) +
-            (fund_view['signal'] * active_weights['fundamental']) +
-            (sent_view['signal'] * active_weights['sentiment'])
-        )
-        
-        # Apply 15% global macro overlay sway
-        raw_base_score += (global_vibe_score * 0.15)
-        # Clamp to -1.0 to 1.0
-        raw_base_score = max(-1.0, min(1.0, raw_base_score))
-        
-        # Invert base score context if proposing a SHORT
-        # (So a highly bearish -0.8 signal becomes a +0.8 conviction for a SHORT)
-        base_score = raw_base_score if direction == "LONG" else -raw_base_score
-        
+
+        # Reload learned agent weights from disk so auditor updates take effect each cycle.
+        # These are signal multipliers (floor 0.5, ceil 1.5): a penalised agent's signals
+        # count for less; a rewarded agent's signals count for more.
+        self.load_weights()
+        aw = self.weights  # shorthand: {"technical": 1.0, "fundamental": 0.5, "sentiment": 0.5}
+
+        # Regime-adaptive signal multipliers applied on top of learned agent weights.
+        # In RANGING markets sentiment is the primary driver (news/catalysts move sideways markets).
+        # FA is down-weighted in ranging because on-chain metrics are noisy with no trend to anchor to.
+        _regime_boost = {
+            "TRENDING_BULL": {"technical": 1.0,  "fundamental": 1.0,  "sentiment": 1.0},
+            "TRENDING_BEAR": {"technical": 1.0,  "fundamental": 0.8,  "sentiment": 1.0},
+            "RANGING":       {"technical": 0.85, "fundamental": 0.70, "sentiment": 1.40},
+            "VOLATILE":      {"technical": 1.10, "fundamental": 0.90, "sentiment": 0.90},
+        }.get(regime, {"technical": 1.0, "fundamental": 1.0, "sentiment": 1.0})
+
+        tech_signal  = tech_view.get('signal', 0.0)  * aw.get('technical',  1.0) * _regime_boost['technical']
+        fund_signal  = fund_view.get('signal', 0.0)  * aw.get('fundamental', 1.0) * _regime_boost['fundamental']
+        sent_signal  = sent_view.get('signal', 0.0)  * aw.get('sentiment',   1.0) * _regime_boost['sentiment']
+
+        if regime != "NEUTRAL":
+            self.logger.debug(
+                f"[{ticker}] Regime {regime}: tech×{_regime_boost['technical']} "
+                f"fund×{_regime_boost['fundamental']} sent×{_regime_boost['sentiment']}"
+            )
+
+        if direction == "SHORT":
+            # FA and SA measure asset quality/popularity, not directional conviction.
+            # A good SHORT candidate often still has strong fundamentals (it was recently
+            # bullish). Inverting FA/SA creates a structural penalty that blocks valid SHORTs.
+            # Only TA drives SHORT conviction; FA/SA are excluded from SHORT scoring.
+            ta_only_score = tech_signal * active_weights['technical']
+            # Global macro vibe: bullish market = reversal risk for SHORT, so invert.
+            vibe_contribution = -global_vibe_score
+            ta_only_score += (vibe_contribution * 0.15)
+            base_score = max(-1.0, min(1.0, -ta_only_score))
+            raw_base_score = ta_only_score  # keep for logging consistency
+        else:
+            raw_base_score = (
+                (tech_signal * active_weights['technical']) +
+                (fund_signal * active_weights['fundamental']) +
+                (sent_signal * active_weights['sentiment'])
+            )
+            # Apply 15% global macro overlay sway.
+            vibe_contribution = global_vibe_score
+            raw_base_score += (vibe_contribution * 0.15)
+            # Clamp to -1.0 to 1.0
+            raw_base_score = max(-1.0, min(1.0, raw_base_score))
+            base_score = raw_base_score
+
         # Inject strategy into details for reasoning extraction later
         details['strategy_mode'] = strategy_mode
         details['active_weights'] = active_weights
         details['global_vibe'] = global_vibe_score
-        
-        # 4. Filter Noise - Skip LLM if algorithmic score is weak
+        details['agent_weight_multipliers'] = {k: round(aw.get(k, 1.0), 3) for k in ('technical', 'fundamental', 'sentiment')}
+        details['market_regime'] = regime_info
+
+        # RANGING quality gate — applied before composite score check.
+        # In a ranging market, momentum signals are near-zero noise. Only enter when:
+        #   1. SA ≥ 0.30: a real news/catalyst is driving the move (not random sentiment drift)
+        #   2. FA ≥ -0.20: no structural fundamental red flag
+        # MEAN_REVERSION setups are exempt: they are TA-driven (RSI/BB extremes), not catalyst-driven.
+        if regime == "RANGING" and direction != "SHORT" and catalyst != "MEAN_REVERSION":
+            sa_raw = sent_view.get('signal', 0.0)
+            fa_raw = fund_view.get('signal', 0.0)
+            # Fix 1: XYZ stocks have inherently lower SA volatility than crypto — a news signal
+            # of 0.10–0.20 (mild positive news, analyst upgrade) is meaningful for stocks but
+            # looks like noise under the crypto threshold of 0.30. Relax for XYZ assets.
+            _ranging_sa_min = 0.12 if ticker.startswith('XYZ-') else self._RANGING_SA_MIN
+            if sa_raw < _ranging_sa_min:
+                self.logger.info(
+                    f"[FUNNEL] {ticker}: RANGING_SA_GATE SA={sa_raw:.2f} < {_ranging_sa_min} "
+                    f"— no catalyst in choppy market, skipping"
+                )
+                return {
+                    "combined_score": base_score,
+                    "details": details,
+                    "bull_case": "Skipped",
+                    "bear_case": "Skipped",
+                    "next_step": "NO_GO",
+                    "synthesis_report": f"RANGING regime: SA {sa_raw:.2f} below catalyst threshold {_ranging_sa_min}. No clear news driver.",
+                    "has_conflict": False,
+                    "rrr": "1:1.5",
+                    "stop_loss_pct": 5.0,
+                }
+            if fa_raw < self._RANGING_FA_FLOOR:
+                self.logger.info(
+                    f"[FUNNEL] {ticker}: RANGING_FA_GATE FA={fa_raw:.2f} < {self._RANGING_FA_FLOOR} "
+                    f"— fundamental red flag in choppy market, skipping"
+                )
+                return {
+                    "combined_score": base_score,
+                    "details": details,
+                    "bull_case": "Skipped",
+                    "bear_case": "Skipped",
+                    "next_step": "NO_GO",
+                    "synthesis_report": f"RANGING regime: FA {fa_raw:.2f} below floor {self._RANGING_FA_FLOOR}. Structural red flag.",
+                    "has_conflict": False,
+                    "rrr": "1:1.5",
+                    "stop_loss_pct": 5.0,
+                }
+            self.logger.info(
+                f"[{ticker}] RANGING quality gate PASSED: SA={sa_raw:.2f} FA={fa_raw:.2f} → proceeding to composite"
+            )
+
+        # 4. Filter Noise - Skip LLM if algorithmic score is weak.
+        # SHORT signals are structurally weaker: the TA composite mixes positive (MACD/EMA/ADX)
+        # and negative (RSI/BB) indicator contributions. Apply a 60% effective threshold for SHORT
+        # so valid bear setups aren't systematically gated out.
+        # Regime-adaptive threshold: RANGING lowers the bar (SA-driven setups can pass),
+        # VOLATILE raises it (only high-conviction in choppy conditions).
         _threshold = self._get_score_threshold()
-        if abs(base_score) < _threshold:
-            self.logger.info(f"[FUNNEL] {ticker}: GATE_1_FAILED score={base_score:.2f} < {_threshold:.3f} threshold")
+        _threshold *= self._REGIME_THRESHOLD_MULT.get(regime, 1.0)
+        _effective_threshold = _threshold * 0.60 if direction == "SHORT" else _threshold
+        if regime not in ("NEUTRAL", "RANGING", "TRENDING_BULL"):
+            self.logger.info(
+                f"[{ticker}] Regime={regime} → threshold={_threshold:.3f} "
+                f"(mult={self._REGIME_THRESHOLD_MULT.get(regime, 1.0)})"
+            )
+        if abs(base_score) < _effective_threshold:
+            self.logger.info(f"[FUNNEL] {ticker}: GATE_1_FAILED score={base_score:.2f} < {_effective_threshold:.3f} threshold (dir={direction})")
             return {
                 "combined_score": base_score,
                 "details": details,
@@ -219,6 +449,31 @@ class ProjectLead:
         current_price = tech_view.get('price', 0.0)
         
         if self.llm and self.llm.available:
+            _regime_adx  = regime_info.get('adx', '?')
+            _regime_dir  = regime_info.get('direction', '?')
+            # Fix 4: XYZ stock CFDs need less conviction buffer than crypto (no 24/7 noise).
+            # Lower BUILD_CASE threshold from 0.38 → 0.25 so stocks above the score gate
+            # execute instead of looping forever in MONITOR. Also fixes Fix 3 (MU deadlock).
+            _is_xyz_ticker = ticker.startswith('XYZ-')
+            if _is_xyz_ticker:
+                _decision_rules = (
+                    f"- BUILD_CASE: Score >= 0.25 AND no critical bear case. "
+                    f"Stock CFDs: execute {direction} when thesis is valid and score passes threshold. Actionable NOW.\n"
+                    f"            - MONITOR: Score 0.15–0.25 AND there is a SPECIFIC, CONCRETE timing reason to wait "
+                    f"(e.g. 'wait for earnings catalyst or RSI pullback to 40'). Name the exact condition.\n"
+                    f"            - NO_GO: Score < 0.15 OR clear structural reason to reject."
+                )
+                _bc_threshold = "0.25"
+            else:
+                _decision_rules = (
+                    f"- BUILD_CASE: Score >= 0.38 AND no critical bear case. "
+                    f"This means execute {direction}. Use this when the setup is actionable NOW.\n"
+                    f"            - MONITOR: Score 0.28–0.38 AND there is a SPECIFIC, CONCRETE timing reason to wait "
+                    f"(e.g. 'RSI overbought, wait for pullback to 0.382 fib'). Name the exact condition and price level.\n"
+                    f"            - NO_GO: Score < 0.28 OR clear structural reason to reject "
+                    f"(e.g. negative macro divergence, regulatory risk)."
+                )
+                _bc_threshold = "0.38"
             prompt = f"""
             You are the Project Lead of an elite crypto trading swarm.
             Conduct a debate based on these analyst inputs for {ticker}:
@@ -229,20 +484,20 @@ class ProjectLead:
             - Timeframe: {timeframe}
             - Direction: {direction}
             - Current Market Price: ${current_price:.6f}
+            - Market Regime: {regime} (ADX={_regime_adx}, BTC dir={_regime_dir})
 
             Technical Analyst ({tech_view['signal']:.2f}): {tech_view.get('summary', 'No summary')}
             Fundamental Analyst ({fund_view['signal']:.2f}): {fund_view.get('summary', 'No summary')}
             Sentiment Analyst ({sent_view['signal']:.2f}): {sent_view.get('summary', 'No summary')}
 
-            Algorithmic Conviction Score: {base_score:.2f} (already passed the 0.4 noise filter — this is a real signal)
+            Algorithmic Conviction Score: {base_score:.2f} (passed the {_threshold:.2f} noise filter — this is a real signal)
             Strategy Mode: {strategy_mode} | Weights: {active_weights}
 
             DECISION RULES — follow strictly:
-            - BUILD_CASE: Score >= 0.5 AND no critical bear case. This means execute {direction}. Use this when the setup is actionable NOW.
-            - MONITOR: Score 0.4-0.5 OR there is a specific timing reason to wait (e.g. "RSI overbought, wait for pullback to 0.382 fib"). Only use this if you have a CONCRETE condition to watch.
-            - NO_GO: Score < 0.4 OR clear structural reason to reject (e.g. negative macro divergence, regulatory risk).
+            {_decision_rules}
 
-            IMPORTANT: The algorithmic score is {base_score:.2f}. At this level, BUILD_CASE is the expected outcome unless you identify a specific reason to wait or reject.
+            IMPORTANT: The algorithmic score is {base_score:.2f}. If score >= {_bc_threshold}, BUILD_CASE is the expected outcome.
+            MONITOR is only valid when you can name a SPECIFIC price level or indicator condition to watch — not as a general expression of doubt.
             Do NOT default to MONITOR out of caution. If the thesis is valid, commit to BUILD_CASE.
 
             TASK:
@@ -269,14 +524,45 @@ class ProjectLead:
             }}
             """
             try:
-                response = self.llm.analyze_text(prompt, agent_name="ProjectLead")
-                import json, re
+                response = self.llm.analyze_text(prompt, agent_name="ProjectLead", thinking=False)
+                import json, re, ast
                 # Robust JSON extraction: find the first { ... } block
                 clean_json = response.replace('```json', '').replace('```', '').strip()
                 brace_match = re.search(r'\{[\s\S]*\}', clean_json)
                 if brace_match:
                     clean_json = brace_match.group(0)
-                llm_data = json.loads(clean_json)
+                try:
+                    llm_data = json.loads(clean_json)
+                except json.JSONDecodeError:
+                    # Try JSON repair: Python booleans, trailing commas, literal newlines in strings
+                    self.logger.debug(f"json.loads failed, trying JSON repair. Raw: {clean_json[:200]}")
+                    try:
+                        repaired = re.sub(r'\bTrue\b', 'true', clean_json)
+                        repaired = re.sub(r'\bFalse\b', 'false', repaired)
+                        repaired = re.sub(r'\bNone\b', 'null', repaired)
+                        repaired = re.sub(r',\s*([}\]])', r'\1', repaired)
+                        # Escape bare newlines inside string values
+                        repaired = re.sub(r'(?<=[\w"\'.,!?])\n(?=[\w"\'.,!?])', r'\\n', repaired)
+                        llm_data = json.loads(repaired)
+                    except Exception:
+                        # Last resort: extract each field with regex (handles single-quoted values)
+                        self.logger.debug(f"JSON repair failed, using regex extraction. Raw: {clean_json[:300]}")
+                        llm_data = {}
+                        for _f, _num in [('bull_case', False), ('bear_case', False), ('synthesis', False),
+                                         ('final_score', True), ('rrr', False), ('stop_loss_pct', True),
+                                         ('next_step', False), ('target_entry_price', True),
+                                         ('monitoring_rationale', False), ('trend_timeframe', False)]:
+                            if _num:
+                                _m = re.search(rf'["\']?{_f}["\']?\s*:\s*([0-9.]+)', clean_json)
+                                if _m:
+                                    try: llm_data[_f] = float(_m.group(1))
+                                    except ValueError: pass
+                            else:
+                                _m = re.search(rf'["\']?{_f}["\']?\s*:\s*"([^"]*)"', clean_json)
+                                if not _m:
+                                    _m = re.search(rf"[\"']?{_f}[\"']?\\s*:\\s*'([^']*)'", clean_json)
+                                if _m:
+                                    llm_data[_f] = _m.group(1)
                 
                 final_score = llm_data.get('final_score', base_score)
                 synthesis_report = llm_data.get('synthesis', "Debate concluded.")
@@ -286,7 +572,10 @@ class ProjectLead:
                 sl_pct = llm_data.get('stop_loss_pct', 5.0)
                 next_step = llm_data.get('next_step', "NO_GO").upper()
                 raw_target = llm_data.get('target_entry_price')
-                target_entry_price = float(raw_target) if raw_target is not None else current_price
+                try:
+                    target_entry_price = float(raw_target) if raw_target is not None else current_price
+                except (TypeError, ValueError):
+                    target_entry_price = current_price
                 monitoring_rationale = llm_data.get('monitoring_rationale', "N/A")
                 trend_timeframe = llm_data.get('trend_timeframe', timeframe)
                 
@@ -380,8 +669,25 @@ class ProjectLead:
 
         combined_score = analysis['combined_score']
         details = analysis['details']
-        conflicts = analysis.get('conflicts', []) 
-        _, _, conflicts_list = self.detect_conflict(details) 
+        conflicts = analysis.get('conflicts', [])
+        _, _, conflicts_list = self.detect_conflict(details)
+
+        # Polymarket shadow log — record signal for offline validation
+        try:
+            if self.polymarket_analyst and details.get('polymarket_shadow'):
+                self.polymarket_analyst.log_shadow(
+                    ticker=ticker,
+                    result=details['polymarket_shadow'],
+                    existing_signals={
+                        "technical": details.get('technical', {}).get('signal', 0),
+                        "fundamental": details.get('fundamental', {}).get('signal', 0),
+                        "sentiment": details.get('sentiment', {}).get('signal', 0),
+                    },
+                    combined_score=combined_score,
+                    pipeline_outcome=analysis.get('next_step', 'UNKNOWN'),
+                )
+        except Exception:
+            pass
         
         # Update reasoning snippet with score
         score_msg = f"Score: {combined_score:.2f} (Tech:{details['technical']['signal']:.2f}, Sent:{details['sentiment']['signal']:.2f})"
@@ -461,6 +767,50 @@ class ProjectLead:
             # Score too low — LLM was skipped inside _council_debate, next_step is already NO_GO
             pass
 
+        risk_decision = {}
+
+        # Gate: minimum conviction to execute — setup-aware.
+        # 4h Swing is stricter (binds margin longer → demand more overtuiging).
+        # Phase 3: LLM_BUILD_CASE_STRICT env flag controls funnel tightness.
+        # loose mode drops each threshold ~one quantile to re-open the funnel
+        # once Phase-1 exit geometry has proven itself.
+        import os as _os_pl
+        # Phase 3 48h window: default is loose (false). Set LLM_BUILD_CASE_STRICT=true to restore pre-Phase-3 behavior.
+        _strict = _os_pl.getenv("LLM_BUILD_CASE_STRICT", "false").lower() == "true"
+        if _strict:
+            SETUP_MIN_CONVICTION = {
+                "1h Macro":   0.35,
+                "Macro News": 0.30,
+                "4h Swing":   0.40,
+            }
+        else:
+            SETUP_MIN_CONVICTION = {
+                "1h Macro":   0.25,
+                "Macro News": 0.20,
+                "4h Swing":   0.30,
+            }
+        _setup_tf = (market_context or {}).get(ticker, {}).get('timeframe', '1h Macro')
+        MIN_CONVICTION = SETUP_MIN_CONVICTION.get(_setup_tf, SETUP_MIN_CONVICTION["1h Macro"])
+        if next_step == "BUILD_CASE" and abs(combined_score) < MIN_CONVICTION:
+            self.logger.info(
+                f"[FUNNEL] {ticker}: CONVICTION_GATE score={combined_score:.2f} < {MIN_CONVICTION} "
+                f"(setup={_setup_tf}) → downgraded BUILD_CASE to MONITOR"
+            )
+            next_step = "MONITOR"
+
+        # Structure-based RRR gate — skip trades where market structure doesn't
+        # offer >=1.5 reward per unit risk. Measured on swing-low/high + Fib 1.618.
+        MIN_STRUCTURE_RRR = 1.5
+        _swing = details.get('technical', {}).get('swing_levels', {}) or {}
+        if next_step == "BUILD_CASE" and _swing.get('valid'):
+            _irrr = float(_swing.get('implied_rrr', 0.0) or 0.0)
+            if _irrr < MIN_STRUCTURE_RRR:
+                self.logger.info(
+                    f"[FUNNEL] {ticker}: RRR_GATE implied_rrr={_irrr:.2f} < {MIN_STRUCTURE_RRR} "
+                    f"(sl={_swing.get('sl_suggest')}, tp={_swing.get('tp_suggest')}) → MONITOR"
+                )
+                next_step = "MONITOR"
+
         if next_step == "BUILD_CASE":
 
              report_status(f"Opportunity validated by Council for {ticker}! ({direction_label}) Score: {combined_score:.2f}. {correlation_note}", "SUCCESS")
@@ -511,20 +861,38 @@ class ProjectLead:
                      reasoning="Checking VaR and Allocations"
                  )
                  
+                 # Parse LLM's risk-reward ratio (e.g. "1:2" -> 2.0, "1:1.5" -> 1.5)
+                 _rrr_str = analysis.get("rrr", "1:1.5")
+                 try:
+                     _rrr_parts = str(_rrr_str).split(":")
+                     _net_odds = float(_rrr_parts[1]) / float(_rrr_parts[0]) if len(_rrr_parts) == 2 else 1.5
+                 except (ValueError, IndexError, ZeroDivisionError):
+                     _net_odds = 1.5
+
+                 # Conviction-scaled win probability:
+                 # Score range ~0.08-2.15. Map to win_prob 0.51-0.65 range.
+                 # Higher conviction = higher win probability = larger Kelly size.
+                 _conviction = abs(combined_score)
+                 _win_prob = min(0.50 + (_conviction * 0.10), 0.65)  # cap at 65%
+
                  trade_proposal = {
                     "ticker": ticker,
                     "action": action,
-                    "timeframe": (market_context or {}).get(ticker, {}).get('timeframe', '1h'),
-                    "conviction": abs(combined_score), # Use absolute for sizing logic?
+                    "timeframe": (market_context or {}).get(ticker, {}).get('timeframe', '1h Macro'),
+                    "conviction": _conviction,
                     "price": current_price,
-                    "win_probability": 0.5 + (abs(combined_score) / 6.0),
-                    "net_odds": 2.0,
-                    "metrics": details.get('technical', {}).get('metrics', {}), # Approximate
+                    "win_probability": _win_prob,
+                    "net_odds": _net_odds,
+                    "stop_loss_pct": analysis.get("stop_loss_pct", 5.0),
+                    "rrr": _rrr_str,
+                    "metrics": details.get('technical', {}).get('metrics', {}),
+                    "swing_levels": details.get('technical', {}).get('swing_levels', {}),
                     "analyst_signals": {
                         "technical": details['technical']['signal'],
                         "fundamental": details['fundamental']['signal'],
                         "sentiment": details['sentiment']['signal']
                     },
+                    "polymarket_shadow_signal": details.get('polymarket_shadow', {}).get('signal', 0.0),
                     "reasoning_trace": details,
                     "business_case": business_case
                 }
@@ -638,6 +1006,29 @@ class ProjectLead:
                       final_decision = "NO_GO"
                       decision_reason = f"Risk Veto: {risk_decision.get('reason', 'High Risk')}. {reason_breakdown}"
                       self._update_reasoning_stream(f"Veto {ticker}: Risk Manager blocked")
+                      # ── Telegram alert for Risk Veto (max 1 per ticker per hour) ──
+                      try:
+                          from datetime import datetime as _dt, timezone as _tz
+                          _now = _dt.now(_tz.utc)
+                          _last = self._risk_veto_alert_times.get(ticker)
+                          if not _last or (_now - _last).total_seconds() > 3600:
+                              self._risk_veto_alert_times[ticker] = _now
+                              _veto_reason = risk_decision.get("reason", "High Risk")
+                              _free_margin = "unknown"
+                              try:
+                                  _fm = (risk_decision.get("metrics") or {}).get("free_margin_pct")
+                                  if _fm is not None:
+                                      _free_margin = f"{_fm:.1f}%"
+                              except Exception:
+                                  pass
+                              _send_telegram(
+                                  f"🚫 *Risk Manager Veto*\n"
+                                  f"Ticker: `{ticker}` | Score: `{combined_score:.2f}`\n"
+                                  f"Reden: {_veto_reason[:200]}\n"
+                                  f"Vrije marge: {_free_margin}"
+                              )
+                      except Exception as _tg_e:
+                          self.logger.warning(f"Risk veto Telegram failed: {_tg_e}")
         elif next_step == "MONITOR":
             target_entry_price = analysis.get("target_entry_price", current_price)
             # Make sure we import OpportunityManager if not injected, though it's typically handled by main.py calling add_or_update directly on its instance. 
@@ -704,6 +1095,7 @@ class ProjectLead:
             "analysis": analysis, 
             "combined_score": combined_score, 
             "risk_status": risk_status,
+            "risk_metrics": risk_decision if risk_status == "RISK_VETO" else {},
             "payload_sent": webhook_payload,
             "target_entry_price": analysis.get("target_entry_price", current_price),
             "current_price": current_price,

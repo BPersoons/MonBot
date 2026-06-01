@@ -3,6 +3,7 @@ import math
 import os
 import time
 import logging
+import threading
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from utils.db_client import DatabaseClient
@@ -27,6 +28,28 @@ def _sanitize_trade(obj):
 from utils.pipeline_events import log_event as log_pipeline_event
 from utils.exchange_client import HyperliquidExchange
 
+
+def _send_telegram(text: str):
+    """Send a Telegram notification. Reads secrets lazily so they are available after startup injection."""
+    try:
+        from utils.gcp_secrets import get_secret
+        token = os.getenv("TELEGRAM_BOT_TOKEN") or get_secret("TELEGRAM_BOT_TOKEN") or ""
+        chat_id = os.getenv("TELEGRAM_CHAT_ID") or get_secret("TELEGRAM_CHAT_ID") or ""
+        if not token or not chat_id:
+            return
+        import urllib.request, urllib.parse
+        params = urllib.parse.urlencode({
+            "chat_id": chat_id,
+            "text": text,
+        }).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=params, method="POST",
+        )
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as _tg_err:
+        logging.getLogger("ExecutionAgent").warning(f"Telegram send failed: {_tg_err}")
+
 class ExecutionAgent:
     """
     Handles trade execution on Hyperliquid L1.
@@ -39,6 +62,8 @@ class ExecutionAgent:
         self.dashboard_file = "dashboard.json"
         self.ensure_log_file()
         self.db = DatabaseClient()
+        self._in_flight = set()        # tickers with live orders not yet logged
+        self._in_flight_lock = threading.Lock()
         self.logger.info(f"Execution Agent initialized with approval threshold: ${APPROVAL_THRESHOLD}")
         self._sync_open_positions_on_startup()
         try:
@@ -65,8 +90,7 @@ class ExecutionAgent:
             ex = self.exchange
             if not ex.signing_client:
                 return
-            user_addr = getattr(ex, 'vault_address', None) or ex.wallet_address
-            positions = ex.signing_client.fetch_positions(params={'user': user_addr})
+            positions = ex.fetch_all_positions()
         except Exception as e:
             self.logger.warning(f"Startup position sync skipped: {e}")
             return
@@ -106,6 +130,8 @@ class ExecutionAgent:
             for t in trades:
                 if t.get("status") not in ("OPEN", "PLACED"):
                     continue
+                if t.get("harvest"):
+                    continue  # Treasury harvest positions: managed by TreasuryAgent
                 if t.get("take_profit") and t.get("stop_loss"):
                     continue  # Already has levels
                 ep = t.get("entry_price", 0.0)
@@ -138,12 +164,22 @@ class ExecutionAgent:
                 continue
 
             ticker = symbol.split(":")[0]
-            contracts = float(info.get("szi") or pos.get("contracts") or 0)
-            qty = abs(contracts)
+            # Determine direction: prefer szi (signed), then CCXT 'side', then contracts
+            _szi = float(info.get("szi") or 0)
+            _ccxt_side = pos.get("side", "")  # "long" or "short" — reliable for XYZ assets
+            _contracts_raw = float(pos.get("contracts") or 0)
+            if _szi != 0:
+                direction = "long" if _szi > 0 else "short"
+                qty = abs(_szi)
+            elif _ccxt_side in ("long", "short"):
+                direction = _ccxt_side
+                qty = abs(_contracts_raw)
+            else:
+                direction = "long" if _contracts_raw > 0 else "short"
+                qty = abs(_contracts_raw)
             entry_price = float(pos.get("entryPrice") or info.get("entryPx") or 0)
             mark_price = float(pos.get("markPrice") or info.get("markPx") or entry_price)
             unrealized_pnl = float(pos.get("unrealizedPnl") or info.get("unrealizedPnl") or 0)
-            direction = "long" if contracts > 0 else "short"
             trade_id = f"HL_OPEN_{base}_{int(now_ts.timestamp() * 1000)}"
 
             # Compute TP/SL from entry price so evaluate_position can manage this trade
@@ -186,6 +222,15 @@ class ExecutionAgent:
             trades.append(record)
             open_tickers.add(base)
             added += 1
+            try:
+                self.db.log_trade({
+                    "ticker": ticker, "action": action, "conviction": 0.0,
+                    "price": entry_price, "quantity": qty,
+                    "risk_metrics": {"source": "HL_POSITION_SYNC", "take_profit": tp, "stop_loss": sl, "sl_pct": sl_pct},
+                    "analyst_signals": {},
+                })
+            except Exception as _dbe:
+                self.logger.warning(f"Startup sync: Supabase log failed for {ticker}: {_dbe}")
 
         if added:
             try:
@@ -194,6 +239,44 @@ class ExecutionAgent:
                 self.logger.info(f"Startup position sync: added {added} OPEN trade(s) from Hyperliquid (with TP/SL)")
             except Exception as e:
                 self.logger.error(f"Startup position sync: failed to write trade_log.json: {e}")
+
+        # ── Startup Pass 3: close OPEN trades no longer on HL ────────────────
+        hl_bases_live = {
+            p.get("symbol", "").split("/")[0].upper()
+            for p in open_positions
+        }
+        startup_closed = 0
+        _now_iso = datetime.utcnow().isoformat()
+        _now_epoch = datetime.utcnow().timestamp()
+        for t in trades:
+            if t.get("status") not in ("OPEN", "PLACED"):
+                continue
+            if t.get("harvest"):
+                continue  # Treasury harvest positions: managed by TreasuryAgent
+            _base = (t.get("ticker") or "").split("/")[0].upper()
+            if _base in hl_bases_live:
+                continue
+            _age_min = (_now_epoch - float(t.get("entry_time") or 0)) / 60
+            if _age_min < 5:
+                continue
+            t["status"]       = "CLOSED"
+            t["exit_price"]   = t.get("entry_price", 0)  # best approx at startup
+            t["exit_time"]    = _now_iso
+            t["close_reason"] = "EXTERNAL_CLOSURE"
+            startup_closed += 1
+            self.logger.warning(
+                f"Startup sync: {t['ticker']} marked CLOSED — "
+                f"OPEN in trade_log but not on HL (age={_age_min:.0f}min)"
+            )
+        if startup_closed:
+            try:
+                with open(TRADE_LOG_FILE, "w") as f:
+                    json.dump(trades, f, indent=2, default=str)
+                self.logger.info(
+                    f"Startup sync: closed {startup_closed} phantom OPEN trade(s) via EXTERNAL_CLOSURE"
+                )
+            except Exception as e:
+                self.logger.error(f"Startup sync Pass 3: failed to write trade_log: {e}")
 
     def log_trade(self, trade_data):
         """
@@ -397,9 +480,21 @@ class ExecutionAgent:
                 if trade['id'] == trade_id and trade.get('status') in ('OPEN', 'PLACED'):
                     self.logger.info(f"Closing position {trade_id} due to {reason}")
 
-                    # Execute reversing order on testnet
+                    # Execute reversing order
                     close_action = "SELL" if trade['action'] == "BUY" else "BUY"
                     order = self.exchange.create_order(trade['ticker'], close_action, trade['quantity'], order_type='market')
+
+                    if not order:
+                        self.logger.warning(
+                            f"Close order for {trade['ticker']} ({reason}) returned None — "
+                            f"position likely still open on HL. NOT marking CLOSED."
+                        )
+                        _send_telegram(
+                            f"CLOSE FAILED: {trade['ticker']}  [{reason}]\n"
+                            f"Order returned None — position still open on HL.\n"
+                            f"Manual intervention may be needed."
+                        )
+                        return False
 
                     trade['status'] = 'CLOSED'
                     trade['close_reason'] = reason
@@ -412,14 +507,37 @@ class ExecutionAgent:
                             trade['exit_price'] = float(exit_price)
                             entry_price = trade.get('entry_price') or 0.0
                             qty = trade.get('quantity') or 0.0
+                            # Close-leg pnl (on remaining quantity only)
                             if trade['action'] == "BUY":
-                                trade['pnl'] = (float(exit_price) - float(entry_price)) * float(qty)
+                                close_pnl = (float(exit_price) - float(entry_price)) * float(qty)
                             else:
-                                trade['pnl'] = (float(entry_price) - float(exit_price)) * float(qty)
-                            trade['pnl_percent'] = round(
-                                (trade['pnl'] / (float(entry_price) * float(qty)) * 100) if entry_price and qty else 0.0, 2
+                                close_pnl = (float(entry_price) - float(exit_price)) * float(qty)
+                            # Realized partial-exit pnl (was previously lost from the total)
+                            realized_partial_pnl = sum(
+                                float(e.get('pnl') or 0)
+                                for e in trade.get('partial_exits', [])
                             )
-                            self.logger.info(f"Position Closed. PnL: ${trade.get('pnl', 0):.2f} ({trade.get('pnl_percent', 0):.2f}%)")
+                            total_pnl = close_pnl + realized_partial_pnl
+                            trade['close_pnl'] = round(close_pnl, 4)
+                            trade['realized_partial_pnl'] = round(realized_partial_pnl, 4)
+                            trade['pnl'] = round(total_pnl, 4)
+                            # Percentage on ORIGINAL notional (entry × original qty),
+                            # so pnl_percent reflects ROI of the whole position, not
+                            # the leftover fragment after partials.
+                            partial_qty = sum(
+                                float(e.get('qty') or 0)
+                                for e in trade.get('partial_exits', [])
+                            )
+                            original_qty = float(qty) + partial_qty
+                            original_notional = float(entry_price) * original_qty
+                            trade['pnl_percent'] = round(
+                                (total_pnl / original_notional * 100) if original_notional > 0 else 0.0, 2
+                            )
+                            self.logger.info(
+                                f"Position Closed. Total PnL: ${total_pnl:.2f} "
+                                f"(close=${close_pnl:.2f} + partial=${realized_partial_pnl:.2f}, "
+                                f"{trade['pnl_percent']:.2f}%)"
+                            )
 
                     try:
                         log_pipeline_event("TRADE_EXIT", trade['ticker'], {
@@ -435,8 +553,22 @@ class ExecutionAgent:
                     with open(TRADE_LOG_FILE, "w") as f:
                         json.dump(trades, f, indent=4)
 
+                    try:
+                        pnl = trade.get('pnl', 0)
+                        pnl_pct = trade.get('pnl_percent', 0)
+                        entry_px = trade.get('entry_price', 0)
+                        exit_px = trade.get('exit_price', 0)
+                        pnl_sign = "+" if pnl >= 0 else ""
+                        _send_telegram(
+                            f"TRADE CLOSED: {trade['ticker']}  [{reason}]\n"
+                            f"Entry: ${entry_px:.4f}  Exit: ${exit_px:.4f}\n"
+                            f"PnL: {pnl_sign}${pnl:.2f} ({pnl_sign}{pnl_pct:.2f}%)"
+                        )
+                    except Exception:
+                        pass
+
                     return True
-            
+
             return False
         except Exception as e:
             self.logger.error(f"Failed to close position: {e}")
@@ -596,8 +728,64 @@ class ExecutionAgent:
         if ticker and ticker.endswith('/USDT'):
             ticker = ticker.replace('/USDT', '/USDC')
             self.logger.info(f"Ticker normalized to USDC: {ticker}")
+
+        # BUG-6 fix: In-flight lock prevents duplicate orders when log_trade fails
+        with self._in_flight_lock:
+            if ticker in self._in_flight:
+                self.logger.warning(f"BLOCKED duplicate execution for {ticker} — order already in-flight")
+                return None
+            self._in_flight.add(ticker)
+
+        try:
+            return self._execute_order_inner(trade_proposal, ticker)
+        finally:
+            with self._in_flight_lock:
+                self._in_flight.discard(ticker)
+
+    # Correlated asset groups — only one position per group at a time
+    CORRELATION_GROUPS = [
+        {"XYZ-CL", "XYZ-BRENTOIL", "XYZ-WTIOIL"},   # Oil
+        {"XYZ-GOLD", "XYZ-SILVER"},                    # Precious metals
+    ]
+
+    def _execute_order_inner(self, trade_proposal, ticker):
+        """Inner execution logic — always called within in-flight guard."""
         action = trade_proposal.get('action')  # BUY/SELL
         intended_price = trade_proposal.get('price', 0.0)
+
+        # Correlation guard: skip if we already hold a correlated asset
+        base = ticker.split('/')[0]
+        try:
+            with open(TRADE_LOG_FILE, "r") as f:
+                open_trades = [t for t in json.load(f) if t.get('status') in ('OPEN', 'PLACED')]
+            open_bases = {t.get('ticker', '').split('/')[0] for t in open_trades}
+            for group in self.CORRELATION_GROUPS:
+                if base in group:
+                    overlap = open_bases & group - {base}
+                    if overlap:
+                        self.logger.warning(
+                            f"BLOCKED {ticker}: correlated asset already open ({overlap.pop()}/USDC). "
+                            f"Only one position per correlation group allowed."
+                        )
+                        return None
+        except Exception:
+            pass  # fail-open — don't block trades due to file read error
+
+        # Spot order guard: only allow perpetual swaps, block spot markets
+        # _normalize_symbol prefers perps (:USDC) over spot, so use it for the check
+        try:
+            norm_sym = self.exchange._normalize_symbol(ticker) if self.exchange else ticker
+            markets = getattr(self.exchange, 'markets', None)
+            if markets and norm_sym and norm_sym in markets:
+                mkt_type = markets[norm_sym].get('type', '')
+                if mkt_type != 'swap':
+                    self.logger.warning(
+                        f"BLOCKED {ticker}: market type is '{mkt_type}', not 'swap'. "
+                        f"Only perpetual contracts are supported."
+                    )
+                    return None
+        except Exception:
+            pass  # fail-open
 
         # Derive position size in units from Kelly recommendation
         quantity = trade_proposal.get('size', 0.0)
@@ -623,14 +811,38 @@ class ExecutionAgent:
             )
             return None
 
+        # Meaningful minimum: skip positions below $50 — they generate near-zero PnL
+        # after fees. Applies to high-unit-price assets (e.g. PAXG ~$5k) where Kelly
+        # recommends tiny qty that rounds to $10-20 notional.
+        MIN_MEANINGFUL_NOTIONAL = 50.0
+        if intended_price > 0 and quantity * intended_price < MIN_MEANINGFUL_NOTIONAL:
+            self.logger.warning(
+                f"Skipping {ticker}: notional ${quantity * intended_price:.2f} below "
+                f"${MIN_MEANINGFUL_NOTIONAL:.0f} minimum — Kelly allocation too small for "
+                f"this asset's unit price (${intended_price:.2f})"
+            )
+            return None
+
         # Enforce minimum notional ($10 on Hyperliquid)
         try:
             min_notional = self.exchange.get_min_notional(ticker)
             if intended_price > 0 and quantity * intended_price < min_notional:
-                min_units = math.ceil(min_notional / intended_price / max(self.exchange.get_amount_precision(ticker) or 1, 0.000001)) * max(self.exchange.get_amount_precision(ticker) or 1, 0.000001)
+                precision = self.exchange.get_amount_precision(ticker) or 0.000001
+                min_units = math.ceil(min_notional / intended_price / max(precision, 0.000001)) * max(precision, 0.000001)
+                min_units_value = min_units * intended_price
+                # Safety: if rounding up to min notional would exceed 3x the Kelly-recommended
+                # size, the asset's unit size is too large for our budget — skip it.
+                kelly_usd = trade_proposal.get('metrics', {}).get('kelly', {}).get('recommended_size', 0)
+                cap = max(kelly_usd * 3, min_notional * 1.5) if kelly_usd > 0 else min_notional * 1.5
+                if min_units_value > cap:
+                    self.logger.warning(
+                        f"Min notional bump for {ticker} would create ${min_units_value:.2f} position "
+                        f"(cap=${cap:.2f}). Asset unit too large for budget — trade skipped."
+                    )
+                    return None
                 self.logger.warning(
                     f"Order notional ${quantity * intended_price:.2f} below min ${min_notional}. "
-                    f"Adjusting quantity from {quantity} to {min_units}."
+                    f"Adjusting quantity from {quantity} to {min_units} (${min_units_value:.2f})."
                 )
                 quantity = min_units
         except Exception:
@@ -650,16 +862,23 @@ class ExecutionAgent:
         # Capture Snapshot Config for Auditor
         max_slippage = trade_proposal.get('max_slippage_allowed', 0.005)
 
-        # Calculate Exit Strategy Levels
+        # Calculate Exit Strategy Levels (ATR-based when available)
         rrr = trade_proposal.get('net_odds', 2.0)
         stop_loss_pct = trade_proposal.get('stop_loss_pct', 5.0)
-        
+        atr_pct = trade_proposal.get('metrics', {}).get('atr_pct', 0.0)
+
         take_profit, stop_loss = 0.0, 0.0
         if hasattr(self, 'strategy_manager') and self.strategy_manager:
             try:
-                levels = self.strategy_manager.calculate_levels(intended_price, action, float(rrr), float(stop_loss_pct))
+                _tf = trade_proposal.get('timeframe')
+                _swing = trade_proposal.get('swing_levels') or {}
+                levels = self.strategy_manager.calculate_levels(
+                    intended_price, action, float(rrr), float(stop_loss_pct),
+                    atr_pct=float(atr_pct), timeframe=_tf, swing_levels=_swing
+                )
                 take_profit = levels.get('take_profit', 0.0)
                 stop_loss = levels.get('stop_loss', 0.0)
+                stop_loss_pct = levels.get('sl_pct', stop_loss_pct)
             except Exception as e:
                 self.logger.error(f"Failed to calculate levels: {e}")
 
@@ -736,12 +955,14 @@ class ExecutionAgent:
                 self.logger.warning(f"Direct Execution Skipped for {ticker}: order not placed (see exchange log above)")
             return None
 
-        # Wait for Fill
-        filled_price = order.get('average') or order.get('price') or current_price_check
-        filled_qty = order.get('amount') or quantity
+        # Wait for Fill — order.get('price') is the slippage-tolerance limit, NOT the
+        # actual fill.  Only trust 'average' (the real fill) or fall back to the mid-price
+        # we captured just before placing.
+        filled_price = order.get('average') or current_price_check
+        filled_qty = order.get('filled') or order.get('amount') or quantity
         fee = 0.0
         exec_status = order.get('status', 'unknown')
-        
+
         for _ in range(10):
             if exec_status == 'closed':
                  break
@@ -750,8 +971,8 @@ class ExecutionAgent:
             if order_status:
                     exec_status = order_status.get('status', 'unknown')
                     if exec_status == 'closed':
-                        filled_price = order_status.get('average') or order_status.get('price')
-                        filled_qty = order_status.get('filled')
+                        filled_price = order_status.get('average') or filled_price
+                        filled_qty = order_status.get('filled') or filled_qty
                         if 'fee' in order_status and order_status['fee']:
                             fee = order_status['fee'].get('cost', 0.0)
                         break
@@ -812,6 +1033,21 @@ class ExecutionAgent:
             return trade_record
 
         try:
+            direction = "Long" if action == "BUY" else "Short"
+            tp_line = f"TP: ${trade_record.get('take_profit', 0):.4f}" if trade_record.get('take_profit') else "TP: —"
+            sl_line = f"SL: ${trade_record.get('stop_loss', 0):.4f}" if trade_record.get('stop_loss') else "SL: —"
+            conviction = trade_record.get('conviction', 0)
+            _send_telegram(
+                f"TRADE OPENED: {ticker} ({direction})\n"
+                f"Entry: ${filled_price:.4f}  Size: {quantity}\n"
+                f"{tp_line}  {sl_line}\n"
+                f"Value: ${trade_value:.2f}  Conviction: {conviction:.0%}\n"
+                f"Timeframe: {trade_record.get('timeframe', '?')}"
+            )
+        except Exception:
+            pass
+
+        try:
             log_pipeline_event("EXECUTION", ticker, {
                 "action": action,
                 "trade_value": round(trade_value, 2),
@@ -855,12 +1091,40 @@ class ExecutionAgent:
                 if trade['id'] == trade_id and trade.get('status') in ('OPEN', 'PLACED'):
                     close_qty = trade['quantity'] * close_fraction
                     current_price = self.exchange.get_market_price(trade['ticker'])
-                    # Enforce minimum notional ($10)
+                    # Enforce minimum notional ($10) — HL rejects smaller orders.
+                    # When partial is infeasible, lock in the downside via SL→breakeven
+                    # instead. Functionally equivalent to partial TP (eliminate risk,
+                    # keep upside) without actually placing an order.
                     if close_qty * (current_price or 0) < 10.0:
-                        self.logger.warning(f"Partial close skipped for {trade['ticker']}: notional below $10 min. Marking as taken.")
+                        entry_price = trade.get('entry_price', 0.0)
+                        FEE_BUFFER = 0.001  # 0.1%
+                        is_long = trade.get('action') == 'BUY'
+                        be_sl = entry_price * (1 + FEE_BUFFER) if is_long else entry_price * (1 - FEE_BUFFER)
+                        old_sl = trade.get('stop_loss', 0.0)
+                        # Only move SL in favorable direction
+                        if (is_long and be_sl > old_sl) or (not is_long and (old_sl == 0 or be_sl < old_sl)):
+                            trade['stop_loss'] = be_sl
+                            trade['sl_stage'] = max(trade.get('sl_stage', 0), 1)
                         trade['partial_tp1_taken'] = True
+                        skipped = trade.get('skipped_partials', [])
+                        skipped.append({
+                            'fraction': close_fraction,
+                            'reason': reason,
+                            'skip_reason': 'below_min_notional',
+                            'intended_qty': close_qty,
+                            'intended_notional': close_qty * (current_price or 0),
+                            'fallback': 'sl_to_breakeven',
+                            'new_sl': trade['stop_loss'],
+                            'time': datetime.now().isoformat(),
+                        })
+                        trade['skipped_partials'] = skipped
                         with open(TRADE_LOG_FILE, "w") as f:
                             json.dump(trades, f, indent=4)
+                        self.logger.warning(
+                            f"Partial close skipped for {trade['ticker']}: notional "
+                            f"${close_qty*(current_price or 0):.2f} < $10 min. "
+                            f"SL→breakeven @{be_sl:.4f} (was {old_sl:.4f})."
+                        )
                         return False
                     # Round to exchange precision
                     try:
@@ -964,11 +1228,12 @@ class ExecutionAgent:
             if not pending_approvals:
                 return
 
-            # 2. Check each pending trade
+            # 2. Check each pending trade, track which ones are resolved
+            resolved_ids = set()
             for trade_info in pending_approvals:
                 trade_id = trade_info['trade_id']
                 trade_ts_str = trade_info.get('timestamp')
-                
+
                 # --- A. Check for Auto-Expiration ---
                 if trade_ts_str:
                     try:
@@ -976,6 +1241,7 @@ class ExecutionAgent:
                         if datetime.now() - trade_ts > timedelta(hours=24):
                             self.logger.warning(f"⏰ Trade {trade_id} EXPIRED (Timeout > 24 hours). Auto-Rejecting.")
                             self.reject_trade(trade_id, "Auto-Expired: No Founder Response")
+                            resolved_ids.add(trade_id)
                             continue # Skip to next trade
                     except ValueError:
                         self.logger.warning(f"Could not parse timestamp for {trade_id}: {trade_ts_str}")
@@ -990,16 +1256,30 @@ class ExecutionAgent:
                     except ValueError:
                         self.logger.error(f"Cannot convert trade_id {trade_id} to numeric ID for Supabase.")
                         continue
-                        
+
                     res = self.db.client.table("trades").select("status").eq("id", numeric_id).execute()
-                    
+
                     if res.data:
                         status = res.data[0]['status']
                         if status == 'APPROVED':
                             self.logger.info(f"✅ Found APPROVED status in Supabase for {trade_id}")
                             self.process_approved_trade(trade_id)
+                            resolved_ids.add(trade_id)
                         elif status == 'REJECTED':
                              self.reject_trade(trade_id, "Rejected via Supabase")
+                             resolved_ids.add(trade_id)
+
+            # 3. Remove resolved trades from pending_approvals and persist
+            if resolved_ids:
+                dashboard_data['pending_approvals'] = [
+                    t for t in pending_approvals if t['trade_id'] not in resolved_ids
+                ]
+                try:
+                    with open(self.dashboard_file, "w") as f:
+                        json.dump(dashboard_data, f, indent=2, default=str)
+                    self.logger.info(f"Cleaned {len(resolved_ids)} resolved trades from pending_approvals")
+                except Exception as write_err:
+                    self.logger.error(f"Failed to update pending_approvals: {write_err}")
                             
         except Exception as e:
             self.logger.error(f"Error checking Supabase approvals: {e}")

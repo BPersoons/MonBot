@@ -1,46 +1,41 @@
-import redis
 import os
+import json
 import logging
-from dotenv import load_dotenv
+import time
 
-load_dotenv()
+_STATE_FILE = os.path.join(os.path.dirname(__file__), "..", "cb_state.json")
+_STATE_FILE = os.path.normpath(_STATE_FILE)
 
 class CircuitBreaker:
-    def __init__(self, host=None, port=None, db=0):
-        self.redis_host = host or os.getenv("REDIS_HOST", "localhost")
-        self.redis_port = port or int(os.getenv("REDIS_PORT", 6379))
-        self.db = db
+    def __init__(self, **_kwargs):
+        self.logger = logging.getLogger("CircuitBreaker")
+
+    def _read_state(self) -> dict:
         try:
-            self.redis_client = redis.Redis(host=self.redis_host, port=self.redis_port, db=self.db)
-            self.redis_client.ping() # Test connection
-        except redis.ConnectionError:
-            logging.warning("Redis connection failed. Circuit breaker default to OPEN (stopping trades).")
-            self.redis_client = None
-        self.status_key = "system_status"
+            with open(_STATE_FILE) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {"paused": False}
+
+    def _write_state(self, state: dict):
+        try:
+            with open(_STATE_FILE, "w") as f:
+                json.dump(state, f)
+        except Exception as e:
+            self.logger.error(f"CircuitBreaker: failed to write state file: {e}")
 
     def can_trade(self) -> bool:
-        """
-        Checks if the system is allowed to trade.
-        Returns True if system is 'running' or key is missing.
-        """
-        if not self.redis_client:
-            return True # Legacy override: Default to True if Redis is missing
-        
-        try:
-            status = self.redis_client.get(self.status_key)
-            if status and status.decode('utf-8') == 'paused':
-                return False
-            return True
-        except Exception as e:
-            logging.error(f"Error checking circuit breaker: {e}")
+        state = self._read_state()
+        if state.get("paused"):
+            reason = state.get("reason", "unknown")
+            self.logger.warning(f"Circuit breaker OPEN — trading paused: {reason}")
             return False
+        return True
 
-    def pause_system(self):
-        """Pauses the system."""
-        if self.redis_client:
-            self.redis_client.set(self.status_key, 'paused')
+    def pause_system(self, reason: str = "manual"):
+        self.logger.critical(f"CircuitBreaker: pausing system — {reason}")
+        self._write_state({"paused": True, "reason": reason, "paused_at": time.time()})
 
     def resume_system(self):
-        """Resumes the system."""
-        if self.redis_client:
-            self.redis_client.set(self.status_key, 'running')
+        self.logger.info("CircuitBreaker: resuming system")
+        self._write_state({"paused": False})

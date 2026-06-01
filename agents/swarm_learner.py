@@ -7,7 +7,13 @@ from typing import Dict, List, Optional
 
 logger = logging.getLogger("SwarmLearner")
 
-SCORE_THRESHOLD = 0.4  # Must match project_lead.py noise filter
+# Loaded from auto_params.json at runtime; fallback to 0.4
+def _load_score_threshold() -> float:
+    try:
+        from utils.auto_params import AutoParams
+        return float(AutoParams().get("score_threshold", 0.4))
+    except Exception:
+        return 0.4
 
 class SwarmLearner:
     """
@@ -32,6 +38,7 @@ class SwarmLearner:
     def __init__(self, exchange_client=None, db_client=None):
         self.exchange = exchange_client
         self.db = db_client
+        self._score_threshold = _load_score_threshold()
 
         try:
             from utils.llm_client import LLMClient
@@ -48,6 +55,9 @@ class SwarmLearner:
         """Run all analyses, save report, push insights to backlog."""
         logger.info("SwarmLearner: Starting learning cycle...")
 
+        # Read live threshold from auto_params.json each cycle
+        self._score_threshold = _load_score_threshold()
+
         history = self._load_json(self.DECISION_HISTORY_FILE, [])
         trades  = self._load_json(self.TRADE_LOG_FILE, [])
 
@@ -62,6 +72,7 @@ class SwarmLearner:
             "indicator_bottleneck": self._analyze_indicator_bottleneck(history),
             "missed_trades":        self._simulate_missed_trades(history),
             "threshold_impact":     self._analyze_threshold_impact(history),
+            "portfolio_health":     self._analyze_portfolio_health(trades),
             "llm_summary":          "",
         }
 
@@ -71,11 +82,15 @@ class SwarmLearner:
         self._update_dashboard(report)
         self._push_insights_to_backlog(report)
 
+        ph = report.get("portfolio_health", {})
         logger.info(
             f"SwarmLearner: Learning cycle complete. "
             f"Bottleneck={report['funnel'].get('bottleneck_gate', '?')} | "
             f"Missed trades={len(report['missed_trades'])} | "
-            f"Lowest contributor={report['indicator_bottleneck'].get('lowest_contributor', '?')}"
+            f"Lowest contributor={report['indicator_bottleneck'].get('lowest_contributor', '?')} | "
+            f"Portfolio P&L=${ph.get('total_pnl_usd', 0):.2f} "
+            f"macro={ph.get('macro_event', False)} "
+            f"regime_mismatch={ph.get('regime_mismatch', False)}"
         )
         return report
 
@@ -89,7 +104,7 @@ class SwarmLearner:
           total → passed_score_threshold → llm_build_case → executed
         """
         total           = len(history)
-        passed_score    = sum(1 for e in history if abs(e.get("score", 0)) >= SCORE_THRESHOLD)
+        passed_score    = sum(1 for e in history if abs(e.get("score", 0)) >= self._score_threshold)
         build_case      = sum(1 for e in history if e.get("decision") == "BUILD_CASE")
         monitor_count   = sum(1 for e in history if e.get("decision") == "MONITOR")
         no_go_count     = sum(1 for e in history if e.get("decision") == "NO_GO")
@@ -178,7 +193,7 @@ class SwarmLearner:
         # Score distribution: how many cluster just below threshold (0.3-0.4)?
         near_miss = sum(
             1 for e in history
-            if 0.30 <= abs(e.get("score", 0)) < SCORE_THRESHOLD
+            if 0.30 <= abs(e.get("score", 0)) < self._score_threshold
         )
 
         return {
@@ -211,17 +226,31 @@ class SwarmLearner:
 
     def _simulate_missed_trades(self, history: list) -> list:
         """
-        For each NO_GO / MONITOR entry with a recorded price, fetch the
+        For each rejected/vetoed entry with a recorded price, fetch the
         current price and estimate the hypothetical P&L.
+
+        Classifies rejections into:
+        - RISK_VETO: Passed council but blocked by Risk Manager (drawdown, margin)
+        - SCORE_REJECT: Failed score threshold (never reached council)
+        - LLM_REJECT: Passed threshold but LLM said NO_GO/MONITOR
+
+        This distinction matters: risk-vetoed BUILD_CASE trades had strong signals
+        and represent potential missed profits if the veto was too strict.
+        Score/LLM rejects are correctly filtered noise.
+
         Only processes the 50 most-recent rejections to limit API calls.
         """
         results = []
 
         candidates = [
             e for e in history
-            if e.get("decision") in ("NO_GO", "MONITOR")
-            and e.get("current_price", 0) > 0
+            if e.get("current_price", 0) > 0
             and e.get("ticker")
+            and (
+                e.get("decision") in ("NO_GO", "MONITOR")
+                or e.get("risk_status") == "RISK_VETO"
+                or "Risk Veto" in (e.get("reason") or "")
+            )
         ]
 
         # Most recent 50 only
@@ -238,6 +267,16 @@ class SwarmLearner:
             score          = entry.get("score", 0)
             decision_time  = entry.get("timestamp", "")
 
+            # Classify rejection type
+            if entry.get("risk_status") == "RISK_VETO" or "Risk Veto" in (entry.get("reason") or ""):
+                reject_type = "RISK_VETO"
+            elif entry.get("decision") == "MONITOR":
+                reject_type = "LLM_MONITOR"
+            elif abs(score) < 0.15:  # Below typical threshold
+                reject_type = "SCORE_REJECT"
+            else:
+                reject_type = "LLM_REJECT"
+
             current_price = self._get_current_price(ticker)
             if current_price <= 0 or decision_price <= 0:
                 continue
@@ -245,20 +284,36 @@ class SwarmLearner:
             price_change = (current_price - decision_price) / decision_price
             hypo_pnl_pct = price_change if direction == "LONG" else -price_change
 
+            # Opportunity cost: score-weighted P&L (high-score misses matter more)
+            opportunity_cost = hypo_pnl_pct * abs(score) if hypo_pnl_pct > 0 else 0
+
             results.append({
                 "ticker":           ticker,
                 "direction":        direction,
                 "decision":         entry.get("decision"),
+                "reject_type":      reject_type,
                 "score":            round(score, 3),
                 "decision_time":    decision_time,
                 "decision_price":   decision_price,
                 "current_price":    current_price,
                 "hypothetical_pnl_pct": round(hypo_pnl_pct * 100, 2),
                 "would_have_won":   hypo_pnl_pct > 0,
+                "opportunity_cost": round(opportunity_cost, 4),
             })
 
-        # Sort by hypothetical P&L descending (biggest missed opportunity first)
-        results.sort(key=lambda x: x["hypothetical_pnl_pct"], reverse=True)
+        # Sort by opportunity cost descending (biggest high-score missed opportunity first)
+        results.sort(key=lambda x: x["opportunity_cost"], reverse=True)
+
+        # Log summary by reject type
+        from collections import Counter
+        type_counts = Counter(r["reject_type"] for r in results)
+        type_wins = Counter(r["reject_type"] for r in results if r["would_have_won"])
+        for rtype, count in type_counts.items():
+            wins = type_wins.get(rtype, 0)
+            logger.info(
+                f"Missed trades [{rtype}]: {count} total, {wins} would_have_won ({wins/count*100:.0f}%)"
+            )
+
         return results
 
     def _get_current_price(self, ticker: str) -> float:
@@ -281,7 +336,7 @@ class SwarmLearner:
         how many entries would have passed each.
         """
         current_count = sum(
-            1 for e in history if abs(e.get("score", 0)) >= SCORE_THRESHOLD
+            1 for e in history if abs(e.get("score", 0)) >= self._score_threshold
         )
 
         impact = {}
@@ -290,7 +345,7 @@ class SwarmLearner:
             delta = count - current_count
             impact[str(threshold)] = {
                 "would_pass": count,
-                "delta":      f"{delta:+d}" if threshold != SCORE_THRESHOLD else "current",
+                "delta":      f"{delta:+d}" if threshold != self._score_threshold else "current",
                 "pass_rate":  f"{count/len(history)*100:.1f}%" if history else "0%",
             }
 
@@ -309,7 +364,60 @@ class SwarmLearner:
         }
 
     # ──────────────────────────────────────────────────────────────
-    # 5. LLM summary
+    # 5. Portfolio health
+    # ──────────────────────────────────────────────────────────────
+
+    def _analyze_portfolio_health(self, trades: list) -> dict:
+        """
+        Summarise live P&L state of OPEN positions and detect macro correlation
+        or regime mismatch (all-long in a bearish market).
+        """
+        open_trades = [t for t in trades if t.get("status") == "OPEN"]
+        if not open_trades:
+            return {"open_positions": 0, "total_pnl_usd": 0.0,
+                    "positions_in_loss": 0, "macro_event": False,
+                    "regime_mismatch": False, "btc_direction": "UNKNOWN"}
+
+        total_pnl = sum(float(t.get("pnl") or 0) for t in open_trades)
+        in_loss = sum(1 for t in open_trades if float(t.get("pnl") or 0) < 0)
+        loss_ratio = in_loss / len(open_trades)
+        macro_event = loss_ratio > 0.75
+
+        # BTC 4h direction via exchange (graceful fallback)
+        btc_direction = self._get_btc_4h_direction()
+
+        all_long = all(t.get("direction", "LONG").upper() == "LONG" for t in open_trades)
+        regime_mismatch = all_long and btc_direction == "BEARISH"
+
+        return {
+            "open_positions": len(open_trades),
+            "total_pnl_usd": round(total_pnl, 2),
+            "positions_in_loss": in_loss,
+            "positions_in_loss_pct": f"{loss_ratio * 100:.0f}%",
+            "macro_event": macro_event,
+            "btc_direction": btc_direction,
+            "regime_mismatch": regime_mismatch,
+        }
+
+    def _get_btc_4h_direction(self) -> str:
+        """Return BEARISH / BULLISH / UNKNOWN based on BTC 4h price vs 20-SMA."""
+        if not self.exchange:
+            return "UNKNOWN"
+        try:
+            symbol = "BTC/USDC:USDC"
+            candles = self.exchange.public_client.fetch_ohlcv(symbol, timeframe="4h", limit=25)
+            if not candles or len(candles) < 21:
+                return "UNKNOWN"
+            closes = [c[4] for c in candles]
+            sma20 = sum(closes[-21:-1]) / 20
+            current = closes[-1]
+            return "BEARISH" if current < sma20 else "BULLISH"
+        except Exception as e:
+            logger.debug(f"SwarmLearner: BTC 4h direction check failed: {e}")
+            return "UNKNOWN"
+
+    # ──────────────────────────────────────────────────────────────
+    # 6. LLM summary
     # ──────────────────────────────────────────────────────────────
 
     def _generate_llm_summary(self, report: dict) -> str:
@@ -340,7 +448,7 @@ and the single most impactful recommendation to fix it.
 
 FUNNEL DATA:
 - Total decisions analysed: {funnel.get('total_analyzed', 0)}
-- Passed score threshold (>={SCORE_THRESHOLD}): {funnel.get('passed_score_threshold', 0)} ({funnel.get('score_pass_rate', '?')})
+- Passed score threshold (>={self._score_threshold}): {funnel.get('passed_score_threshold', 0)} ({funnel.get('score_pass_rate', '?')})
 - LLM said BUILD_CASE: {funnel.get('llm_build_case', 0)} ({funnel.get('build_case_rate', '?')})
 - Executed trades: {funnel.get('executed', 0)}
 - Primary bottleneck gate: {funnel.get('bottleneck_gate', '?')} ({funnel.get('bottleneck_pct', '?')})
@@ -410,6 +518,26 @@ Keep your answer actionable and specific. Start with the most critical finding.
         indicator = report.get("indicator_bottleneck", {})
         threshold = report.get("threshold_impact", {})
         missed    = report.get("missed_trades", [])
+        ph        = report.get("portfolio_health", {})
+
+        # ── Insight 0: Portfolio drawdown (highest priority) ──────
+        total_pnl = ph.get("total_pnl_usd", 0)
+        if total_pnl < -10 and ph.get("macro_event"):
+            insights.append({
+                "title": "[SwarmLearner] Portfolio Drawdown: macro correlation detected",
+                "description": (
+                    f"**Portfolio unrealized P&L: ${total_pnl:.2f}** across "
+                    f"{ph.get('open_positions', 0)} open positions. "
+                    f"{ph.get('positions_in_loss', 0)} positions ({ph.get('positions_in_loss_pct', '?')}) "
+                    f"are simultaneously in loss — consistent with a macro market event, not asset-specific.\n\n"
+                    f"BTC 4h direction: **{ph.get('btc_direction', 'UNKNOWN')}** | "
+                    f"Regime mismatch (all-long in bearish market): **{ph.get('regime_mismatch', False)}**\n\n"
+                    f"Recommendation: Review open positions for exit. If BTC is in a downtrend, "
+                    f"consider SHORT candidates on next ResearchAgent scan.\n\n"
+                    f"Run `python scripts/market_retrospective.py` for full post-mortem."
+                ),
+                "priority": 8,
+            })
 
         # ── Insight 1: Funnel bottleneck ──────────────────────────
         bottleneck = funnel.get("bottleneck_gate", "unknown")
@@ -419,10 +547,10 @@ Keep your answer actionable and specific. Start with the most critical finding.
         if bottleneck == "score_threshold":
             desc = (
                 f"**Score threshold is the primary bottleneck**: only {pass_rate} of decisions "
-                f"pass the {SCORE_THRESHOLD} threshold. "
-                f"{near_miss} decisions scored between 0.30 and {SCORE_THRESHOLD} (near-misses). "
+                f"pass the {self._score_threshold} threshold. "
+                f"{near_miss} decisions scored between 0.30 and {self._score_threshold} (near-misses). "
                 f"\n\nRecommendation: Consider lowering the noise-filter threshold from "
-                f"{SCORE_THRESHOLD} to 0.35 and monitor whether quality degrades.\n\n"
+                f"{self._score_threshold} to 0.35 and monitor whether quality degrades.\n\n"
                 f"🧊 **ICE Score:** 21/30 (Impact: 8, Confidence: 8, Ease: 5)"
             )
         elif bottleneck == "llm_build_case":
@@ -472,7 +600,7 @@ Keep your answer actionable and specific. Start with the most critical finding.
             insights.append({
                 "title":       "[SwarmLearner] Threshold 0.35 impact",
                 "description": (
-                    f"Lowering the score threshold from {SCORE_THRESHOLD} to 0.35 "
+                    f"Lowering the score threshold from {self._score_threshold} to 0.35 "
                     f"would result in **{extra} additional decisions** reaching the LLM debate. "
                     f"\n\nFull distribution:\n"
                     + "\n".join(
@@ -520,6 +648,7 @@ Keep your answer actionable and specific. Start with the most critical finding.
         """Add learning_summary to dashboard.json."""
         try:
             dashboard = self._load_json(self.DASHBOARD_FILE, {})
+            ph = report.get("portfolio_health", {})
             dashboard["learning_summary"] = {
                 "timestamp":           report["timestamp"],
                 "bottleneck_gate":     report["funnel"].get("bottleneck_gate"),
@@ -532,6 +661,10 @@ Keep your answer actionable and specific. Start with the most critical finding.
                     if report["missed_trades"] else "n/a"
                 ),
                 "llm_summary":         report.get("llm_summary", "")[:300],
+                "portfolio_pnl_usd":   ph.get("total_pnl_usd", 0),
+                "portfolio_macro_event": ph.get("macro_event", False),
+                "regime_mismatch":     ph.get("regime_mismatch", False),
+                "btc_direction":       ph.get("btc_direction", "UNKNOWN"),
             }
             self._save_json(self.DASHBOARD_FILE, dashboard)
         except Exception as e:

@@ -17,6 +17,7 @@ services:
       - ./trade_log.json:/app/trade_log.json
       - ./active_assets.json:/app/active_assets.json
       - ./pnl_snapshots.json:/app/pnl_snapshots.json
+      - ./config/auto_params.json:/app/config/auto_params.json
     networks: [trader_net]
 
 networks:

@@ -98,7 +98,7 @@ class NarrativeGenerator:
             if not self.llm:
                 raise RuntimeError("LLM not available")
 
-            response_text = self.llm.analyze_text(prompt, agent_name="Narrator")
+            response_text = self.llm.analyze_text(prompt, agent_name="Narrator", thinking=False)
             
             # Clean and parse JSON
             cleaned_text = self._clean_json_text(response_text)
@@ -129,16 +129,23 @@ class NarrativeGenerator:
             raise RuntimeError(f"Narrative Generation Failed: {e}") # Fail loud
 
     def _clean_json_text(self, text: str) -> str:
-        """Helper to extract JSON from markdown code blocks if present."""
+        """Extract JSON from LLM response, handling markdown blocks, trailing commas, and extra text."""
         text = text.strip()
-        if "```json" in text:
-            pattern = r"```json(.*?)```"
+
+        # 1. Strip markdown code fences if present
+        for pattern in [r"```json\s*(.*?)```", r"```\s*(.*?)```"]:
             match = re.search(pattern, text, re.DOTALL)
             if match:
-                return match.group(1).strip()
-        elif "```" in text:
-             pattern = r"```(.*?)```"
-             match = re.search(pattern, text, re.DOTALL)
-             if match:
-                return match.group(1).strip()
+                text = match.group(1).strip()
+                break
+
+        # 2. Trim to outermost braces (drops any trailing explanation text)
+        brace_start = text.find("{")
+        brace_end   = text.rfind("}")
+        if brace_start != -1 and brace_end > brace_start:
+            text = text[brace_start : brace_end + 1]
+
+        # 3. Remove trailing commas before } or ] (common LLM formatting mistake)
+        text = re.sub(r",\s*([}\]])", r"\1", text)
+
         return text

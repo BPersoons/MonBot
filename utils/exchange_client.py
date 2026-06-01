@@ -47,7 +47,7 @@ class HyperliquidExchange:
         try:
             self.public_client = ccxt.hyperliquid({
                 'enableRateLimit': True,
-                'options': {'defaultType': 'swap', 'fetchMarkets': {'types': ['swap']}}
+                'options': {'defaultType': 'swap'}
             })
             if testnet:
                 self.public_client.set_sandbox_mode(True)
@@ -78,7 +78,7 @@ class HyperliquidExchange:
                     'walletAddress': wallet_for_ccxt,
                     'privateKey': private_key,
                     'enableRateLimit': True,
-                    'options': {'defaultType': 'swap', 'fetchMarkets': {'types': ['swap']}}
+                    'options': {'defaultType': 'swap'}
                 })
                 if testnet:
                     self.signing_client.set_sandbox_mode(True)
@@ -93,6 +93,7 @@ class HyperliquidExchange:
         """
         Normalize a ticker symbol for Hyperliquid CCXT.
         Hyperliquid perps use the format BASE/USDC:USDC (e.g. SOL/USDC:USDC).
+        Always prefers perpetual (swap) over spot when both exist.
         Returns None if the symbol cannot be found in the loaded markets.
         """
         if not self.markets:
@@ -100,13 +101,13 @@ class HyperliquidExchange:
         # Replace USDT with USDC first
         if "/USDT" in ticker:
             ticker = ticker.replace("/USDT", "/USDC")
-        # Direct match
-        if ticker in self.markets:
-            return ticker
-        # Try the perpetual format: BASE/USDC:USDC
+        # Always try perpetual format first (swap > spot)
         perp = ticker + ":USDC" if not ticker.endswith(":USDC") else ticker
         if perp in self.markets:
             return perp
+        # Direct match (already includes :USDC, or XYZ-assets without spot)
+        if ticker in self.markets:
+            return ticker
         # Last resort: just the base asset (e.g. "SOL")
         base = ticker.split("/")[0]
         if base in self.markets:
@@ -175,9 +176,20 @@ class HyperliquidExchange:
             ticker = symbol
             side = action.lower()
             params = {}
-            
+
+            # Set leverage — 3x default for more positions with small bankroll
+            # TP/SL/PnL percentages are on notional, so they stay correct
+            target_leverage = int(os.getenv("DEFAULT_LEVERAGE", "3"))
+            try:
+                self.signing_client.set_leverage(target_leverage, ticker, params={'marginMode': 'cross'})
+            except Exception:
+                try:
+                    self.signing_client.set_leverage(target_leverage, ticker, params={'marginMode': 'isolated'})
+                except Exception as lev_err:
+                    self.logger.warning(f"set_leverage({target_leverage}) failed for {ticker}: {lev_err}")
+
             self.logger.info(f"Signing {side} order for {quantity} {ticker}...")
-            
+
             if order_type == 'market':
                 # CCXT Hyperliquid requires price for market orders (slippage calculation)
                 if price is None:
@@ -185,7 +197,7 @@ class HyperliquidExchange:
                 order = self.signing_client.create_order(ticker, 'market', side, quantity, price, params=params)
             else:
                 order = self.signing_client.create_order(ticker, 'limit', side, quantity, price, params=params)
-            
+
             self.logger.info(f"On-Chain Order Sent: {order['id']}")
             return order
             
@@ -251,44 +263,175 @@ class HyperliquidExchange:
         except Exception:
             return 10.0
 
+    def _fetch_spot_balance(self, user_addr):
+        """Fetch spot USDC total and hold via direct HL API."""
+        import urllib.request, json as _json
+        payload = _json.dumps({"type": "spotClearinghouseState", "user": user_addr}).encode()
+        req = urllib.request.Request(
+            "https://api.hyperliquid.xyz/info", data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            spot_data = _json.loads(r.read())
+        for entry in spot_data.get("balances", []):
+            if entry.get("coin") == "USDC":
+                return float(entry.get("total", 0.0)), float(entry.get("hold", 0.0))
+        return 0.0, 0.0
+
+    def _fetch_perp_state(self, user_addr):
+        """Fetch perp clearinghouse state via direct HL API (not CCXT).
+
+        CCXT's fetch_balance ignores the 'user' param and always queries the
+        API wallet address. When vault_address differs from wallet_address
+        (agent wallet setup), CCXT returns the API wallet's balance ($999)
+        instead of the vault's actual perp state. Bug discovered April 2026:
+        reported $1494 equity when real equity was $495.
+        """
+        import urllib.request, json as _json
+        payload = _json.dumps({"type": "clearinghouseState", "user": user_addr}).encode()
+        req = urllib.request.Request(
+            "https://api.hyperliquid.xyz/info", data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            perp_data = _json.loads(r.read())
+        ms = perp_data.get("marginSummary", {})
+        unrealized_pnl = 0.0
+        for pos in perp_data.get("assetPositions", []):
+            p = pos.get("position", {})
+            unrealized_pnl += float(p.get("unrealizedPnl", 0))
+        return {
+            "accountValue": float(ms.get("accountValue", 0)),
+            "totalRawUsd": float(ms.get("totalRawUsd", 0)),
+            "totalMarginUsed": float(ms.get("totalMarginUsed", 0)),
+            "totalNtlPos": float(ms.get("totalNtlPos", 0)),
+            "unrealizedPnl": unrealized_pnl,
+        }
+
     def get_balance(self):
         """
-        Fetches total account balance (USDC).
+        Fetches total portfolio equity (USDC) for Hyperliquid Unified Account.
+
+        In Unified mode, all USDC lives on the spot clearinghouse. The spot
+        balance is NEVER reduced when perps are opened — HL just earmarks
+        (holds) collateral from the spot total. The perp clearinghouse's
+        accountValue includes the borrowed margin from spot, so adding
+        spot + accountValue double-counts the pledged portion.
+
+        Correct formula (verified April 2026 against HL UI):
+            total_equity = spot_usdc + perp_unrealized_pnl
+
+        spot_usdc already contains all deposited USDC (including amounts
+        pledged to perps). Only the unrealized PnL from open perp positions
+        is additional equity not reflected in spot.
+
+        Uses direct HL API instead of CCXT because CCXT's fetch_balance
+        ignores the 'user' param and queries the API wallet, not the vault.
         """
-        client = self.signing_client if self.signing_client else self.public_client
-        if not client:
+        user_addr = getattr(self, 'vault_address', None) or self.wallet_address
+        if not user_addr:
             return 0.0
-            
+
+        spot_usdc = 0.0
         try:
-            # Hyperliquid requires the user/vault address in params
-            user_addr = getattr(self, 'vault_address', None) or self.wallet_address
-            balance = client.fetch_balance(params={'user': user_addr})
-
-            # Hyperliquid uses USDC as collateral.
-            usdc_balance = balance.get('USDC', {}).get('total', 0.0)
-            if usdc_balance == 0.0 and 'total' in balance:
-                usdc_balance = balance['total'].get('USDC', 0.0)
-
-            return usdc_balance
+            spot_usdc, _ = self._fetch_spot_balance(user_addr)
         except Exception as e:
-            self.logger.error(f"Error fetching balance: {e}")
+            self.logger.debug(f"Could not fetch spot balance: {e}")
+
+        perp_unrealized = 0.0
+        try:
+            perp_state = self._fetch_perp_state(user_addr)
+            perp_unrealized = perp_state["unrealizedPnl"]
+        except Exception as e:
+            self.logger.error(f"Error fetching perp state: {e}")
+
+        total = spot_usdc + perp_unrealized
+        self.logger.info(f"Balance: spot=${spot_usdc:.2f} + perp_unreal=${perp_unrealized:.2f} = ${total:.2f}")
+        return total
+
+    def get_unrealized_pnl(self):
+        """Return total unrealized PnL from all open perp positions.
+        Uses direct HL API to query the vault address (not CCXT).
+        """
+        user_addr = getattr(self, 'vault_address', None) or self.wallet_address
+        if not user_addr:
+            return 0.0
+        try:
+            perp_state = self._fetch_perp_state(user_addr)
+            return perp_state["unrealizedPnl"]
+        except Exception as e:
+            self.logger.debug(f"Could not fetch unrealized PnL: {e}")
             return 0.0
 
     def get_free_margin(self):
-        """Returns free (available) USDC margin as reported by Hyperliquid."""
-        client = self.signing_client if self.signing_client else self.public_client
-        if not client:
+        """
+        Returns actual free USDC margin available for NEW orders.
+
+        In Unified mode, free margin = spot_total - spot_hold.
+        spot_hold covers both XYZ position margin AND perp collateral pledges.
+        Verified against HL UI "Available Balance" (April 2026).
+
+        Uses direct HL API (not CCXT) — see _fetch_perp_state docstring.
+        """
+        user_addr = getattr(self, 'vault_address', None) or self.wallet_address
+        if not user_addr:
             return 0.0
+
         try:
-            user_addr = getattr(self, 'vault_address', None) or self.wallet_address
-            balance = client.fetch_balance(params={'user': user_addr})
-            free = balance.get('USDC', {}).get('free', 0.0)
-            if not free:
-                free = balance.get('free', {}).get('USDC', 0.0)
-            return float(free or 0.0)
+            spot_total, spot_hold = self._fetch_spot_balance(user_addr)
+            free = max(0.0, spot_total - spot_hold)
+            return free
         except Exception as e:
             self.logger.warning(f"Error fetching free margin: {e}")
             return 0.0
+
+    def fetch_all_positions(self):
+        """
+        Fetch positions from ALL Hyperliquid clearinghouses (standard perps + XYZ perps).
+
+        Standard fetch_positions() only returns the main perp clearinghouse.
+        XYZ-* assets (RWA/equities/commodities) live on a separate clearinghouse
+        and must be queried by passing their symbols explicitly.
+
+        Returns a list of CCXT position dicts (same format as fetch_positions).
+        Sets self._xyz_fetch_ok to indicate whether XYZ clearinghouse was reachable.
+        """
+        client = self.signing_client
+        if not client:
+            return []
+
+        user_addr = getattr(self, 'vault_address', None) or self.wallet_address
+
+        all_positions = []
+        self._xyz_fetch_ok = False
+
+        # 1. Standard perps (BTC, ETH, SOL, etc.)
+        try:
+            std = client.fetch_positions(params={'user': user_addr})
+            all_positions.extend(std)
+        except Exception as e:
+            self.logger.warning(f"fetch_all_positions: standard perps failed: {e}")
+
+        # 2. XYZ perps — must be queried by symbol list
+        xyz_symbols = [
+            sym for sym in self.markets
+            if sym.startswith("XYZ-") and self.markets[sym].get('type') == 'swap'
+        ]
+        if xyz_symbols:
+            try:
+                xyz = client.fetch_positions(xyz_symbols, params={'user': user_addr})
+                # Only add positions not already in std (deduplicate by symbol)
+                std_symbols = {p.get('symbol') for p in all_positions}
+                for p in xyz:
+                    if p.get('symbol') not in std_symbols:
+                        all_positions.append(p)
+                self._xyz_fetch_ok = True
+            except Exception as e:
+                self.logger.warning(f"fetch_all_positions: XYZ perps failed: {e}")
+        else:
+            self._xyz_fetch_ok = True  # no XYZ symbols to fetch
+
+        return all_positions
 
 # Alias for compatibility if code imports PaperExchange
 # But we should prefer renaming usages.

@@ -41,6 +41,13 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "❌ Connection Check Failed! Aborting deployment."
     exit 1
 }
+
+Write-Host "Running Pipeline Contract Check..."
+python -m tests.pre_flight.check_pipeline
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "❌ Pipeline Contract Check Failed! Fix agent signatures before deploying."
+    exit 1
+}
 Write-Host "✅ Pre-Flight Checks Passed." -ForegroundColor Green
 
 

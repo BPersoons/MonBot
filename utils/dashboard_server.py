@@ -10,6 +10,18 @@ import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
+def _utc_to_amsterdam(dt_naive):
+    """Convert a naive UTC datetime to Amsterdam time (CET/CEST)."""
+    from datetime import timezone
+    try:
+        from zoneinfo import ZoneInfo
+        return dt_naive.replace(tzinfo=timezone.utc).astimezone(ZoneInfo("Europe/Amsterdam"))
+    except Exception:
+        # Fallback: UTC+2 (CEST, covers most of the year)
+        from datetime import timedelta
+        return dt_naive + timedelta(hours=2)
+
+
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle each HTTP request in a separate thread."""
     daemon_threads = True
@@ -334,6 +346,8 @@ footer{text-align:center;padding:24px;color:var(--muted);font-size:.875rem;borde
     <div id="btn-decisions" class="tab-btn" onclick="showTab('decisions')">&#x1F4CB; ProjectLead</div>
     <div id="btn-learner" class="tab-btn" onclick="showTab('learner')">&#x1F52C; Insights</div>
     <div id="btn-trades" class="tab-btn" onclick="showTab('trades')">&#x1F4B0; Trades</div>
+    <div id="btn-monitor" class="tab-btn" onclick="showTab('monitor')">&#x1F50D; Monitor</div>
+    <div id="btn-rsi" class="tab-btn" onclick="showTab('rsi')">&#x1F9EC; RSI</div>
 </div>
 
 <!-- PULSE TAB -->
@@ -363,6 +377,16 @@ footer{text-align:center;padding:24px;color:var(--muted);font-size:.875rem;borde
 <!-- TRADES TAB -->
 <div id="tab-trades" class="tab-content">
     {trades_section}
+</div>
+
+<!-- MONITOR TAB -->
+<div id="tab-monitor" class="tab-content">
+    {monitor_section}
+</div>
+
+<!-- RSI TAB -->
+<div id="tab-rsi" class="tab-content">
+    {rsi_section}
 </div>
 
 <footer>
@@ -794,6 +818,204 @@ def _build_cpo_section(backlog_items):
     '''
 
 
+def _build_rsi_section() -> str:
+    """Build the RSI Architecture status tab.
+
+    Shows:
+    - Phase 1-4 status table
+    - Phase 4 prerequisites checklist (auto-checked where possible)
+    - Current auto_params.json values
+    - Last 10 audit_log.txt entries
+    """
+    import os, json
+
+    # ── Helper: read audit_log.txt lines ────────────────────────────────────
+    audit_lines = []
+    try:
+        if os.path.exists("audit_log.txt"):
+            with open("audit_log.txt", "r", encoding="utf-8", errors="replace") as f:
+                audit_lines = f.readlines()
+    except Exception:
+        pass
+    audit_text = "".join(audit_lines)
+
+    # ── Helper: read auto_params.json ───────────────────────────────────────
+    auto_params = {}
+    bounds = {}
+    try:
+        if os.path.exists("config/auto_params.json"):
+            with open("config/auto_params.json", "r") as f:
+                raw = json.load(f)
+            bounds = raw.get("_bounds", {})
+            auto_params = {k: v for k, v in raw.items() if not k.startswith("_")}
+    except Exception:
+        pass
+
+    # ── Phase status table ───────────────────────────────────────────────────
+    phases = [
+        ("1", "Extended Parameter RSI", "LIVE", "2026-03-23",
+         "auto_params.json + extended Auditor tuning + cost tracking"),
+        ("2", "Shadow Trading Mode", "LIVE", "2026-03-23",
+         "Paper-trades param changes for 4h before going live"),
+        ("3", "CPO Auto-Execution", "LIVE", "2026-03-23",
+         "CPO queues AUTO_PARAM changes with 1h Telegram veto window"),
+        ("4", "Code-Writing RSI", "PLANNED", "—",
+         "CPO proposes CODE_CHANGE specs; Claude Code implements & deploys"),
+    ]
+
+    phase_rows = ""
+    for num, name, status, deployed, desc in phases:
+        color = "var(--green)" if status == "LIVE" else "var(--yellow)"
+        badge_bg = "rgba(16,185,129,0.15)" if status == "LIVE" else "rgba(245,158,11,0.15)"
+        phase_rows += f"""
+        <tr>
+            <td style="font-weight:700;color:var(--blue)">Phase {num}</td>
+            <td style="font-weight:600">{name}</td>
+            <td><span style="background:{badge_bg};color:{color};padding:3px 10px;border-radius:8px;font-size:.78rem;font-weight:700">{status}</span></td>
+            <td style="color:var(--muted);font-size:.85rem">{deployed}</td>
+            <td style="color:var(--muted);font-size:.82rem">{desc}</td>
+        </tr>"""
+
+    # ── Phase 4 prerequisites checklist ────────────────────────────────────
+    def _check(label, passed, note="", manual=False):
+        if manual:
+            icon = "&#x1F4CB;"  # clipboard — manual
+            color = "var(--muted)"
+            tag = '<span style="color:var(--muted);font-size:.75rem">[manual]</span>'
+        elif passed:
+            icon = "&#x2705;"
+            color = "var(--green)"
+            tag = ""
+        else:
+            icon = "&#x274C;"
+            color = "var(--red)"
+            tag = ""
+        note_html = f'<span style="color:var(--muted);font-size:.8rem;margin-left:8px">{note}</span>' if note else ""
+        return f'<li style="padding:7px 0;border-bottom:1px solid var(--border);color:{color}">{icon} {label} {tag}{note_html}</li>'
+
+    has_shadow_result = "PROMOTED" in audit_text or "DISCARDED" in audit_text
+    shadow_note = ""
+    if has_shadow_result:
+        import re
+        matches = re.findall(r"(PROMOTED|DISCARDED)", audit_text)
+        shadow_note = f"{len(matches)} test(s) completed"
+
+    has_auto_applied = "APPLIED" in audit_text
+    applied_count = audit_text.count("APPLIED")
+    applied_note = f"{applied_count} change(s) applied" if has_auto_applied else ""
+
+    has_drift_violation = "DRIFT_GUARD" in audit_text
+    clean_note = "drift guard triggered — check audit_log.txt" if has_drift_violation else "no drift guard violations"
+
+    prereqs_html = f"""
+    <ul style="list-style:none;padding:0;margin:0">
+        {_check("Phase 2 shadow test completed at least once (PROMOTED or DISCARDED)", has_shadow_result, shadow_note)}
+        {_check("Phase 3 CPO generated at least one AUTO_PARAM item via AutoExecutor", has_auto_applied, applied_note)}
+        {_check("At least one param change auto-applied (veto expired, no crash)", has_auto_applied, applied_note)}
+        {_check("audit_log.txt shows clean history — no drift guard violations", not has_drift_violation, clean_note)}
+        {_check("No container crashes or restart loops in the past 7 days", False, "", manual=True)}
+        {_check("Telegram veto tested manually (sent VETO, confirmed cancellation logged)", False, "", manual=True)}
+    </ul>
+    <p style="color:var(--muted);font-size:.8rem;margin-top:10px">
+        &#x1F4CB; = verify manually &nbsp;|&nbsp; Dashboard auto-checks items it can read from audit_log.txt.
+        Refreshes every 30s.
+    </p>"""
+
+    prereq_met = sum([has_shadow_result, has_auto_applied, not has_drift_violation])
+    prereq_total = 6
+    prereq_auto = 4  # auto-checkable ones
+    readiness_color = "var(--green)" if prereq_met == prereq_auto else ("var(--yellow)" if prereq_met >= 2 else "var(--red)")
+
+    # ── Current auto_params ──────────────────────────────────────────────────
+    if auto_params:
+        param_rows = ""
+        for k, v in auto_params.items():
+            b = bounds.get(k, [])
+            lo, hi = (b[0], b[1]) if isinstance(b, list) and len(b) == 2 else ("—", "—")
+            param_rows += f"""
+            <tr>
+                <td style="font-weight:600;color:var(--cyan)">{k}</td>
+                <td style="font-weight:700;color:var(--text)">{v}</td>
+                <td style="color:var(--muted);font-size:.85rem">[{lo} – {hi}]</td>
+            </tr>"""
+        params_html = f"""
+        <table style="width:100%;border-collapse:collapse">
+            <thead><tr>
+                <th style="text-align:left;color:var(--muted);font-size:.75rem;padding-bottom:8px">PARAMETER</th>
+                <th style="text-align:left;color:var(--muted);font-size:.75rem;padding-bottom:8px">CURRENT</th>
+                <th style="text-align:left;color:var(--muted);font-size:.75rem;padding-bottom:8px">BOUNDS</th>
+            </tr></thead>
+            <tbody>{param_rows}</tbody>
+        </table>"""
+    else:
+        params_html = '<p style="color:var(--muted)">config/auto_params.json not found or empty.</p>'
+
+    # ── Recent audit log ─────────────────────────────────────────────────────
+    if audit_lines:
+        recent = audit_lines[-10:]
+        log_html = '<pre style="font-size:.75rem;color:var(--muted);white-space:pre-wrap;word-break:break-all;margin:0">' + \
+            "".join(recent).replace("<", "&lt;").replace(">", "&gt;") + "</pre>"
+    else:
+        log_html = '<p style="color:var(--muted);font-size:.85rem">audit_log.txt not found or empty. Auto-tuning has not fired yet.</p>'
+
+    # ── Assemble ─────────────────────────────────────────────────────────────
+    return f"""
+<div class="section">
+    <div class="section-header">
+        <span class="section-title">&#x1F9EC; RSI Architecture</span>
+        <span class="section-badge">Recursive Self-Improvement</span>
+        <span class="section-line"></span>
+    </div>
+
+    <!-- Phase status table -->
+    <div class="explainer-card" style="margin-bottom:20px">
+        <div class="explainer-title" style="margin-bottom:12px">Phase Status</div>
+        <table style="width:100%;border-collapse:collapse">
+            <thead><tr>
+                <th style="text-align:left;color:var(--muted);font-size:.75rem;padding-bottom:8px">PHASE</th>
+                <th style="text-align:left;color:var(--muted);font-size:.75rem;padding-bottom:8px">NAME</th>
+                <th style="text-align:left;color:var(--muted);font-size:.75rem;padding-bottom:8px">STATUS</th>
+                <th style="text-align:left;color:var(--muted);font-size:.75rem;padding-bottom:8px">DEPLOYED</th>
+                <th style="text-align:left;color:var(--muted);font-size:.75rem;padding-bottom:8px">DESCRIPTION</th>
+            </tr></thead>
+            <tbody>{phase_rows}</tbody>
+        </table>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+
+        <!-- Phase 4 prerequisites -->
+        <div class="explainer-card">
+            <div class="explainer-title" style="margin-bottom:4px">
+                Phase 4 Prerequisites
+                <span style="float:right;font-size:.8rem;color:{readiness_color}">{prereq_met}/{prereq_auto} auto-checks passed</span>
+            </div>
+            <div class="explainer-text" style="margin-bottom:10px">
+                Verify all items before starting Phase 4 (Code-Writing RSI).
+                See <code>docs/rsi_roadmap.md</code> for full context.
+            </div>
+            {prereqs_html}
+        </div>
+
+        <!-- Current auto_params -->
+        <div class="explainer-card">
+            <div class="explainer-title" style="margin-bottom:12px">Live Auto-Params</div>
+            <div class="explainer-text" style="margin-bottom:10px">
+                Current values in <code>config/auto_params.json</code>. Tuned by Auditor within bounds.
+            </div>
+            {params_html}
+        </div>
+
+    </div>
+
+    <!-- Recent audit log -->
+    <div class="explainer-card">
+        <div class="explainer-title" style="margin-bottom:10px">Recent Auto-Tune Activity (audit_log.txt — last 10 lines)</div>
+        {log_html}
+    </div>
+</div>"""
+
+
 def _build_monitor_section(agents):
     """Build the Health Monitor tab content from SwarmMonitor's Supabase record."""
     # Find SwarmMonitor agent record
@@ -1027,7 +1249,7 @@ def _describe_decision(decision, score, reason, next_step):
 def _build_history_matrix_section():
     """Builds the 12-Hour Decision History table from the footprint file."""
     import os, json
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     
     history_file = "decision_history.json"
     if not os.path.exists(history_file):
@@ -1078,7 +1300,7 @@ def _build_history_matrix_section():
             if decision in ('NO_GO', 'SKIP', 'PENDING'):
                 continue
                 
-            time_fmt = dt.strftime("%H:%M:%S")
+            time_fmt = _utc_to_amsterdam(dt).strftime("%H:%M:%S")
             ticker = d.get("ticker", "?")
             score = d.get("score", 0)
             reason = d.get("reason", "")
@@ -2251,8 +2473,19 @@ def _build_trades_section(trades, positions_status=None, pnl_snapshots=None):
     # ── helpers ──────────────────────────────────────────────────────────────
     TH = '<th style="text-align:left;padding:7px 10px;white-space:nowrap">'
 
+    # Map CCXT ticker names to Hyperliquid UI names for easier cross-referencing
+    _HL_DISPLAY_NAMES = {
+        'XYZ-CL/USDC': 'WTIOIL', 'XYZ-SP500/USDC': 'SP500', 'XYZ-BRENT/USDC': 'BRENT',
+        'XYZ-COPPER/USDC': 'COPPER', 'XYZ-GOLD/USDC': 'GOLD', 'XYZ-SILVER/USDC': 'SILVER',
+        'XYZ-SNDK/USDC': 'SNDK', 'XYZ-CRCL/USDC': 'CRCL',
+    }
+    def _display_ticker(raw):
+        hl_name = _HL_DISPLAY_NAMES.get(raw)
+        return f'{hl_name} <span style="color:var(--muted);font-size:.68rem">({raw.split("/")[0]})</span>' if hl_name else raw
+
     def _pos_row(t):
-        ticker    = t.get('ticker', '?')
+        raw_ticker = t.get('ticker', '?')
+        ticker    = _display_ticker(raw_ticker)
         action    = (t.get('action') or 'BUY').upper()
         direction = 'LONG' if action == 'BUY' else 'SHORT'
         dir_color = 'var(--green)' if action == 'BUY' else 'var(--red)'
@@ -2264,7 +2497,7 @@ def _build_trades_section(trades, positions_status=None, pnl_snapshots=None):
         sl        = t.get('stop_loss', 0)
         entry_ts  = t.get('entry_time', 0)
 
-        ps             = positions_status.get(ticker, {})
+        ps             = positions_status.get(raw_ticker, {})
         current_price  = ps.get('current_price')
         unrealized_pnl = ps.get('unrealized_pnl')
         pnl_pct        = ps.get('pnl_pct')
@@ -2281,7 +2514,22 @@ def _build_trades_section(trades, positions_status=None, pnl_snapshots=None):
         sl_badge   = sl_labels.get(sl_stage, ('',))[0]
         sl_html    = (f'<span style="color:var(--red)">${sl:.4f}</span>{sl_badge}' if sl else '<span style="color:var(--muted)">—</span>')
         price_html = f'${current_price:.4f}' if current_price else '<span style="color:var(--muted)">—</span>'
-        partial_badge = '<span style="font-size:.68rem;background:rgba(59,130,246,.2);color:var(--blue,#3b82f6);border-radius:3px;padding:1px 4px;margin-left:5px">½ taken</span>' if t.get('partial_tp1_taken') else ''
+        partial_badge = ''
+        if t.get('partial_tp1_taken'):
+            partials = t.get('partial_exits', [])
+            partial_pnl = sum(float(p.get('pnl', 0) or 0) for p in partials)
+            pp_sign = '+' if partial_pnl >= 0 else ''
+            pp_color = 'var(--green)' if partial_pnl >= 0 else 'var(--red)'
+            pp_detail = ''.join(
+                f"Partial {i+1}: qty={p.get('qty',0)}, pnl={'+' if float(p.get('pnl',0) or 0) >= 0 else ''}{float(p.get('pnl',0) or 0):.2f}, {p.get('reason','')}\n"
+                for i, p in enumerate(partials)
+            ) if partials else ''
+            tooltip = f"Realized partial P&amp;L: {pp_sign}${partial_pnl:.2f}\n{pp_detail}".strip()
+            partial_badge = (
+                f'<span style="font-size:.68rem;background:rgba(59,130,246,.2);color:var(--blue,#3b82f6);'
+                f'border-radius:3px;padding:1px 4px;margin-left:5px;cursor:help" '
+                f'title="{tooltip}">½ <span style="color:{pp_color}">{pp_sign}${partial_pnl:.2f}</span></span>'
+            )
 
         if unrealized_pnl is not None:
             upnl_color = 'var(--green)' if unrealized_pnl >= 0 else 'var(--red)'
@@ -2366,7 +2614,7 @@ def _build_trades_section(trades, positions_status=None, pnl_snapshots=None):
     if pending_trades:
         rows = []
         for t in pending_trades:
-            ticker    = t.get('ticker', '?')
+            ticker    = _display_ticker(t.get('ticker', '?'))
             action    = (t.get('action') or 'BUY').upper()
             direction = 'LONG' if action == 'BUY' else 'SHORT'
             dir_color = 'var(--green)' if action == 'BUY' else 'var(--red)'
@@ -2417,7 +2665,7 @@ def _build_trades_section(trades, positions_status=None, pnl_snapshots=None):
 
         rows = []
         for t in history:
-            ticker     = t.get('ticker', '?')
+            ticker     = _display_ticker(t.get('ticker', '?'))
             action     = (t.get('action') or 'BUY').upper()
             direction  = 'LONG' if action == 'BUY' else 'SHORT'
             dir_color  = 'var(--green)' if action == 'BUY' else 'var(--red)'
@@ -2562,11 +2810,15 @@ def _build_dashboard_html(agents, backlog_items=None, open_opportunities=None, l
 
     # ── Build all sections ──
 
-    # Read adaptive score threshold
-    _score_threshold = 0.40
+    # Read adaptive score threshold from auto_params.json (written by PerformanceAuditor)
+    _score_threshold = 0.15
+    _floor, _ceil = 0.10, 0.30
     try:
-        with open("core/agent_weights.json") as _wf:
-            _score_threshold = float(json.load(_wf).get("score_threshold", 0.40))
+        with open("config/auto_params.json") as _wf:
+            _ap = json.load(_wf)
+            _score_threshold = float(_ap.get("score_threshold", 0.15))
+            _bounds = _ap.get("_bounds", {}).get("score_threshold", [0.10, 0.30])
+            _floor, _ceil = float(_bounds[0]), float(_bounds[1])
     except Exception:
         pass
 
@@ -2575,7 +2827,7 @@ def _build_dashboard_html(agents, backlog_items=None, open_opportunities=None, l
     health_banner += (
         f'<div class="health-strip boot" style="cursor:default;margin-top:6px">'
         f'&#x1F4CA; Score Threshold: <strong style="color:var(--purple)">{_score_threshold:.3f}</strong>'
-        f'&ensp;&mdash;&ensp;auto-tuned by PerformanceAuditor (floor&nbsp;0.32&nbsp;/&nbsp;ceil&nbsp;0.48)'
+        f'&ensp;&mdash;&ensp;auto-tuned by PerformanceAuditor (floor&nbsp;{_floor:.2f}&nbsp;/&nbsp;ceil&nbsp;{_ceil:.2f})'
         f'</div>'
     )
 
@@ -2620,7 +2872,13 @@ def _build_dashboard_html(agents, backlog_items=None, open_opportunities=None, l
     # 14. LLM Cost Monitor section
     llm_stats_section = _build_llm_stats_section(llm_stats or {})
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 15. Monitor section (SwarmMonitor health + issues)
+    monitor_section = _build_monitor_section(agents)
+
+    # 16. RSI Architecture status tab
+    rsi_section = _build_rsi_section()
+
+    now = _utc_to_amsterdam(datetime.utcnow()).strftime("%Y-%m-%d %H:%M:%S")
     return (HTML_TEMPLATE
         .replace("{timestamp}", now)
         .replace("{health_banner}", health_banner)
@@ -2631,7 +2889,9 @@ def _build_dashboard_html(agents, backlog_items=None, open_opportunities=None, l
         .replace("{learner_section}", learner_section)
         .replace("{trades_section}", trades_section)
         .replace("{supporting_section}", supporting_section)
-        .replace("{llm_stats_section}", llm_stats_section))
+        .replace("{llm_stats_section}", llm_stats_section)
+        .replace("{monitor_section}", monitor_section)
+        .replace("{rsi_section}", rsi_section))
 
 
 
@@ -2639,6 +2899,124 @@ class DashboardHandler(BaseHTTPRequestHandler):
     db_client = None
 
     def do_GET(self):
+        if self.path in ("/v2", "/v2/"):
+            try:
+                import os, json as _json
+                from utils.dashboard_server_v2 import build_v2_html
+
+                dash_data = {}
+                if os.path.exists("dashboard.json"):
+                    try:
+                        with open("dashboard.json", "r") as f:
+                            dash_data = _json.load(f)
+                    except Exception:
+                        pass
+
+                learning_data = {}
+                if os.path.exists("learning_report.json"):
+                    try:
+                        with open("learning_report.json", "r") as f:
+                            learning_data = _json.load(f)
+                    except Exception:
+                        pass
+
+                trades = []
+                if os.path.exists("trade_log.json"):
+                    try:
+                        with open("trade_log.json", "r") as f:
+                            trades = _json.load(f)
+                        if not isinstance(trades, list):
+                            trades = []
+                    except Exception:
+                        pass
+
+                positions_status = {}
+                if os.path.exists("positions_status.json"):
+                    try:
+                        with open("positions_status.json", "r") as f:
+                            positions_status = _json.load(f)
+                    except Exception:
+                        pass
+
+                pnl_snapshots = []
+                if os.path.exists("pnl_snapshots.json"):
+                    try:
+                        with open("pnl_snapshots.json", "r") as f:
+                            pnl_snapshots = _json.load(f)
+                    except Exception:
+                        pass
+
+                agents = []
+                backlog_items = []
+                if self.db_client:
+                    agents = self.db_client.get_swarm_health()
+                    backlog_items = self.db_client.get_system_backlog(limit=50)
+
+                html = build_v2_html(
+                    agents=agents,
+                    backlog_items=backlog_items,
+                    trades=trades,
+                    positions_status=positions_status,
+                    learning_data=learning_data,
+                    llm_stats=dash_data.get("llm_stats", {}),
+                    pnl_snapshots=pnl_snapshots,
+                )
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(f"v2 Error: {e}".encode())
+            return
+
+        if self.path in ("/treasury", "/treasury/"):
+            try:
+                from utils.dashboard_treasury import build_treasury_html
+                html = build_treasury_html()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(f"treasury Error: {e}".encode())
+            return
+
+        if self.path in ("/performance", "/performance/"):
+            try:
+                from utils.dashboard_performance import build_performance_html
+                html = build_performance_html()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(f"performance Error: {e}".encode())
+            return
+
+        if self.path in ("/focus", "/focus/"):
+            try:
+                from utils.dashboard_focus import build_focus_html
+                html = build_focus_html()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(f"focus Error: {e}".encode())
+            return
+
         if self.path in ("/dashboard", "/dashboard/", "/"):
             try:
                 # Read dashboard.json for open opportunities and LLM stats
@@ -2705,6 +3083,167 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "text/plain")
                 self.end_headers()
                 self.wfile.write(f"Error: {e}".encode())
+        elif self.path in ("/api/trades", "/api/trades/"):
+            try:
+                import os, json as _json
+                trades = []
+                if os.path.exists("trade_log.json"):
+                    with open("trade_log.json") as f:
+                        trades = _json.load(f)
+                payload = _json.dumps(trades).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(_json.dumps({"error": str(e)}).encode())
+
+        elif self.path in ("/api/state", "/api/state/"):
+            try:
+                import os, json as _json
+                state = {}
+                for fname, key in [
+                    ("positions_status.json", "positions"),
+                    ("pnl_snapshots.json", "pnl_snapshots"),
+                    ("config/auto_params.json", "auto_params"),
+                    ("core/agent_weights.json", "agent_weights"),
+                ]:
+                    if os.path.exists(fname):
+                        try:
+                            with open(fname) as f:
+                                state[key] = _json.load(f)
+                        except Exception:
+                            pass
+                payload = _json.dumps(state).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(_json.dumps({"error": str(e)}).encode())
+
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path in ("/api/treasury/approve", "/api/treasury/approve/"):
+            import json as _json
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length) if length else b"{}"
+                data = _json.loads(body)
+                proposal_id = data.get("id", "").strip()
+                if not proposal_id:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(_json.dumps({"error": "id required"}).encode())
+                    return
+                from datetime import datetime as _dt
+                try:
+                    with open("treasury_proposals.json") as f:
+                        proposals = _json.load(f)
+                except Exception:
+                    proposals = []
+                found = False
+                for p in proposals:
+                    if p.get("id") == proposal_id and p.get("status") == "PENDING":
+                        p["status"] = "APPROVED"
+                        p["approved_at"] = _dt.utcnow().isoformat()
+                        found = True
+                        break
+                if found:
+                    with open("treasury_proposals.json", "w") as f:
+                        _json.dump(proposals, f, indent=2)
+                    # Kick off execution immediately in a background thread —
+                    # don't make the HTTP response wait for on-chain calls
+                    approved_proposal = next(p for p in proposals if p.get("id") == proposal_id)
+                    import threading as _threading
+                    def _execute_now(prop):
+                        try:
+                            from utils.treasury_executor import advance_proposal, get_executor_private_key
+                            import json as _j
+                            pk, wa = get_executor_private_key()
+                            updated = advance_proposal(prop, exchange_client=None, private_key=pk, wallet_address=wa)
+                            with open("treasury_proposals.json") as f2:
+                                all_props = _j.load(f2)
+                            for idx, p2 in enumerate(all_props):
+                                if p2.get("id") == updated.get("id"):
+                                    all_props[idx] = updated
+                                    break
+                            with open("treasury_proposals.json", "w") as f2:
+                                _j.dump(all_props, f2, indent=2)
+                        except Exception as _ex:
+                            import logging as _log
+                            _log.getLogger("DashboardServer").error(f"Immediate treasury execution failed: {_ex}")
+                    _threading.Thread(target=_execute_now, args=(approved_proposal,), daemon=True).start()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(_json.dumps({"ok": True}).encode())
+                else:
+                    self.send_response(404)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(_json.dumps({"error": "Proposal not found or not PENDING"}).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                import json as _j
+                self.wfile.write(_j.dumps({"error": str(e)}).encode())
+            return
+
+        if self.path in ("/api/notify", "/api/notify/"):
+            try:
+                import os, json as _json, urllib.request, urllib.parse
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length) if length else b"{}"
+                data = _json.loads(body)
+                message = data.get("message", "").strip()
+                if not message:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(_json.dumps({"error": "message required"}).encode())
+                    return
+                from utils.gcp_secrets import get_secret as _get_secret
+                token = os.getenv("TELEGRAM_BOT_TOKEN", "") or _get_secret("TELEGRAM_BOT_TOKEN") or ""
+                chat_id = os.getenv("TELEGRAM_CHAT_ID", "") or _get_secret("TELEGRAM_CHAT_ID") or ""
+                if not token or not chat_id:
+                    self.send_response(503)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(_json.dumps({"error": "Telegram not configured"}).encode())
+                    return
+                url = f"https://api.telegram.org/bot{token}/sendMessage"
+                params = urllib.parse.urlencode({
+                    "chat_id": chat_id,
+                    "text": message,
+                    "parse_mode": "Markdown",
+                }).encode()
+                req = urllib.request.Request(url, data=params, method="POST")
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    ok = resp.status == 200
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(_json.dumps({"ok": ok}).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                import json as _json
+                self.wfile.write(_json.dumps({"error": str(e)}).encode())
         else:
             self.send_response(404)
             self.end_headers()

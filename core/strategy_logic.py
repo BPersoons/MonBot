@@ -2,6 +2,21 @@ import pandas as pd
 import numpy as np
 from typing import Tuple, List
 
+COMMODITY_TICKERS = {
+    'XYZ-CL', 'XYZ-BRENTOIL', 'XYZ-GOLD', 'XYZ-SILVER',
+    'XYZ-NATGAS', 'XYZ-COPPER', 'XYZ-PLATINUM', 'XYZ-PALLADIUM',
+}
+
+def detect_asset_class(ticker: str) -> str:
+    """Returns 'crypto', 'tech_stock', or 'commodity' from ticker string."""
+    base = ticker.split('/')[0].split(':')[0].upper()
+    if base in COMMODITY_TICKERS:
+        return 'commodity'
+    if base.startswith('XYZ-'):
+        return 'tech_stock'
+    return 'crypto'
+
+
 class StrategyLogic:
     """
     Centralized logic for Technical Analysis strategies.
@@ -132,3 +147,4 @@ class StrategyLogic:
         if price >= indicators['bb_upper']:
             return -1.0 # Sell
         return 0.0
+

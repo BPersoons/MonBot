@@ -11,7 +11,7 @@ pandas
 numpy
 
 # Trading Infrastructure
-ccxt==4.5.35
+ccxt==4.5.56
 eth-account
 
 # Database & State Management
@@ -33,6 +33,10 @@ duckduckgo-search
 # Dashboard
 streamlit
 plotly
+
+# Stocks Department (Phase 1)
+yfinance
+ib_insync
 
 # Automation & Testing
 playwright

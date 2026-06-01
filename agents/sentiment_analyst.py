@@ -29,12 +29,12 @@ class SentimentAnalyst:
         
         current_time = datetime.datetime.now()
         
-        # 1. Check Supabase Cache (TTL: 4 hours)
+        # 1. Check Supabase Cache (TTL: 2 hours)
         cache_key = f"SENTIMENT_{ticker}"
         if self.db_client:
-            cached_result = self.db_client.get_agent_cache(cache_key, ttl_hours=8.0)
+            cached_result = self.db_client.get_agent_cache(cache_key, ttl_hours=2.0)
             if cached_result:
-                self.logger.info(f"✅ Using 8-hour cached sentiment data for {ticker}")
+                self.logger.info(f"✅ Using 2-hour cached sentiment data for {ticker}")
                 return cached_result
         
         # Check freshness local
@@ -48,7 +48,9 @@ class SentimentAnalyst:
 
         # 2. Gather Data
         search_term = ticker.split('/')[0] if '/' in ticker else ticker
-        
+        # Strip exchange prefixes for readable search terms
+        search_term = search_term.replace('XYZ-', '').replace('k', '')
+
         social_data = self.web_intel.scan_social_media(search_term)
         news_data = self.web_intel.scan_news(search_term)
         all_data = social_data + news_data
@@ -154,7 +156,7 @@ class SentimentAnalyst:
         RATIONALE: <text>
         """
         
-        response_text = self.llm.analyze_text(prompt, agent_name="SentimentAnalyst")
+        response_text = self.llm.analyze_text(prompt, agent_name="SentimentAnalyst", thinking=False)
 
         # Parse response
         score = 0.0
@@ -187,40 +189,41 @@ class SentimentAnalyst:
         """
         cache_key = "GLOBAL_MACRO_VIBE"
         if self.db_client:
-            cached_result = self.db_client.get_agent_cache(cache_key, ttl_hours=8.0)
+            cached_result = self.db_client.get_agent_cache(cache_key, ttl_hours=4.0)
             if cached_result:
-                self.logger.info("✅ Using 8-hour cached Global Macro Vibe")
+                self.logger.info("✅ Using 4-hour cached Global Macro Vibe")
                 return cached_result
                 
         self.logger.info("🌍 Analyzing Global Macro Vibe...")
         
-        # 1. Gather global data
-        news_data = self.web_intel.scan_news("Global Crypto Market Macro SEC Economy Interest Rates")
+        # 1. Gather global data — broad query covers equities, commodities, and crypto
+        news_data = self.web_intel.scan_news("Global Macro Economy Fed Interest Rates Equities Commodities Risk Sentiment")
         filtered_data = self._filter_noise(news_data)
-        
+
         if not filtered_data:
             self.logger.warning("No global macro data found. Returning neutral vibe.")
             return {"signal": 0.0, "rationale": "No macro data found."}
-            
+
         # 2. LLM Analysis
         combined_text = "\n".join([f"- [{d['source']}] {d['text']}" for d in filtered_data[:15]])
         prompt = f"""
-        You are a global macroeconomic analyst assessing the overall risk environment for crypto.
+        You are a global macroeconomic analyst assessing the overall risk-on/risk-off environment
+        for financial markets (equities, commodities, and crypto).
         Analyze the following broad news headlines:
-        
+
         Data:
         {combined_text}
-        
+
         Task:
-        1. Determine the overall macro vibe score between -1.0 (Extreme Systemic Risk/Bearish) and +1.0 (Extreme Risk-On/Bullish).
+        1. Determine the overall macro vibe score between -1.0 (Extreme Systemic Risk/Risk-Off) and +1.0 (Extreme Risk-On/Bullish).
         2. Provide a brief 1-sentence rationale.
-        
+
         Output format:
         SCORE: <float>
         RATIONALE: <text>
         """
         
-        response_text = self.llm.analyze_text(prompt, agent_name="SentimentAnalyst")
+        response_text = self.llm.analyze_text(prompt, agent_name="SentimentAnalyst", thinking=False)
 
         score = 0.0
         rationale = "Macro analysis failed."

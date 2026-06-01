@@ -1,0 +1,52 @@
+{
+  "score_threshold": 0.20,
+  "tech_prefilter_min": 0.10,
+  "scan_universe_size": 35,
+  "consecutive_loss_offboard": 3,
+  "drawdown_offboard_pct": 5.0,
+  "shadow_mode": false,
+  "_shadow": {},
+  "sl_pct_macro_max": 0.03,
+  "sl_pct_swing_max": 0.05,
+  "be_trigger_macro": 0.15,
+  "be_trigger_swing": 0.20,
+  "profit_lock_trigger": 0.50,
+  "time_exit_hours_macro": 72.0,
+  "time_exit_hours_swing": 168.0,
+  "time_exit_progress_gate": 0.15,
+  "_meta": {
+    "last_changed_by": "strategy_upgrade_2026-05-29",
+    "last_changed_at": "2026-05-29T14:00:00+00:00",
+    "change_reason": "New regime-aware strategy (EMA200 gate + asset-class routing). score_threshold 0.25->0.20: quality now enforced at TA level via EMA200+ADX, combined gate can be looser. tech_prefilter_min synced to 0.10 (already live since 2026-05-18)."
+  },
+  "_bounds": {
+    "score_threshold": [0.15, 0.40],
+    "tech_prefilter_min": [0.10, 0.30],
+    "scan_universe_size": [6, 50],
+    "consecutive_loss_offboard": [2, 5],
+    "drawdown_offboard_pct": [2.0, 10.0],
+    "sl_pct_macro_max": [0.020, 0.045],
+    "sl_pct_swing_max": [0.035, 0.07],
+    "be_trigger_macro": [0.10, 0.25],
+    "be_trigger_swing": [0.15, 0.30],
+    "profit_lock_trigger": [0.40, 0.65],
+    "time_exit_hours_macro": [48.0, 120.0],
+    "time_exit_hours_swing": [120.0, 240.0],
+    "time_exit_progress_gate": [0.10, 0.25]
+  },
+  "_initial": {
+    "score_threshold": 0.15,
+    "tech_prefilter_min": 0.10,
+    "scan_universe_size": 16,
+    "consecutive_loss_offboard": 3,
+    "drawdown_offboard_pct": 5.0,
+    "sl_pct_macro_max": 0.03,
+    "sl_pct_swing_max": 0.05,
+    "be_trigger_macro": 0.15,
+    "be_trigger_swing": 0.20,
+    "profit_lock_trigger": 0.50,
+    "time_exit_hours_macro": 72.0,
+    "time_exit_hours_swing": 168.0,
+    "time_exit_progress_gate": 0.15
+  }
+}

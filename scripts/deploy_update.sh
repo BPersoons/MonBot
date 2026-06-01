@@ -73,10 +73,42 @@ else:
 " > trade_log.json 2>/dev/null || echo '[]' > trade_log.json
     echo "Recovered $(python3 -c "import json; print(len(json.load(open('trade_log.json'))))" 2>/dev/null || echo '?') trades"
 fi
-sudo mkdir -p logs data
+sudo mkdir -p logs data config
+# Initialise auto_params.json if missing (preserve tuned values if it already exists)
+if [ ! -f "config/auto_params.json" ]; then
+    echo "Initialising config/auto_params.json with defaults..."
+    cat > config/auto_params.json << 'EOF'
+{
+  "score_threshold": 0.40,
+  "tech_prefilter_min": 0.15,
+  "scan_universe_size": 12,
+  "consecutive_loss_offboard": 3,
+  "drawdown_offboard_pct": 5.0,
+  "_meta": {
+    "last_changed_by": "init",
+    "last_changed_at": "2026-03-23T00:00:00+00:00",
+    "change_reason": "Initial config"
+  },
+  "_bounds": {
+    "score_threshold": [0.30, 0.50],
+    "tech_prefilter_min": [0.05, 0.40],
+    "scan_universe_size": [6, 20],
+    "consecutive_loss_offboard": [2, 5],
+    "drawdown_offboard_pct": [2.0, 10.0]
+  },
+  "_initial": {
+    "score_threshold": 0.40,
+    "tech_prefilter_min": 0.15,
+    "scan_universe_size": 12,
+    "consecutive_loss_offboard": 3,
+    "drawdown_offboard_pct": 5.0
+  }
+}
+EOF
+fi
 # Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs
-chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json
-sudo chmod 777 logs data
+chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json
+sudo chmod 777 logs data config
 
 # 6. Start fresh containers
 echo "Starting containers..."
