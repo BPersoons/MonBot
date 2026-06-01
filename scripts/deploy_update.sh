@@ -106,8 +106,12 @@ if [ ! -f "config/auto_params.json" ]; then
 }
 EOF
 fi
-# Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs
-chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json
+# Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs.
+# Use sudo: config/auto_params.json is written by the container (owned by UID 1000), so a
+# non-sudo chmod fails with "Operation not permitted". Under `set -e` that aborted the whole
+# deploy AFTER the old container was stopped but BEFORE `up`, leaving the swarm down. Keep
+# this non-fatal so a single unchmod-able file can never take production offline.
+sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json 2>/dev/null || true
 sudo chmod 777 logs data config
 
 # 6. Start fresh containers
