@@ -21,6 +21,13 @@ class PerformanceAuditor:
         self.weights_file = "core/agent_weights.json"
         self.active_assets_file = "active_assets.json"
         self.audit_log_file = "audit_log.txt"
+        # Local ledger of already-audited trade IDs. Supabase has no `audited`
+        # column — get_closed_trades(audited=False) returns the latest 100 CLOSED
+        # trades EVERY cycle, so without this ledger the same trades were
+        # re-audited each run: trades with signals updated the weights again and
+        # again (compounding bias toward a handful of old outcomes), trades
+        # without signals re-logged a skip warning forever.
+        self.audited_ids_file = "audited_trades.json"
 
         self.ensure_audit_log()
 
@@ -118,9 +125,14 @@ class PerformanceAuditor:
         self.logger.info("Running Audit Cycle...")
 
         # Try to fetch trades from Supabase first
+        audited_ids = set(self.load_json(self.audited_ids_file, []))
         if self.db.is_available():
-            trades = self.db.get_closed_trades(audited=False, limit=100)
-            self.logger.info(f"Fetched {len(trades)} unaudited trades from Supabase")
+            fetched = self.db.get_closed_trades(audited=False, limit=100)
+            trades = [t for t in fetched if t.get("id") not in audited_ids]
+            self.logger.info(
+                f"Fetched {len(fetched)} closed trades from Supabase "
+                f"({len(trades)} not yet audited)"
+            )
             use_database = True
         else:
             # Fallback to JSON
@@ -136,12 +148,24 @@ class PerformanceAuditor:
                 if use_database:
                     if trade.get("status") == "CLOSED":
                         self._audit_trade(trade, use_database)
+                        # Mark processed regardless of outcome — a trade without
+                        # analyst signals will never grow them, so re-queueing it
+                        # next cycle only repeats the skip.
+                        if trade.get("id") is not None:
+                            audited_ids.add(trade.get("id"))
                 else:
                     if trade.get("status") == "CLOSED" and not trade.get("audited", False):
                         self._audit_trade(trade, use_database)
                         trade["audited"] = True
                         dirty_trades = True
 
+            if use_database and audited_ids:
+                # Bounded ledger: keep the most recent 5000 IDs (sorted as strings
+                # so mixed int/str IDs from import scripts don't crash the sort).
+                self.save_json(
+                    self.audited_ids_file,
+                    sorted(audited_ids, key=str)[-5000:],
+                )
             if not use_database and dirty_trades:
                 self.save_json(self.trade_log_file, trades)
 

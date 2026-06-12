@@ -453,29 +453,26 @@ class ProjectLead:
         if self.llm and self.llm.available:
             _regime_adx  = regime_info.get('adx', '?')
             _regime_dir  = regime_info.get('direction', '?')
-            # Fix 4: XYZ stock CFDs need less conviction buffer than crypto (no 24/7 noise).
-            # Lower BUILD_CASE threshold from 0.38 → 0.25 so stocks above the score gate
-            # execute instead of looping forever in MONITOR. Also fixes Fix 3 (MU deadlock).
-            _is_xyz_ticker = ticker.startswith('XYZ-')
-            if _is_xyz_ticker:
-                _decision_rules = (
-                    f"- BUILD_CASE: Score >= 0.25 AND no critical bear case. "
-                    f"Stock CFDs: execute {direction} when thesis is valid and score passes threshold. Actionable NOW.\n"
-                    f"            - MONITOR: Score 0.15–0.25 AND there is a SPECIFIC, CONCRETE timing reason to wait "
-                    f"(e.g. 'wait for earnings catalyst or RSI pullback to 40'). Name the exact condition.\n"
-                    f"            - NO_GO: Score < 0.15 OR clear structural reason to reject."
-                )
-                _bc_threshold = "0.25"
-            else:
-                _decision_rules = (
-                    f"- BUILD_CASE: Score >= 0.38 AND no critical bear case. "
-                    f"This means execute {direction}. Use this when the setup is actionable NOW.\n"
-                    f"            - MONITOR: Score 0.28–0.38 AND there is a SPECIFIC, CONCRETE timing reason to wait "
-                    f"(e.g. 'RSI overbought, wait for pullback to 0.382 fib'). Name the exact condition and price level.\n"
-                    f"            - NO_GO: Score < 0.28 OR clear structural reason to reject "
-                    f"(e.g. negative macro divergence, regulatory risk)."
-                )
-                _bc_threshold = "0.38"
+            # B1 fix (2026-06-12): decision bands derive from the LIVE score threshold
+            # instead of hardcoded values (crypto was 0.38/0.28 while auto_params
+            # score_threshold=0.20). That mismatch created a dead zone: candidates in
+            # [threshold, 0.28) passed the algorithmic gate, cost an LLM call, and were
+            # then rejected by instruction — funnel showed 100% drop at llm_build_case.
+            # Bands: BUILD_CASE >= thr+0.05 · MONITOR [thr, thr+0.05) · NO_GO < thr.
+            # _effective_threshold already includes the regime multiplier and the 0.60
+            # SHORT discount, so the bands move with both. The setup-aware conviction
+            # gate (SETUP_MIN_CONVICTION) downstream still applies to BUILD_CASE.
+            _mon_floor = round(_effective_threshold, 2)
+            _bc_floor = round(_effective_threshold + 0.05, 2)
+            _decision_rules = (
+                f"- BUILD_CASE: Score >= {_bc_floor:.2f} AND no critical bear case. "
+                f"This means execute {direction}. Use this when the setup is actionable NOW.\n"
+                f"            - MONITOR: Score {_mon_floor:.2f}–{_bc_floor:.2f} AND there is a SPECIFIC, CONCRETE timing reason to wait "
+                f"(e.g. 'RSI overbought, wait for pullback to 0.382 fib'). Name the exact condition and price level.\n"
+                f"            - NO_GO: Score < {_mon_floor:.2f} OR clear structural reason to reject "
+                f"(e.g. negative macro divergence, regulatory risk)."
+            )
+            _bc_threshold = f"{_bc_floor:.2f}"
             prompt = f"""
             You are the Project Lead of an elite crypto trading swarm.
             Conduct a debate based on these analyst inputs for {ticker}:

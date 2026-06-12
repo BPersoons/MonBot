@@ -1027,6 +1027,7 @@ def main():
                             "ticker": ticker,
                             "decision": next_step,
                             "score": round(score, 2),
+                            "analyst_signals": sanitize(breakdown),
                             "reason": reason,
                             "bull_case": new_decision_entry["bull_case"],
                             "bear_case": new_decision_entry["bear_case"],

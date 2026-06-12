@@ -339,14 +339,18 @@ class TreasuryAgent:
           4. Never recommend non-Arbitrum non-automated protocols (Ethereum bridge = extra risk + UX)
         """
         _rank = lambda o: o.get("risk_adjusted_apy") or o.get("apy", 0)
+        # Liquidity guard: epoch-based vaults (immediate_withdraw=false, e.g. Gains
+        # gUSDC) are never an automated deposit destination — capital deposited there
+        # cannot be auto-withdrawn, which blocks diversification and HL rebalancing.
+        _liquid = lambda o: bool((o.get("protocol_config") or {}).get("immediate_withdraw", True))
 
         # 1. Best automated protocol on Arbitrum — ranked by risk-adjusted APY
-        automated_arb = [o for o in opportunities if o.get("automated") and o["chain"].lower() == "arbitrum"]
+        automated_arb = [o for o in opportunities if o.get("automated") and o["chain"].lower() == "arbitrum" and _liquid(o)]
         if automated_arb:
             return max(automated_arb, key=_rank), True
 
         # 2. Automated elsewhere, but only if APY justifies the cross-chain complexity
-        automated_any = [o for o in opportunities if o.get("automated") and o["apy"] >= _MIN_APY]
+        automated_any = [o for o in opportunities if o.get("automated") and o["apy"] >= _MIN_APY and _liquid(o)]
         if automated_any:
             return max(automated_any, key=_rank), True
 
@@ -1066,12 +1070,16 @@ class TreasuryAgent:
         if move_amount < 50.0:
             return all_proposals, pending_notifs
 
-        # Best automated Arbitrum destination other than the overweight protocol
+        # Best automated Arbitrum destination other than the overweight protocol.
+        # Liquidity guard: exclude epoch-based vaults (immediate_withdraw=false,
+        # e.g. Gains gUSDC) — diversifying INTO a one-way vault trades a
+        # concentration problem for a trapped-capital problem.
         auto_arb = [
             o for o in opportunities
             if o.get("automated")
             and o.get("chain", "").lower() == "arbitrum"
             and (o.get("protocol_config") or {}).get("id", "") != overweight_pid
+            and bool((o.get("protocol_config") or {}).get("immediate_withdraw", True))
         ]
         if not auto_arb:
             return all_proposals, pending_notifs

@@ -252,9 +252,14 @@ Respond ONLY with a JSON array — no markdown, no commentary:
         if total_usd < _MIN_ALLOC_USD:
             return []
 
+        # Liquidity guard (mirrors _pick_best_protocol): never allocate into
+        # epoch-based vaults (immediate_withdraw=false, e.g. Gains gUSDC) — once
+        # deposited the capital cannot be auto-withdrawn, so diversification and
+        # HL rebalancing stall on a manual epoch request.
         automated_arb = [
             o for o in opportunities
             if o.get("automated") and (o.get("chain") or "").lower() == "arbitrum"
+            and bool((o.get("protocol_config") or {}).get("immediate_withdraw", True))
         ]
         if not automated_arb:
             logger.warning("AllocationOptimizer: no automated Arbitrum protocols available")
