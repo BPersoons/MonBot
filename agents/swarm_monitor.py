@@ -230,6 +230,9 @@ class SwarmMonitor:
         # ── Check 17: Treasury state staleness ─────────
         self._safe_check(self._check_treasury_staleness, now)
 
+        # Check 18: trade drought — silent funnel halt, threshold-independent
+        self._safe_check(self._check_trade_drought, now)
+
         # Add detected_at timestamp to all findings
         now_str = now.strftime("%H:%M:%S UTC")
         for f in findings:
@@ -825,6 +828,64 @@ class SwarmMonitor:
     DEADLOCK_THRESHOLD_MIN = 0.47   # Alert when score_threshold reaches this
     DEADLOCK_NO_TRADE_HOURS = 48    # And no new trades opened in this window
     DEADLOCK_ALERT_COOLDOWN_SEC = 6 * 3600  # Max once per 6 hours
+
+    # ──────────────────────────────────────────
+    # Check 18: Trade drought (threshold-independent)
+    # ──────────────────────────────────────────
+
+    DROUGHT_HOURS = 72            # Alert when no entry for this long
+    DROUGHT_ALERT_COOLDOWN_SEC = 24 * 3600  # Max once per day
+
+    def _check_trade_drought(self, now: datetime):
+        """
+        Alert when no trade has been OPENED for DROUGHT_HOURS, regardless of
+        score_threshold. The threshold-deadlock check (below) only fires at
+        threshold >= 0.47 — in June 2026 the swarm sat at threshold 0.20 and
+        still traded zero for 5 days (LLM-band dead zone) without any alarm,
+        while fixed costs kept running. A silent halt is the most expensive
+        failure mode and must page regardless of WHY the funnel is dry.
+        """
+        try:
+            with open("trade_log.json", "r", encoding="utf-8") as f:
+                trades = json.load(f)
+        except Exception:
+            return
+
+        last_entry = None
+        for t in trades:
+            raw = t.get("entry_time")
+            if not raw:
+                continue
+            try:
+                ts = datetime.fromtimestamp(float(raw))
+            except (TypeError, ValueError):
+                try:
+                    ts = datetime.fromisoformat(str(raw).replace("Z", ""))
+                except (TypeError, ValueError):
+                    continue
+            if last_entry is None or ts > last_entry:
+                last_entry = ts
+
+        if last_entry is None:
+            return  # empty/unparseable log — covered by other checks
+        drought_h = (now - last_entry).total_seconds() / 3600
+        if drought_h < self.DROUGHT_HOURS:
+            return
+
+        alert_key = "trade_drought"
+        last_sent = self._sent_alerts.get(alert_key)
+        if last_sent and (now - last_sent).total_seconds() < self.DROUGHT_ALERT_COOLDOWN_SEC:
+            return
+        self._sent_alerts[alert_key] = now
+        msg = (
+            f"🏜️ TRADE DROUGHT: geen nieuwe trade in {drought_h:.0f}u "
+            f"(laatste entry {last_entry:%Y-%m-%d %H:%M}).\n"
+            f"Swarm draait maar handelt niet — check funnel (learning_report.json: "
+            f"bottleneck_gate), score-verdeling en LLM-band-alignment.\n"
+            f"Kosten lopen door; HL-marge staat idle."
+        )
+        self._send_telegram(msg)
+        logger.warning(f"[SwarmMonitor] Trade drought alert verstuurd ({drought_h:.0f}h)")
 
     def _check_threshold_deadlock(self, now: datetime):
         """
