@@ -160,6 +160,50 @@ class HyperliquidExchange:
             self.logger.error(f"Error fetching L1 OB for {ticker}: {e}")
             return None
 
+    def get_trade_costs(self, ticker, since_ms):
+        """
+        Sum the REAL trading costs for a symbol since a given timestamp (ms),
+        straight from the HL ledgers: taker/maker fees over all fills (entry,
+        partials, close) and net funding payments.
+
+        Returns (fees_usd, funding_received_usd):
+          fees_usd             — total fees paid, always >= 0
+          funding_received_usd — net funding, positive = received, negative = paid
+        Either value is None when that ledger could not be fetched — callers
+        must treat None as "unknown", never as 0.
+        """
+        client = self.signing_client or self.public_client
+        if not client or not since_ms:
+            return None, None
+        symbol = self._normalize_symbol(ticker)
+        if symbol is None:
+            return None, None
+
+        fees = None
+        try:
+            fills = client.fetch_my_trades(symbol, since=int(since_ms), limit=200)
+            fees = 0.0
+            for f in fills:
+                cost = (f.get('fee') or {}).get('cost')
+                if cost:
+                    fees += abs(float(cost))
+        except Exception as e:
+            self.logger.warning(f"get_trade_costs: fills fetch failed for {symbol}: {e}")
+
+        funding = None
+        try:
+            events = client.fetch_funding_history(symbol, since=int(since_ms), limit=500)
+            funding = 0.0
+            for ev in events:
+                amt = ev.get('amount')
+                if amt is not None:
+                    # HL userFunding: positive = received, negative = paid.
+                    funding += float(amt)
+        except Exception as e:
+            self.logger.warning(f"get_trade_costs: funding fetch failed for {symbol}: {e}")
+
+        return fees, funding
+
     def create_order(self, ticker, action, quantity, price=None, order_type='market'):
         """
         Executes an On-Chain Order using the Signing Client.

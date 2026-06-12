@@ -29,6 +29,22 @@ from utils.pipeline_events import log_event as log_pipeline_event
 from utils.exchange_client import HyperliquidExchange
 
 
+def _entry_ts_ms(trade) -> int | None:
+    """Entry timestamp in ms for ledger queries. Trade logs hold a mix of
+    ISO strings and unix-epoch floats (import scripts) — parse both."""
+    raw = trade.get('entry_time') or trade.get('approval_time')
+    if not raw:
+        return None
+    try:
+        return int(float(raw) * 1000)  # epoch seconds (possibly fractional)
+    except (TypeError, ValueError):
+        pass
+    try:
+        return int(datetime.fromisoformat(str(raw)).timestamp() * 1000)
+    except (TypeError, ValueError):
+        return None
+
+
 def _send_telegram(text: str):
     """Send a Telegram notification. Reads secrets lazily so they are available after startup injection."""
     try:
@@ -538,6 +554,31 @@ class ExecutionAgent:
                                 f"(close=${close_pnl:.2f} + partial=${realized_partial_pnl:.2f}, "
                                 f"{trade['pnl_percent']:.2f}%)"
                             )
+
+                            # Real costs from the HL ledgers (audit B6): the
+                            # price-based pnl above ignores fees and funding,
+                            # which silently flattered every historical stat.
+                            # `fees` covers ALL legs since entry (entry +
+                            # partials + this close), so it overwrites the
+                            # entry-only value stored at open. pnl stays gross
+                            # for backward compat; pnl_net is the real result.
+                            try:
+                                entry_ms = _entry_ts_ms(trade)
+                                if entry_ms:
+                                    time.sleep(2)  # let the close fill reach the fills ledger
+                                    fees_usd, funding_usd = self.exchange.get_trade_costs(
+                                        trade['ticker'], since_ms=entry_ms
+                                    )
+                                    if fees_usd is not None:
+                                        trade['fees'] = round(fees_usd, 4)
+                                    if funding_usd is not None:
+                                        trade['funding_received'] = round(funding_usd, 4)
+                                    if fees_usd is not None or funding_usd is not None:
+                                        trade['pnl_net'] = round(
+                                            total_pnl - (fees_usd or 0.0) + (funding_usd or 0.0), 4
+                                        )
+                            except Exception as cost_e:
+                                self.logger.warning(f"Trade cost enrichment failed: {cost_e}")
 
                     try:
                         log_pipeline_event("TRADE_EXIT", trade['ticker'], {
