@@ -863,6 +863,9 @@ class SwarmMonitor:
                     ts = datetime.fromisoformat(str(raw).replace("Z", ""))
                 except (TypeError, ValueError):
                     continue
+            # trade_log mixes naive and tz-aware ISO strings — normalize to
+            # naive so subtraction against the monitor's naive `now` works
+            ts = ts.replace(tzinfo=None)
             if last_entry is None or ts > last_entry:
                 last_entry = ts
 
