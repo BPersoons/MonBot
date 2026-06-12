@@ -29,6 +29,10 @@ logger = logging.getLogger("SwarmMonitor")
 CHECK_INTERVAL_SEC = int(os.getenv("MONITOR_CHECK_INTERVAL_MINUTES", "5")) * 60
 ALERT_COOLDOWN_SEC = int(os.getenv("MONITOR_ALERT_COOLDOWN_MINUTES", "30")) * 60
 STALE_THRESHOLD_MIN = int(os.getenv("MONITOR_STALE_AGENT_MINUTES", "10"))
+# Heartbeat cycles legitimately take 6-19 min (heavy convergence cycles stack
+# TreasuryAgent + SwarmLearner + a full scout/sentiment scan). Only alert on a
+# TRUE hang: cycle_count not advancing for longer than the legit max.
+CYCLE_FROZEN_THRESHOLD_MIN = int(os.getenv("MONITOR_CYCLE_FROZEN_MINUTES", "25"))
 DRAWDOWN_ALERT_USD = float(os.getenv("PORTFOLIO_DRAWDOWN_ALERT_USD", "-10"))
 DRAWDOWN_ALERT_COOLDOWN_SEC = 4 * 3600  # 4 hours
 def _telegram_token() -> str:
@@ -86,6 +90,8 @@ class SwarmMonitor:
         self._load_alert_state()
         # Snapshot of previous cycle counts for freeze detection
         self._prev_cycle_counts: Dict[str, int] = {}
+        # Timestamp when each agent's cycle_count last advanced (cumulative freeze timer)
+        self._cycle_last_advance: Dict[str, datetime] = {}
         self._prev_check_time: Optional[datetime] = None
         self._check_count = 0
         # Pipeline output snapshots for stale detection
@@ -141,6 +147,20 @@ class SwarmMonitor:
                 logger.error(f"SwarmMonitor check failed: {e}", exc_info=True)
             time.sleep(CHECK_INTERVAL_SEC)
 
+    def _safe_check(self, fn, *args):
+        """Run a single check in isolation.
+
+        Previously an exception in any one check (e.g. a NoneType in
+        _check_supabase_health) propagated out of _run_checks, skipping every
+        remaining check AND the prev_check_time update at the end — which in turn
+        corrupted freeze detection. Isolating each check keeps the round complete.
+        """
+        try:
+            return fn(*args)
+        except Exception as e:
+            logger.error(f"SwarmMonitor: check {fn.__name__} failed: {e}", exc_info=True)
+            return None
+
     def _run_checks(self) -> Dict:
         """Run all checks and return consolidated findings."""
         self._check_count += 1
@@ -151,64 +171,64 @@ class SwarmMonitor:
         logger.info(f"🔍 SwarmMonitor: running check #{self._check_count}")
 
         # ── Check 1: Supabase swarm_health ──────────
-        db_issues = self._check_supabase_health(now)
+        db_issues = self._safe_check(self._check_supabase_health, now) or []
         findings.extend(db_issues)
         if db_issues:
             all_ok = False
 
         # ── Check 2: Docker log errors ───────────────
-        log_issues = self._check_docker_logs()
+        log_issues = self._safe_check(self._check_docker_logs) or []
         findings.extend(log_issues)
         if log_issues:
             all_ok = False
 
         # ── Check 3: Pipeline output analysis ────────
-        pipeline_issues = self._check_pipeline_output(now)
+        pipeline_issues = self._safe_check(self._check_pipeline_output, now) or []
         findings.extend(pipeline_issues)
         if pipeline_issues:
             all_ok = False
 
         # ── Check 4: Portfolio drawdown ───────────────
-        self._check_portfolio_health(now)
+        self._safe_check(self._check_portfolio_health, now)
 
         # ── Check 5: Auto-param changes ───────────────
-        self._check_auto_param_changes()
+        self._safe_check(self._check_auto_param_changes)
 
         # ── Check 6: AutoExecutor pending veto windows ────
-        self._check_auto_executor()
+        self._safe_check(self._check_auto_executor)
 
         # ── Check 7: Pipeline null-signal detection ───────
-        self._check_signal_health(now)
+        self._safe_check(self._check_signal_health, now)
 
         # ── Check 8: Wallet balance ────────────────────
-        self._check_wallet_balance()
+        self._safe_check(self._check_wallet_balance)
 
         # ── Check 9: Threshold deadlock ────────────────
-        self._check_threshold_deadlock(now)
+        self._safe_check(self._check_threshold_deadlock, now)
 
         # ── Check 10: HL position sync ─────────────────
-        self._check_position_sync(now)
+        self._safe_check(self._check_position_sync, now)
 
         # ── Check 11: BUILD_CASE orphan detection ──────
-        self._check_build_case_orphan(now)
+        self._safe_check(self._check_build_case_orphan, now)
 
         # ── Check 12: 3-day P&L digest ─────────────────
-        self._check_pnl_digest(now)
+        self._safe_check(self._check_pnl_digest, now)
 
         # ── Check 13: Health heartbeat ──────────────────
-        self._check_heartbeat(now)
+        self._safe_check(self._check_heartbeat, now)
 
         # ── Check 14: Stuck treasury proposals ─────────
-        self._check_stuck_proposals(now)
+        self._safe_check(self._check_stuck_proposals, now)
 
         # ── Check 15: MONITOR deadlock per ticker ──────
-        self._check_monitor_deadlock(now)
+        self._safe_check(self._check_monitor_deadlock, now)
 
         # ── Check 16: XYZ zero-execute detection ───────
-        self._check_xyz_zero_execute(now)
+        self._safe_check(self._check_xyz_zero_execute, now)
 
         # ── Check 17: Treasury state staleness ─────────
-        self._check_treasury_staleness(now)
+        self._safe_check(self._check_treasury_staleness, now)
 
         # Add detected_at timestamp to all findings
         now_str = now.strftime("%H:%M:%S UTC")
@@ -288,7 +308,9 @@ class SwarmMonitor:
 
             # Status ERROR
             if agent.get("status") == "ERROR":
-                error_msg = agent.get("last_error", "No details")
+                # .get(key, default) returns None when the key exists but is null,
+                # so the default is NOT applied — guard with `or` to avoid None[:200].
+                error_msg = agent.get("last_error") or "No details"
                 issues.append({
                     "type": "AGENT_ERROR",
                     "severity": "HIGH",
@@ -325,23 +347,29 @@ class SwarmMonitor:
                 except Exception:
                     pass  # Bad timestamp, skip
 
-            # Frozen cycle count (only detectable on 2nd+ check)
-            if self._prev_check_time and agent_name in self._prev_cycle_counts:
-                prev_count = self._prev_cycle_counts[agent_name]
-                curr_count = int(agent.get("cycle_count") or 0)
-                elapsed_min = (now - self._prev_check_time).total_seconds() / 60
-                # Only flag if agent is supposed to cycle and hasn't for > 2 intervals
-                if curr_count == prev_count and elapsed_min > (CHECK_INTERVAL_SEC / 60 * 2):
+            # Frozen cycle count — cumulative time since cycle_count last advanced.
+            # Only Heartbeat is expected to advance every cycle; Scout / auditors
+            # cycle irregularly by design, so freeze-checking them here would false-
+            # positive (the stale-pulse check above already covers a truly dead agent).
+            curr_count = int(agent.get("cycle_count") or 0)
+            prev_count = self._prev_cycle_counts.get(agent_name)
+            if prev_count is None or curr_count != prev_count:
+                # First sighting or counter advanced → reset the freeze timer.
+                self._cycle_last_advance[agent_name] = now
+            elif agent_name == "Heartbeat":
+                frozen_min = (now - self._cycle_last_advance.get(agent_name, now)).total_seconds() / 60
+                if frozen_min > CYCLE_FROZEN_THRESHOLD_MIN:
                     issues.append({
                         "type": "CYCLE_FROZEN",
-                        "severity": "MEDIUM",
+                        "severity": "HIGH" if frozen_min > CYCLE_FROZEN_THRESHOLD_MIN * 2 else "MEDIUM",
                         "agent": agent_name,
-                        "message": f"Cycle count frozen at {curr_count} for {elapsed_min:.0f} min",
+                        "message": f"Cycle count frozen at {curr_count} for {frozen_min:.0f} min "
+                                   f"(threshold {CYCLE_FROZEN_THRESHOLD_MIN} min)",
                         "last_pulse": pulse_raw,
                     })
 
             # Update snapshot
-            self._prev_cycle_counts[agent_name] = int(agent.get("cycle_count") or 0)
+            self._prev_cycle_counts[agent_name] = curr_count
 
         return issues
 
@@ -760,7 +788,14 @@ class SwarmMonitor:
             return  # Not enough data yet — avoid false positives at startup
 
         def _is_null_score(entry):
-            score = entry.get("score") or entry.get("weighted_score")
+            # A score of 0.0 is a VALID neutral reading (e.g. closed-market XYZ
+            # tickers), not a null. Only a genuinely absent/None score signals a
+            # pipeline failure. NB: decision_history has no "weighted_score" field
+            # (the real field is "score"), so `score or weighted_score` used to turn
+            # every 0.0 into None — the false "TA crash" alarm.
+            score = entry.get("score")
+            if score is None:
+                score = entry.get("weighted_score")
             return score is None
 
         if not all(_is_null_score(e) for e in recent):

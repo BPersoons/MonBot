@@ -29,12 +29,13 @@ class SentimentAnalyst:
         
         current_time = datetime.datetime.now()
         
-        # 1. Check Supabase Cache (TTL: 2 hours)
+        # 1. Check Supabase Cache (TTL: 4 hours — sentiment moves slowly; a longer TTL
+        #    cuts the cache-miss scrapes that dominate cycle time. Macro vibe is already 4h.)
         cache_key = f"SENTIMENT_{ticker}"
         if self.db_client:
-            cached_result = self.db_client.get_agent_cache(cache_key, ttl_hours=2.0)
+            cached_result = self.db_client.get_agent_cache(cache_key, ttl_hours=4.0)
             if cached_result:
-                self.logger.info(f"✅ Using 2-hour cached sentiment data for {ticker}")
+                self.logger.info(f"✅ Using 4-hour cached sentiment data for {ticker}")
                 return cached_result
         
         # Check freshness local
@@ -51,8 +52,13 @@ class SentimentAnalyst:
         # Strip exchange prefixes for readable search terms
         search_term = search_term.replace('XYZ-', '').replace('k', '')
 
-        social_data = self.web_intel.scan_social_media(search_term)
-        news_data = self.web_intel.scan_news(search_term)
+        # Social scrape and news scrape are independent I/O — run them concurrently.
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as _ex:
+            _f_social = _ex.submit(self.web_intel.scan_social_media, search_term)
+            _f_news = _ex.submit(self.web_intel.scan_news, search_term)
+            social_data = _f_social.result()
+            news_data = _f_news.result()
         all_data = social_data + news_data
         
         self.logger.info(f"Raw data items found: {len(all_data)}")

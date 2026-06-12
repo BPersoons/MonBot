@@ -3,7 +3,38 @@ import pandas as pd
 import numpy as np
 import time
 import logging
+import threading
 from datetime import datetime
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Shared, rate-limited exchange + short-TTL OHLCV cache.
+#
+# fetch_data previously built a fresh ccxt.hyperliquid() on EVERY call, which
+# reloaded the whole HL market list (~11.6s) per fetch and bypassed rate limiting
+# → 429s → empty fetches → XYZ TA scored 0.00 ("0 rows after filter") and every
+# cycle crawled. One shared instance (markets loaded once, enableRateLimit) is
+# ~33x faster and eliminates the 429s. Validated 2026-06-07.
+# ──────────────────────────────────────────────────────────────────────────────
+_EXCHANGE = None
+_INIT_LOCK = threading.Lock()
+_FETCH_LOCK = threading.Lock()            # serialize fetches (thread-safety + rate limit)
+_OHLCV_CACHE = {}                         # (symbol, timeframe, limit) -> (epoch, DataFrame)
+_OHLCV_CACHE_LOCK = threading.Lock()
+_OHLCV_TTL = {'1d': 1800, '4h': 900, '1h': 300, '15m': 120}  # seconds
+
+
+def _get_shared_exchange():
+    """Lazily build one ccxt.hyperliquid() with markets loaded once + rate limiting."""
+    global _EXCHANGE
+    if _EXCHANGE is None:
+        with _INIT_LOCK:
+            if _EXCHANGE is None:
+                ex = ccxt.hyperliquid({'options': {'defaultType': 'swap'},
+                                       'enableRateLimit': True})
+                ex.load_markets()
+                _EXCHANGE = ex
+    return _EXCHANGE
+
 
 class TechnicalAnalyst:
     """
@@ -70,21 +101,46 @@ class TechnicalAnalyst:
         # Hyperliquid CCXT default is mainnet
 
     def fetch_data(self, timeframe='1h', limit=100):
-        """Fetches OHLCV data from the exchange. Stateless — fresh instance each call."""
-        try:
-            sym = self.symbol.replace('/USDT', '/USDC')
-            # Hyperliquid swap symbols in CCXT require the ':USDC' suffix (e.g., 'XRP/USDC:USDC')
-            if self.exchange_id == 'hyperliquid' and ':' not in sym:
-                sym = f"{sym}:USDC"
-                
-            exchange = ccxt.hyperliquid({'options': {'defaultType': 'swap'}})
-            ohlcv = exchange.fetch_ohlcv(sym, timeframe=timeframe, limit=limit)
-            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            return df
-        except Exception as e:
-            self.logger.error(f"Error fetching data for {self.symbol} ({timeframe}): {e}")
-            return None
+        """Fetch OHLCV via the shared rate-limited exchange + short-TTL cache.
+
+        Avoids the per-call market reload (~11.6s) and 429 rate limits that starved
+        the XYZ TA and slowed every cycle. On hard failure serves stale cache rather
+        than None, so a transient blip no longer zeroes a whole timeframe.
+        """
+        sym = self.symbol.replace('/USDT', '/USDC')
+        # Hyperliquid swap symbols in CCXT require the ':USDC' suffix (e.g., 'XRP/USDC:USDC')
+        if self.exchange_id == 'hyperliquid' and ':' not in sym:
+            sym = f"{sym}:USDC"
+
+        cache_key = (sym, timeframe, limit)
+        ttl = _OHLCV_TTL.get(timeframe, 300)
+        now = time.time()
+
+        with _OHLCV_CACHE_LOCK:
+            hit = _OHLCV_CACHE.get(cache_key)
+            if hit and (now - hit[0]) < ttl:
+                return hit[1].copy()
+
+        for attempt in range(3):
+            try:
+                exchange = _get_shared_exchange()
+                with _FETCH_LOCK:
+                    ohlcv = exchange.fetch_ohlcv(sym, timeframe=timeframe, limit=limit)
+                df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+                with _OHLCV_CACHE_LOCK:
+                    _OHLCV_CACHE[cache_key] = (now, df)
+                return df
+            except ccxt.RateLimitExceeded:
+                time.sleep(2 * (attempt + 1))
+            except Exception as e:
+                self.logger.error(f"Error fetching data for {self.symbol} ({timeframe}): {e}")
+                break
+
+        # Retries/error exhausted — serve stale cache if available, else None.
+        with _OHLCV_CACHE_LOCK:
+            hit = _OHLCV_CACHE.get(cache_key)
+        return hit[1].copy() if hit else None
 
     def calculate_indicators(self, df):
         """Calculates all 5 technical indicators: RSI, EMA, MACD, Bollinger Bands, Volume trend."""

@@ -198,14 +198,16 @@ class ProjectLead:
         fund_view = {"signal": 0.0, "status": "SKIPPED", "summary": "Skipped (tech pre-filter)"}
         sent_view = {"signal": 0.0, "status": "SKIPPED", "summary": "Skipped (tech pre-filter)"}
 
-        # Fix 2: XYZ stocks — skip analysis outside US market hours (14:30–21:00 UTC Mon–Fri).
-        # The 1h OHLCV filter discards overnight candles; outside hours it returns 0 rows and
-        # TA falls back to noisy 24/7 data. Deferring saves LLM cost and avoids false signals.
+        # XYZ — skip analysis when the underlying market is closed (asset-class aware):
+        # equities trade Mon-Fri 14:30-21:00 UTC; commodities ~24/5 (Sun 23:00–Fri 22:00,
+        # with a daily 22:00-23:00 break). Outside hours the 1h filter returns ~0 usable rows
+        # and the TA falls back to noisy data, so deferring saves LLM cost and false signals.
         if ticker.startswith('XYZ-'):
-            _now_xyz = datetime.now(timezone.utc)
-            _xyz_market_open = (_now_xyz.weekday() < 5 and 14 <= _now_xyz.hour <= 20)
-            if not _xyz_market_open:
-                self.logger.debug(f"[{ticker}] XYZ market closed — deferring analysis")
+            from core.strategy_logic import detect_asset_class as _detect_ac
+            from agents.xyz_technical_analyst import _market_is_open as _xyz_open
+            _xyz_ac = _detect_ac(ticker)
+            if not _xyz_open(_xyz_ac, datetime.now(timezone.utc)):
+                self.logger.debug(f"[{ticker}] {_xyz_ac} market closed — deferring analysis")
                 return {
                     "combined_score": 0.0,
                     "details": {
@@ -215,7 +217,7 @@ class ProjectLead:
                     "bull_case": "Skipped",
                     "bear_case": "Skipped",
                     "next_step": "NO_GO",
-                    "synthesis_report": "US market closed (outside 14:30–21:00 UTC Mon–Fri). Analysis deferred.",
+                    "synthesis_report": f"{_xyz_ac} market closed. Analysis deferred.",
                     "has_conflict": False,
                     "rrr": "1:1.5",
                     "stop_loss_pct": 5.0,

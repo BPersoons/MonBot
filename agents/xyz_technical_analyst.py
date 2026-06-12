@@ -21,6 +21,28 @@ from datetime import datetime, timezone
 from agents.technical_analyst import TechnicalAnalyst
 
 
+def _market_is_open(asset_class: str, now_utc: datetime) -> bool:
+    """Is the underlying market currently open (for entry decisions)?
+
+    Equities: Mon-Fri 14:30-21:00 UTC.
+    Commodities: Sun 23:00 → Fri 22:00 UTC, with a daily 22:00-23:00 maintenance break.
+    """
+    wd = now_utc.weekday()  # Mon=0 .. Sun=6
+    if asset_class == "commodity":
+        if wd == 5:                              # Saturday — closed
+            return False
+        if wd == 6:                              # Sunday — opens 23:00 UTC
+            return now_utc.hour >= 23
+        if wd == 4 and now_utc.hour >= 22:       # Friday — closes 22:00 UTC
+            return False
+        return now_utc.hour != 22                # Mon-Fri daily 22:00-23:00 break
+    # Equities
+    if wd >= 5:
+        return False
+    minutes = now_utc.hour * 60 + now_utc.minute
+    return 14 * 60 + 30 <= minutes < 21 * 60
+
+
 class StockTechnicalAnalyst(TechnicalAnalyst):
     """Market-hours-aware TA for XYZ stock CFDs on Hyperliquid."""
 
@@ -54,24 +76,32 @@ class StockTechnicalAnalyst(TechnicalAnalyst):
     # ── Data fetching ──────────────────────────────────────────────────────────
 
     def fetch_data(self, timeframe='1h', limit=100):
-        """Fetch OHLCV; filter 1h candles to US market hours."""
+        """Fetch OHLCV; filter 1h candles to the asset's market hours."""
         df = super().fetch_data(timeframe=timeframe, limit=limit)
         if df is None or df.empty:
             return df
         if timeframe == '1h':
-            df = self._filter_market_hours(df)
+            df = self._filter_market_hours(df, getattr(self, '_asset_class', 'tech_stock'))
         return df
 
-    def _filter_market_hours(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Keep only candles during US market hours (Mon-Fri, 14:00-20:00 UTC)."""
+    def _filter_market_hours(self, df: pd.DataFrame, asset_class: str = "tech_stock") -> pd.DataFrame:
+        """Keep only candles during the asset's market hours.
+
+        Equities: Mon-Fri 14:00-20:00 UTC. Commodities trade ~23h/day (Sun 23:00 →
+        Fri 22:00 UTC, daily 22:00-23:00 break); applying equity hours to them threw
+        away ~17h/day of valid candles and starved the TA of data.
+        """
         if df is None or df.empty:
             return df
         ts = pd.to_datetime(df['timestamp'])
-        mask = (
-            (ts.dt.dayofweek < 5) &
-            (ts.dt.hour >= self.MARKET_OPEN_HOUR) &
-            (ts.dt.hour <= self.MARKET_CLOSE_HOUR)
-        )
+        wd = ts.dt.dayofweek
+        hr = ts.dt.hour
+        if asset_class == "commodity":
+            weekday_open = (wd < 5) & (hr != 22) & ~((wd == 4) & (hr >= 22))
+            sunday_open = (wd == 6) & (hr >= 23)
+            mask = weekday_open | sunday_open
+        else:
+            mask = (wd < 5) & (hr >= self.MARKET_OPEN_HOUR) & (hr <= self.MARKET_CLOSE_HOUR)
         filtered = df[mask].reset_index(drop=True)
         # Fall back to unfiltered if we don't have enough rows for indicators
         return filtered if len(filtered) >= 20 else df
@@ -129,6 +159,8 @@ class StockTechnicalAnalyst(TechnicalAnalyst):
         self.logger.info(
             f"[Stock TA] {self.symbol} — 1d+1h(market-hours) | Direction: {direction}"
         )
+        # Make asset_class available to fetch_data → _filter_market_hours.
+        self._asset_class = asset_class
 
         active_tf_weights = (
             self.SWING_WEIGHTS if catalyst == "SWING_4H" else self.TF_WEIGHTS
@@ -142,8 +174,11 @@ class StockTechnicalAnalyst(TechnicalAnalyst):
         tf_data        = {}
         tf_dfs         = {}
 
-        # More candles: 60 daily = ~3 months; 200 1h = ~5 sessions after filtering
-        fetch_limits = {'1d': 60, '1h': 200}
+        # calculate_indicators() returns None below 50 candles. The 1h market-hours
+        # filter keeps only ~21% of candles, so 200 raw → ~35 usable → ALWAYS None
+        # (the structural reason XYZ scored 0.00). 500 raw → ~105 usable; 365 daily
+        # covers EMA200 for established tokens (young tokens get whatever exists).
+        fetch_limits = {'1d': 365, '1h': 500}
 
         for tf in ('1d', '1h'):
             df = self.fetch_data(timeframe=tf, limit=fetch_limits[tf])
@@ -186,14 +221,15 @@ class StockTechnicalAnalyst(TechnicalAnalyst):
                 tf_data[tf] = {"signal": "NO_DATA", "score": 0.0, "indicators": {}}
                 details.append(f"{tf}: insufficient data ({n} rows)")
 
-        # Near-session-close damping: within 30 min of 21:00 UTC → dampen signal
-        now_utc   = datetime.now(timezone.utc)
-        near_close = (
-            now_utc.weekday() < 5
-            and now_utc.hour == 20
-            and now_utc.minute >= 30
-        )
-        if near_close:
+        # Market-hours gate: outside the asset's session the score is based on stale
+        # candles and any entry can't be acted on until the next open → neutral.
+        now_utc = datetime.now(timezone.utc)
+        if not _market_is_open(asset_class, now_utc):
+            combined_score = 0.0
+            details.append("market closed — no entry")
+            self.logger.info(f"[Stock TA] {self.symbol}: market closed ({asset_class}) — neutral signal")
+        elif asset_class != "commodity" and now_utc.hour == 20 and now_utc.minute >= 30:
+            # Equity near-close damping (last 30 min of the 14:30-21:00 session)
             combined_score *= 0.4
             details.append("⚠️ near session close — signal dampened")
             self.logger.info(f"[Stock TA] {self.symbol}: near session close, dampening signal")
