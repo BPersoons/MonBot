@@ -790,6 +790,14 @@ class ProjectLead:
             }
         _setup_tf = (market_context or {}).get(ticker, {}).get('timeframe', '1h Macro')
         MIN_CONVICTION = SETUP_MIN_CONVICTION.get(_setup_tf, SETUP_MIN_CONVICTION["1h Macro"])
+        # SHORT discount (2026-06-12): gate 1 applies a 0.60 effective threshold for
+        # SHORT (composites are structurally weaker — mixed sign conventions), and the
+        # LLM bands follow that. This gate ignored the discount, so a SHORT could pass
+        # gate 1 + get BUILD_CASE and still be bounced here below the auto-promote
+        # floor — a permanent MONITOR loop for our best-performing direction
+        # (live: SHORT PF 1.89 vs LONG 0.94 over 248 trades).
+        if direction_label == "SHORT":
+            MIN_CONVICTION = round(MIN_CONVICTION * 0.60, 3)
         if next_step == "BUILD_CASE" and abs(combined_score) < MIN_CONVICTION:
             self.logger.info(
                 f"[FUNNEL] {ticker}: CONVICTION_GATE score={combined_score:.2f} < {MIN_CONVICTION} "

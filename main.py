@@ -964,15 +964,23 @@ def main():
                     # MONITOR deadlock prevention: if a ticker has been stuck in MONITOR
                     # for ≥50 consecutive cycles with adequate score, promote to BUILD_CASE
                     # so it gets a chance to execute rather than looping forever.
+                    # The promote floor mirrors ProjectLead's LLM band (threshold+0.05,
+                    # SHORT ×0.60) — the old hardcoded 0.38 silently NO_GOed every crypto
+                    # MONITOR loop after the bands became threshold-derived (2026-06-12).
                     _MONITOR_DEADLOCK_MAX = 50
-                    if next_step == "MONITOR" and abs(score) >= 0.20:
+                    try:
+                        _thr = float(project_lead._get_score_threshold())
+                    except Exception:
+                        _thr = 0.20
+                    _mon_floor = _thr * 0.60 if result.get("direction", "LONG") == "SHORT" else _thr
+                    if next_step == "MONITOR" and abs(score) >= round(_mon_floor, 2):
                         _mon_count = ticker_state.get_consecutive_monitor_count(setup_id)
                         if _mon_count >= _MONITOR_DEADLOCK_MAX:
-                            # Only promote if the score clears the asset-class BUILD_CASE
-                            # threshold (XYZ 0.25, crypto 0.38). Promoting a sub-threshold
+                            # Only promote if the score clears the BUILD_CASE band
+                            # (threshold+0.05, SHORT-discounted). Promoting a sub-band
                             # score would execute a trade the entry gate had rejected; in
                             # that case force NO_GO to break the loop instead.
-                            _bc_threshold = 0.25 if ticker.startswith("XYZ-") else 0.38
+                            _bc_threshold = round(_mon_floor + 0.05, 2)
                             if abs(score) >= _bc_threshold:
                                 logger.warning(
                                     f"[MONITOR_DEADLOCK] {setup_id}: {_mon_count} consecutive MONITOR cycles "
