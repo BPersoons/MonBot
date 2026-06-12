@@ -845,6 +845,11 @@ class SwarmMonitor:
         while fixed costs kept running. A silent halt is the most expensive
         failure mode and must page regardless of WHY the funnel is dry.
         """
+        # The monitor passes an aware `now` (UTC); trade_log timestamps are a mix
+        # of naive and aware. Normalize EVERYTHING to naive UTC before arithmetic.
+        if now.tzinfo is not None:
+            now = now.replace(tzinfo=None)
+
         try:
             with open("trade_log.json", "r", encoding="utf-8") as f:
                 trades = json.load(f)
