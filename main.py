@@ -231,6 +231,19 @@ def main():
     except Exception as e:
         logger.error(f"   ⚠️ SwarmLearner FAILED (non-critical): {e}")
         swarm_learner = None
+
+    # --- ShadowBook (virtual-outcome feedback engine) ---
+    shadow_book = None
+    try:
+        logger.info("   → Initializing ShadowBook...")
+        from utils.shadow_book import ShadowBook
+        shadow_book = ShadowBook(
+            exchange_client=project_lead.execution_agent.exchange if project_lead and hasattr(project_lead, 'execution_agent') else None,
+        )
+        logger.info("   ✅ ShadowBook initialized successfully")
+    except Exception as e:
+        logger.error(f"   ⚠️ ShadowBook FAILED (non-critical): {e}")
+        shadow_book = None
     
     logger.info("=" * 60)
     logger.info("🎉 All critical agents initialized successfully!")
@@ -337,6 +350,14 @@ def main():
                     treasury_agent.run_fast()
                 except Exception as e:
                     logger.error(f"⚠️ TreasuryAgent fast run failed: {e}")
+
+        # 0a2. ShadowBook: resolve open virtual trades (every 5 cycles, offset
+        # from the treasury fast path so the two never stack in one cycle)
+        if shadow_book is not None and cycle_count % 5 == 2:
+            try:
+                shadow_book.resolve_open()
+            except Exception as e:
+                logger.error(f"⚠️ ShadowBook resolve failed: {e}")
 
         # 0b. SwarmLearner: Decision pipeline diagnostics (Every 60 cycles, ~1 hour)
         if cycle_count % 60 == 0 and swarm_learner is not None:
@@ -1069,6 +1090,23 @@ def main():
                         except Exception as history_e:
                             logger.error(f"Failed to append to decision_history.json: {history_e}")
                         # ---------------------------------------------
+
+                        # ShadowBook: every scored decision becomes a virtual
+                        # trade (incl. NO_GO/MONITOR rejects) — signal-quality
+                        # feedback at full scan volume instead of trade volume.
+                        if shadow_book is not None:
+                            try:
+                                shadow_book.record(
+                                    setup_id=setup_id,
+                                    ticker=ticker,
+                                    direction=direction,
+                                    score=score,
+                                    price=current_price,
+                                    decision=next_step,
+                                    analyst_signals=breakdown,
+                                )
+                            except Exception as sb_e:
+                                logger.debug(f"ShadowBook record failed: {sb_e}")
                             
                     except Exception as e:
                         logger.error(f"Failed to update cycle_decisions for {setup_id}: {e}")

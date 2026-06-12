@@ -882,6 +882,10 @@ class SwarmMonitor:
 
         alert_key = "trade_drought"
         last_sent = self._sent_alerts.get(alert_key)
+        # _load_alert_state() forces persisted timestamps to AWARE utc while
+        # this check runs on a naive clock — normalize before arithmetic.
+        if last_sent is not None and last_sent.tzinfo is not None:
+            last_sent = last_sent.replace(tzinfo=None)
         if last_sent and (now - last_sent).total_seconds() < self.DROUGHT_ALERT_COOLDOWN_SEC:
             return
         self._sent_alerts[alert_key] = now
@@ -1232,7 +1236,10 @@ class SwarmMonitor:
     # Check 12: 3-day P&L digest (trend view)
     # ──────────────────────────────────────────
 
-    PNL_DIGEST_INTERVAL_SEC = 3 * 24 * 3600  # 3 days
+    # Daily (was 3 days): the learning loop runs on this digest — shadow bands
+    # + real trades land in Telegram every day so problems and opportunities
+    # surface within 24h instead of half a week.
+    PNL_DIGEST_INTERVAL_SEC = 24 * 3600
 
     def _check_pnl_digest(self, now: datetime):
         """
@@ -1438,6 +1445,33 @@ class SwarmMonitor:
         open_header = f"*OPEN ({len(open_t)}x | unrealized: {fp(open_unrealized)})*"
         lines += ["", open_header]
         lines += open_flags if open_flags else ["  — geen risico-vlaggen"]
+
+        # ── ShadowBook: virtual-outcome bands (signal quality at scan volume) ─
+        try:
+            with open("shadow_report.json", "r", encoding="utf-8") as f:
+                shadow = json.load(f)
+            ov = shadow.get("overall", {})
+            if ov.get("n", 0) > 0:
+                lines += [
+                    "",
+                    f"*SHADOW (virtueel, {shadow.get('window_days', 14)}d, "
+                    f"n={ov['n']}, open={shadow.get('open_count', 0)})*",
+                    f"  Totaal: WR {ov.get('wr', 0):.0f}% | avg {ov.get('avg_pnl_pct', 0):+.2f}%",
+                ]
+                for band, s in (shadow.get("by_band") or {}).items():
+                    if s.get("n", 0) >= 3:
+                        lines.append(
+                            f"  band {band}: {s['n']}x | WR {s.get('wr', 0):.0f}% | "
+                            f"avg {s.get('avg_pnl_pct', 0):+.2f}%"
+                        )
+                for d, s in (shadow.get("by_direction") or {}).items():
+                    if s.get("n", 0) >= 3:
+                        lines.append(
+                            f"  {d}: {s['n']}x | WR {s.get('wr', 0):.0f}% | "
+                            f"avg {s.get('avg_pnl_pct', 0):+.2f}%"
+                        )
+        except Exception:
+            pass  # no shadow data yet — section simply absent
 
         self._sent_alerts[alert_key] = now
         self._send_telegram("\n".join(lines))

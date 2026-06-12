@@ -17,6 +17,7 @@ main.py (Heartbeat Loop, 60s cycles)
        -> ExecutionAgent — places orders on Hyperliquid via ccxt
             -> StrategyManager — trailing SL/TP position lifecycle
   -> PerformanceAuditor — governance & P/L auditing
+  -> ShadowBook — virtual-outcome feedback engine (records every scored decision, resolves vs real candles)
   -> TreasuryAgent — autonomous capital allocator (full run every 60 cycles + startup, fast run every 5)
   -> ProductOwner (CPO) — periodic system improvement analysis (optional)
   -> SwarmLearner — decision pipeline diagnostics (optional, every 20 cycles)
@@ -66,6 +67,8 @@ docs/            — SOP.md
 | `config/treasury_protocols.json` | Yield protocol registry: Aave v3 Arbitrum (automated), Morpho BBQUSDC/GTUSDCC (vault_address TBD), Compound v3 (not yet automated) |
 | `market_regime.json` | Last detected BTC market regime — written by ResearchAgent every scan cycle, read by TreasuryAgent (`_compute_target_allocation`) and ProjectLead (SA/FA gates). Format: `{"regime": "RANGING", "adx": 13.1, "direction": "BEARISH", "atr_rank": 0.30}` |
 | `polymarket_shadow_log.json` | PolymarketAnalyst shadow signal log — Phase 1 paper trades vs actual outcomes for calibration. No scoring impact yet. |
+| `shadow_book.json` | ShadowBook virtual trades (open + resolved, bounded) — every scored decision with \|score\| ≥ 0.10 incl. NO_GO/MONITOR rejects, uniform bracket SL 3% / TP 4.5% / 24h time exit, resolved against real 15m candles (pessimistic: SL wins inside one candle). Written by `utils/shadow_book.py`; recorded in main.py decision loop, resolved every 5 cycles (offset %5==2). Measures ENTRY quality at scan volume — does NOT simulate the live trailing/partial engine. |
+| `shadow_report.json` | ShadowBook aggregate (14d window): outcomes per score band / direction / asset class / decision / regime. Rewritten after each resolve pass; rendered in the daily Telegram P&L digest. |
 | `pnl_snapshots.json` | Rolling P&L snapshots for drawdown tracking — **volume-mounted**, written by main.py |
 | `stocks_watchlist.json` | XYZ stocks watchlist state — managed by `stocks/agents/stocks_project_lead.py` |
 | `stocks_pending_approval.json` | XYZ stocks trades pending Telegram approval — Telegram approval flow |
