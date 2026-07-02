@@ -423,28 +423,17 @@ class RiskManager:
             return {'approved': False, 'reason': 'Circuit breaker open — trading paused',
                     'metrics': {}, 'displacement_candidate': None}
 
-        # STEP -2.5: MACRO REGIME GATE
-        # Reads market_regime.json (written each scan cycle by ResearchAgent).
-        # Gate fires only on confirmed strong trends — RANGING and VOLATILE pass both
-        # directions (shadow data: RANGING_SHORT WR=47% vs TRENDING_BULL_SHORT WR=0%).
-        # XYZ-* assets are exempt: stock/commodity correlation with BTC 4h is negligible.
+        # STEP -2.5: MACRO REGIME (observability only — no hard block since 2026-07-02)
+        # Counter-trend filtering lives in ProjectLead's shadow-fed regime×direction
+        # threshold multipliers (single source of truth, self-correcting). The old hard
+        # block here contradicted live shadow data (TRENDING_BULL_SHORT was the best
+        # cell at 66.7% WR while this gate rejected it) and, stacked on the multipliers,
+        # sealed the funnel entirely.
         _action = trade_proposal.get('action', 'BUY')
         _is_xyz = str(ticker).startswith('XYZ-')
         if not _is_xyz:
             _regime = self._get_btc_regime()
-            if _action == 'BUY' and _regime == 'TRENDING_BEAR':
-                self.logger.info(f"[MACRO_GATE] {ticker}: BUY blocked — BTC TRENDING_BEAR")
-                return {'approved': False,
-                        'reason': 'Macro regime TRENDING_BEAR: long entries blocked',
-                        'metrics': {'regime': _regime}, 'displacement_candidate': None}
-            if _action == 'SELL' and _regime == 'TRENDING_BULL':
-                self.logger.info(f"[MACRO_GATE] {ticker}: SELL blocked — BTC TRENDING_BULL")
-                return {'approved': False,
-                        'reason': 'Macro regime TRENDING_BULL: short entries blocked',
-                        'metrics': {'regime': _regime}, 'displacement_candidate': None}
-            self.logger.info(f"[MACRO_GATE] {ticker}: {_action} passes — regime={_regime}")
-        else:
-            self.logger.info(f"[MACRO_GATE] {ticker}: XYZ asset — BTC regime gate skipped")
+            self.logger.info(f"[MACRO_GATE] {ticker}: {_action} — regime={_regime} (soft, no block)")
 
         # STEP -2.4: FUNDAMENTAL DIRECTION GATE
         # Negative fundamental score on a LONG = fundamentally weak asset going up.

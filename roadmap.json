@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-30",
+  "updated_at": "2026-07-02",
   "note": "Dit bestand is de single source of truth voor het product roadmap. Handmatig editeerbaar. Wordt gelezen door het dashboard.",
 
   "changelog": [
@@ -51,6 +51,13 @@
       "summary": "MeanRev conviction-bar (1h MeanRev 0.30/0.40) + ZEC 14d bench; Fase 3 tech-sizing en SA-degrade ge-invalideerd op live data",
       "impact": "Live sinds 06-12: +$42.80, PF 1.20, 51% WR (71 trades). MeanRev LONG 0/3 nu geblokt; tech-magnitude & conviction blijken contra/extensie-proxy (size NIET opschalen); SA al structureel gedegradeerd",
       "tags": ["signal", "shadow", "analysis"]
+    },
+    {
+      "date": "2026-07-02",
+      "version": "Signal quality v3 — funnel heropend (EXP-003)",
+      "summary": "Multiplier stale-default bug gefixed (n>=15 overschrijft ALTIJD, symmetrische tiers, cap x2.0) + MACRO_GATE gedegradeerd naar soft + no-progress time stop (NO_PROGRESS_TIMEOUT, 5h) + BL-002 universe tilt (1/3 XYZ-equity slots) + closed-market XYZ decisions niet meer gelogd",
+      "impact": "Sinds 06-22 was het boek -$37.48 (PF 0.79) en de funnel verzegeld: LONG-drempels effectief 0.60 in RANGING/BEAR/VOLATILE door stale defaults, shorts hard geblokt in TRENDING_BULL (terwijl shadow die cel op 66.7% WR zette). 0 open posities, $998 HL idle. sl_stage-data: stage 0 = 3.4% WR/-$236, stage 2 = 100% WR/+$246 -> no-progress stop. Decision-buffer besloeg nog 19.5h door XYZ closed-market churn",
+      "tags": ["signal", "shadow", "execution", "bug"]
     }
   ],
 
@@ -58,22 +65,36 @@
     {
       "id": "EXP-001",
       "name": "FA weight reductie",
-      "status": "ACTIVE",
+      "status": "CONCLUDED_KEEP",
       "started": "2026-06-22",
       "review_by": "2026-06-29",
+      "reviewed": "2026-07-02",
       "hypothesis": "FA (fundamental) is een contra-indicator: verlagen van 0.5 naar 0.20 verbetert WR in de 0.20-0.25 scoreband",
       "metric": "Score band 0.20-0.25 WR (baseline: 36.4%, target: >42%) + algemene trade kwaliteit",
-      "change": "core/agent_weights.json: fundamental 0.5 → 0.20"
+      "change": "core/agent_weights.json: fundamental 0.5 → 0.20",
+      "verdict": "Metric GEFAALD: band 0.20-0.25 WR sinds 06-22 = 31.6% (n=19), onder baseline. FA blijft toch 0.20: het contra-indicator-bewijs (125+ trades, elke analysewindow) staat los van deze band-metric, en het attributievenster was vervuild door de EXP-002 funnel-bug. Niet terugdraaien zonder verse shadow-data die het patroon omkeert."
     },
     {
       "id": "EXP-002",
       "name": "Regime×direction multipliers",
-      "status": "ACTIVE",
+      "status": "REWORKED",
       "started": "2026-06-22",
       "review_by": "2026-07-06",
+      "reviewed": "2026-07-02",
       "hypothesis": "Auto-adapterende threshold multipliers per (regime, richting) combinatie verbeteren signaalfiltering en passen zich aan bij marktwisselingen",
       "metric": "Shadow WR per regime×direction cel; live WR vergelijking pre/post",
-      "change": "agents/project_lead.py: _DEFAULT_REGIME_DIR_MULTIPLIERS + _load_regime_dir_multipliers()"
+      "change": "agents/project_lead.py: _DEFAULT_REGIME_DIR_MULTIPLIERS + _load_regime_dir_multipliers()",
+      "verdict": "Vroegtijdig herwerkt (2026-07-02): stale-default bug (neutraal geworden cellen hielden hun bootstrap-straf: RANGING_SHORT vast op x2.0 ondanks n=132/WR 47%/+avg) + asymmetrische tiers (3 straffen, 1 zeer strenge beloning) = self-tightening loop. Effectieve LONG-drempel 0.60 in 3 van 4 regimes -> funnel verzegeld, -$37.48 sinds start. Mechanisme behouden, logica gefixed in EXP-003."
+    },
+    {
+      "id": "EXP-003",
+      "name": "Signal quality v3 — gate-unificatie + no-progress stop + universe tilt",
+      "status": "ACTIVE",
+      "started": "2026-07-02",
+      "review_by": "2026-07-09",
+      "hypothesis": "Funnel heropenen (multiplier-fix + soft MACRO_GATE), stage-0 bleed kappen (no-progress stop 5h) en universe naar XYZ-equities tilten (1/3 slots) herstelt trade flow en brengt PF > 1.0",
+      "metric": "Trades/dag > 4; PF sinds ijkpunt 07-02 > 1.0; aandeel stage-0 verlies in totaal verlies omlaag (baseline sinds 06-12: -$236 van -$248 bruto); XYZ-aandeel in executed trades omhoog (baseline 14%); NO_PROGRESS_TIMEOUT exits gemiddeld kleiner verlies dan STOP_LOSS exits",
+      "change": "project_lead.py (_load_regime_dir_multipliers fix, deferred flag), risk_manager.py (MACRO_GATE soft), strategy_manager.py (rule 5c NO_PROGRESS_TIMEOUT + detect_asset_class guard), research_agent.py (UniverseTilt), main.py (deferred skip), ticker_state.py (cooldowns), config/auto_params.json (no_progress_exit_hours=5.0)"
     }
   ],
 
@@ -83,18 +104,19 @@
       "priority": "HIGH",
       "title": "MONITOR zone aanscherpen",
       "category": "Signal Quality",
-      "description": "MONITOR heeft WR 33.7% vs NO_GO 39.7% — de pipeline bewaakt actief slechte setups. Promotielogica aanscherpen of MONITOR-window verkorten.",
-      "blocked_until": "2026-06-29",
-      "blocked_reason": "Wacht op resultaten EXP-001 (FA weight)"
+      "description": "MONITOR heeft WR 33.7% vs NO_GO 39.7% — de pipeline bewaakt actief slechte setups. [2026-07-02 HERBEVESTIGD] Shadow (n=484): MONITOR WR 38.6% < NO_GO 41.9%, BUILD_CASE 47.8%. Promotielogica aanscherpen of MONITOR-window verkorten.",
+      "blocked_until": "2026-07-09",
+      "blocked_reason": "Wacht op EXP-003 review — één variabele tegelijk"
     },
     {
       "id": "BL-002",
       "priority": "HIGH",
       "title": "Scan universe: meer stocks, minder crypto",
       "category": "Universe",
-      "description": "Tech stocks WR 52.8% (n=72) vs crypto WR 35.3% (n=235). Universe is nu 70% crypto. Tilten naar meer XYZ-stocks verhoogt gemiddelde signaalqualiteit. [2026-06-30 VERSTERKT] Shadow book (n=534) bevestigt scherper: tech_stock WR 48.3% (+37.6%) vs crypto 35.7% (−144%) vs commodity 40.8% (−4%). Enige consistent winstgevende klasse. Bij uitvoering: verifieer of XYZ-tokens door volume-ranking buiten de top-35 scan-universe vallen.",
-      "blocked_until": "2026-07-06",
-      "blocked_reason": "Wacht op EXP-002 review (07-06) + settelen MeanRev/ZEC changes van 06-30 voor schone attributie"
+      "status": "DONE",
+      "description": "[2026-07-02 UITGEVOERD als onderdeel EXP-003] UniverseTilt in research_agent.py: 1/3 van scan_universe_size gereserveerd voor hoogste-volume XYZ-equities (detect_asset_class == tech_stock). Origineel: tech stocks WR 52.8% (n=72) vs crypto WR 35.3% (n=235); shadow book (n=534) bevestigde: enige consistent winstgevende klasse. NB: 'tech_stock' omvat feitelijk alle XYZ non-commodities (ook bv. XYZ-EWY Korea-ETF, XYZ-SP500).",
+      "blocked_until": null,
+      "blocked_reason": null
     },
     {
       "id": "BL-003",
@@ -140,6 +162,33 @@
       "title": "Polymarket signaal activeren (Fase 2)",
       "category": "Signal Quality",
       "description": "Polymarket is nu in shadow/calibratie (Fase 1). Na voldoende data (>200 matches) evalueren of het scoring impact verdient.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-008",
+      "priority": "MID",
+      "title": "Treasury-allocator: boost op PF i.p.v. WR",
+      "category": "Treasury",
+      "description": "[2026-07-02] Allocator gaf +10pp trading-boost ('WR=50% > 45%') terwijl het boek sinds 06-22 PF 0.79 draaide en HL 100% idle stond. WR zonder payoff-ratio is misleidend; gebruik PF of pnl_net over een rolling window als boost-criterium.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-009",
+      "priority": "LOW",
+      "title": "Idle-HL-margin sweep naar yield",
+      "category": "Treasury",
+      "description": "[2026-07-02] $998 HL-margin stond dagen 100% idle (funnel dicht) en verdiende niets. Overweeg: bij idle_pct > 90% gedurende > 48h een deel terug naar Aave (instant liquide) sweepen, terug bij trade flow herstel. Let op bridge-frictie/kosten.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-010",
+      "priority": "LOW",
+      "title": "Gains gUSDC positie ($1.088, 35% van portfolio) heroverwegen",
+      "category": "Treasury",
+      "description": "[2026-07-02] Grootste enkele allocatie zit in een epoch-based (niet-instant) vault, terwijl de liquidity guard nieuwe deposits daar juist blokkeert. Bespreekpunt: afbouwen naar Aave/Morpho voor liquiditeit, of bewust houden voor de hogere yield.",
       "blocked_until": null,
       "blocked_reason": null
     }

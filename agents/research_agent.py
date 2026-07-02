@@ -282,6 +282,27 @@ class ResearchAgent:
                 if self._auto_params else 12
             )
 
+            # BL-002 universe tilt (2026-07-02): guarantee XYZ equities a floor of
+            # ~1/3 of the scan universe. Shadow data (n=534): tech_stock is the only
+            # consistently profitable asset class (WR 49.6% vs crypto 36.7%), but XYZ
+            # volume is dwarfed by major crypto pairs, so a pure volume sort crowds
+            # them out of the top-N window. Reserve slots for the highest-volume XYZ
+            # equities and re-merge; the tail keeps volume order as overflow.
+            from core.strategy_logic import detect_asset_class
+            xyz_slots = max(0, scan_universe_size // 3)
+            _xyz_eq = [c for c in candidates if detect_asset_class(c[0]) == 'tech_stock']
+            _rest   = [c for c in candidates if detect_asset_class(c[0]) != 'tech_stock']
+            _guaranteed = _xyz_eq[:xyz_slots]
+            _head = _rest[:scan_universe_size - len(_guaranteed)]
+            _selected = sorted(_head + _guaranteed, key=lambda x: x[1], reverse=True)
+            _tail = [c for c in candidates if c not in _selected]
+            candidates = _selected + _tail
+            if _guaranteed:
+                self.logger.info(
+                    f"[UniverseTilt] {len(_guaranteed)} XYZ equity slots guaranteed in top {scan_universe_size}: "
+                    f"{[c[0] for c in _guaranteed]}"
+                )
+
             checked_count = 0
 
             self.dashboard_provider.update_agent_status(

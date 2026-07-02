@@ -40,6 +40,8 @@ POST_CLOSURE_COOLDOWNS = {
     "TIME_EXIT_168H": 168 * 3600,  # Phase 1 (2026-04-21): new Swing time-exit window
     "FUNDING_COST":   12 * 3600,   # funding ate the profit → wait half day
     "STOP_LOSS":       4 * 3600,   # thesis invalidated → short reset window
+    "NO_MOMENTUM":         6 * 3600,  # stage=0 adverse drift → setup stalled, cool off
+    "NO_PROGRESS_TIMEOUT": 6 * 3600,  # stage=0 flat after hours → setup stalled, cool off
 }
 
 

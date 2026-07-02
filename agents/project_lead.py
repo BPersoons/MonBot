@@ -109,21 +109,26 @@ class ProjectLead:
 
     def _load_regime_dir_multipliers(self) -> None:
         """Recompute regime×direction threshold multipliers from shadow_report.json.
-        Falls back to _DEFAULT_REGIME_DIR_MULTIPLIERS for cells with insufficient data.
+        Cells with n >= _SHADOW_MIN_SAMPLES ALWAYS take the fresh value — including a
+        neutral 1.0, which clears a stale bootstrap default. Only cells without enough
+        fresh data keep _DEFAULT_REGIME_DIR_MULTIPLIERS.
+        Penalties are capped at ×2.0: with threshold 0.20 that is a 0.40 bar (strict but
+        reachable); ×3.0 was a de-facto hard block that sealed the funnel.
         Called at startup and every 30 min during live operation.
         """
-        from datetime import timedelta
 
-        def _mult(n: int, wr: float, avg_pnl: float, direction: str) -> float:
+        def _mult(n: int, wr: float, avg_pnl: float) -> float | None:
             if n < self._SHADOW_MIN_SAMPLES:
-                return 1.0  # not enough data — stay neutral, keep default
+                return None  # not enough data — keep bootstrap default
             if avg_pnl < -0.30 and wr < 35:
-                return 3.0 if direction == "LONG" else 2.0  # clearly bad edge
+                return 2.0    # clearly bad edge (capped — never a de-facto block)
             if avg_pnl < -0.10 and wr < 42:
-                return 1.50                                   # mediocre edge
+                return 1.50   # mediocre edge
             if avg_pnl > 0.20 and wr > 47:
-                return 0.85                                   # good edge
-            return 1.0                                        # neutral
+                return 0.85   # strong edge
+            if avg_pnl > 0.05 and wr > 44:
+                return 0.90   # mild edge
+            return 1.0        # neutral — explicitly clears any stale default
 
         try:
             with open("shadow_report.json") as f:
@@ -135,17 +140,15 @@ class ProjectLead:
                     continue
                 regime_key, dir_key = parts[0], parts[1]
                 m = _mult(stats.get("n", 0), stats.get("wr", 50),
-                          stats.get("avg_pnl_pct", 0), dir_key)
-                if m != 1.0:
-                    multipliers[(regime_key, dir_key)] = m
-                    self.logger.debug(
-                        f"[ShadowMult] {regime_key}+{dir_key}: "
-                        f"n={stats['n']} WR={stats['wr']:.1f}% avg={stats['avg_pnl_pct']:.3f}% → ×{m}"
-                    )
+                          stats.get("avg_pnl_pct", 0))
+                if m is None:
+                    continue
+                multipliers[(regime_key, dir_key)] = m
             self._regime_dir_multipliers = multipliers
-            self.logger.info(
-                f"[ShadowMult] Loaded {len(multipliers)} regime×direction multipliers from shadow_report.json"
+            table = ", ".join(
+                f"{r}+{d}=×{m:g}" for (r, d), m in sorted(multipliers.items()) if m != 1.0
             )
+            self.logger.info(f"[ShadowMult] Active multipliers: {table or 'none (all neutral)'}")
         except FileNotFoundError:
             pass  # shadow report not yet generated — defaults stay
         except Exception as e:
@@ -220,11 +223,13 @@ class ProjectLead:
     _RANGING_FA_FLOOR = -0.20  # below this → fundamental red flag, not worth the risk
 
     # Regime×direction threshold multipliers — bootstrapped from 336 shadow decisions (2026-06-22).
-    # The shadow loader overwrites these once shadow_report.json has enough samples per cell.
+    # The shadow loader overwrites these once shadow_report.json has enough samples per cell
+    # (n≥15 always wins, including neutral 1.0 — stale defaults must not linger).
     # Multiplier >1 = raise the bar (bad edge); <1 = lower the bar (good edge).
+    # Capped at ×2.0: with threshold 0.20 that's a 0.40 bar; higher is a de-facto hard block.
     # Applied BEFORE the SHORT ×0.60 discount so both corrections are independent.
     _DEFAULT_REGIME_DIR_MULTIPLIERS: dict = {
-        ("VOLATILE",      "LONG"):  3.0,   # WR 22%, avg -1.30%  n=27 — panic LONGs bleed out
+        ("VOLATILE",      "LONG"):  2.0,   # WR 22%, avg -1.30%  n=27 — panic LONGs bleed out
         ("RANGING",       "SHORT"): 2.0,   # WR 28%, avg -0.58%  n=69 — no trend to follow
         ("TRENDING_BEAR", "LONG"):  1.5,   # WR 36%, avg -0.40%  n=36 — fighting the trend
         ("TRENDING_BULL", "SHORT"): 1.5,   # WR 42%, avg -0.45%  n=19 — shorting a bull
@@ -291,6 +296,10 @@ class ProjectLead:
                     "rrr": "1:1.5",
                     "stop_loss_pct": 5.0,
                     "target_entry_price": 0.0,
+                    # Deterministic no-op — main.py skips decision_history logging for
+                    # these so closed-market churn doesn't flush the 2000-entry buffer
+                    # (it compressed the window to <20h and blinded SwarmLearner).
+                    "deferred": True,
                 }
 
         try:
@@ -1187,7 +1196,8 @@ class ProjectLead:
             "rrr": analysis.get("rrr", "1:1.5"),
             "direction": direction_label,
             "monitoring_rationale": analysis.get("monitoring_rationale", "N/A"),
-            "trend_timeframe": analysis.get("trend_timeframe", "1H")
+            "trend_timeframe": analysis.get("trend_timeframe", "1H"),
+            "deferred": analysis.get("deferred", False)
         }
 
     # --- Asset Lifecycle Management ---

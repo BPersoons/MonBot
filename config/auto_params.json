@@ -14,10 +14,12 @@
   "time_exit_hours_macro": 72.0,
   "time_exit_hours_swing": 168.0,
   "time_exit_progress_gate": 0.15,
+  "no_progress_exit_hours": 5.0,
+  "no_progress_min_pct": 0.0,
   "_meta": {
-    "last_changed_by": "strategy_upgrade_2026-05-29",
-    "last_changed_at": "2026-05-29T14:00:00+00:00",
-    "change_reason": "New regime-aware strategy (EMA200 gate + asset-class routing). score_threshold 0.25->0.20: quality now enforced at TA level via EMA200+ADX, combined gate can be looser. tech_prefilter_min synced to 0.10 (already live since 2026-05-18)."
+    "last_changed_by": "signal_quality_v3_2026-07-02",
+    "last_changed_at": "2026-07-02T14:00:00+00:00",
+    "change_reason": "EXP-003: no-progress time stop — stage=0 trades at/below entry after no_progress_exit_hours are cut (NO_PROGRESS_TIMEOUT). Data since 06-12: stage=0 3.4% WR / -$236 vs stage=2 100% WR / +$246; losers hit full SL in 1.5-13h, before the 24h NO_MOMENTUM rule."
   },
   "_bounds": {
     "score_threshold": [0.15, 0.40],
@@ -32,7 +34,9 @@
     "profit_lock_trigger": [0.40, 0.65],
     "time_exit_hours_macro": [48.0, 120.0],
     "time_exit_hours_swing": [120.0, 240.0],
-    "time_exit_progress_gate": [0.10, 0.25]
+    "time_exit_progress_gate": [0.10, 0.25],
+    "no_progress_exit_hours": [3.0, 12.0],
+    "no_progress_min_pct": [-0.05, 0.05]
   },
   "_initial": {
     "score_threshold": 0.15,
@@ -47,6 +51,8 @@
     "profit_lock_trigger": 0.50,
     "time_exit_hours_macro": 72.0,
     "time_exit_hours_swing": 168.0,
-    "time_exit_progress_gate": 0.15
+    "time_exit_progress_gate": 0.15,
+    "no_progress_exit_hours": 5.0,
+    "no_progress_min_pct": 0.0
   }
 }

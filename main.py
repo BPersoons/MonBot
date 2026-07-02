@@ -1050,6 +1050,11 @@ def main():
                             cycle_decisions.append(new_decision_entry)
                             
                         # --- 12-Hour ROLLING DASHBOARD HISTORY LOG ---
+                        # Deferred no-ops (XYZ analyzed while its market is closed) are
+                        # excluded: they carry no signal, and at ~80 entries/ticker/day
+                        # they compressed the 2000-entry buffer to <20h of real history,
+                        # blinding SwarmLearner and funnel diagnostics.
+                        _deferred_noop = bool(result.get("deferred"))
                         history_file = "decision_history.json"
                         history_entry = {
                             "timestamp": datetime.now().isoformat(),
@@ -1069,32 +1074,33 @@ def main():
                             "risk_metrics": result.get("risk_metrics", {}),
                         }
                         
-                        try:
-                            history_data = []
-                            if os.path.exists(history_file):
-                                with open(history_file, "r") as f:
-                                    try:
-                                        history_data = json.load(f)
-                                    except json.JSONDecodeError:
-                                        history_data = []
-                            
-                            history_data.append(history_entry)
-                            
-                            # Prune strictly to last 2000 events to prevent memory bloat 
-                            # (Approx 12 hours of dense market scanning)
-                            if len(history_data) > 2000:
-                                history_data = history_data[-2000:]
-                                
-                            with open(history_file, "w") as f:
-                                json.dump(history_data, f, indent=2)
-                        except Exception as history_e:
-                            logger.error(f"Failed to append to decision_history.json: {history_e}")
+                        if not _deferred_noop:
+                            try:
+                                history_data = []
+                                if os.path.exists(history_file):
+                                    with open(history_file, "r") as f:
+                                        try:
+                                            history_data = json.load(f)
+                                        except json.JSONDecodeError:
+                                            history_data = []
+
+                                history_data.append(history_entry)
+
+                                # Prune strictly to last 2000 events to prevent memory bloat
+                                # (Approx 12 hours of dense market scanning)
+                                if len(history_data) > 2000:
+                                    history_data = history_data[-2000:]
+
+                                with open(history_file, "w") as f:
+                                    json.dump(history_data, f, indent=2)
+                            except Exception as history_e:
+                                logger.error(f"Failed to append to decision_history.json: {history_e}")
                         # ---------------------------------------------
 
                         # ShadowBook: every scored decision becomes a virtual
                         # trade (incl. NO_GO/MONITOR rejects) — signal-quality
                         # feedback at full scan volume instead of trade volume.
-                        if shadow_book is not None:
+                        if shadow_book is not None and not _deferred_noop:
                             try:
                                 shadow_book.record(
                                     setup_id=setup_id,

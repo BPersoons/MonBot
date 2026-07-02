@@ -2,7 +2,7 @@ import logging
 import time
 import datetime
 from typing import Dict
-from core.xyz_tokens import XYZ_EQUITY_TICKERS
+from core.strategy_logic import detect_asset_class
 
 
 def _us_market_is_open() -> bool:
@@ -21,6 +21,20 @@ class StrategyManager:
     """
     def __init__(self):
         self.logger = logging.getLogger("StrategyManager")
+        try:
+            from utils.auto_params import AutoParams
+            self._auto_params = AutoParams()
+        except Exception:
+            self._auto_params = None
+
+    def _param(self, key: str, fallback: float) -> float:
+        """Read an auto-tunable param, fail-open to the hardcoded fallback."""
+        if self._auto_params is not None:
+            try:
+                return float(self._auto_params.get(key, fallback))
+            except Exception:
+                pass
+        return fallback
 
     @staticmethod
     def _is_swing(timeframe) -> bool:
@@ -200,14 +214,33 @@ class StrategyManager:
         # Swing trades get 36h grace (4h setups need more development time).
         # XYZ equity tokens are skipped when US market is closed: weekend/overnight
         # price drift on low-liquidity synthetic perps is noise, not momentum signal.
+        # Prefix-based class detection (detect_asset_class) instead of the 7-entry
+        # XYZ_EQUITY_TICKERS registry: the pipeline trades ~20 XYZ equities (AAPL,
+        # META, SP500, …) that the registry doesn't list — those must not be cut on
+        # frozen closed-market prices either.
         no_momentum_hours = 36.0 if is_swing else 24.0
-        _base_ticker = trade.get('ticker', '').split('/')[0]
-        _skip_no_momentum = _base_ticker in XYZ_EQUITY_TICKERS and not _us_market_is_open()
+        _skip_no_momentum = (detect_asset_class(trade.get('ticker', '')) == 'tech_stock'
+                             and not _us_market_is_open())
         if not _skip_no_momentum and sl_stage == 0 and hours_held >= no_momentum_hours:
             adverse_move = -current_profit
             if adverse_move > one_r * 0.25:
                 return {**base, 'action': 'CLOSE_FULL', 'reason': 'NO_MOMENTUM',
                         'detail': f'Held {hours_held:.0f}h at stage=0, adverse {adverse_move/entry*100:.2f}% (>{sl_pct*0.25:.2f}% threshold)'}
+
+        # 5c. No-progress time stop (2026-07-02): cut stage=0 trades that sit at or
+        # below entry after a few hours. Production data since 06-12: stage=0 trades
+        # 3.4% WR / -$236 vs stage=2 100% WR / +$246 — losers rarely recover and most
+        # hit full SL within 1.5-13h, long before the 24h NO_MOMENTUM rule (5b) fires.
+        # Swing setups get double grace (4h candles need development time).
+        # Same XYZ closed-market guard as 5b: overnight drift is noise, not signal.
+        no_progress_hours = self._param("no_progress_exit_hours", 5.0)
+        no_progress_min   = self._param("no_progress_min_pct", 0.0)
+        if is_swing:
+            no_progress_hours *= 2.0
+        if (not _skip_no_momentum and sl_stage == 0
+                and hours_held >= no_progress_hours and progress <= no_progress_min):
+            return {**base, 'action': 'CLOSE_FULL', 'reason': 'NO_PROGRESS_TIMEOUT',
+                    'detail': f'Held {hours_held:.1f}h at stage=0, progress {progress*100:.0f}% toward TP'}
 
         # 6. Partial TP at 1R: take partial when trade is up by the full risk distance.
         #    More achievable than 50% of TP target (which requires 2R move for RRR=2).
