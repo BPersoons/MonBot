@@ -754,10 +754,141 @@ def _build_scout_section(agent):
     return stats_html + config_html + table_html
 
 
+def _build_roadmap_section() -> str:
+    """Read roadmap.json and render changelog, experiments and backlog."""
+    import json, os
+    from datetime import datetime, timezone
+
+    try:
+        with open("roadmap.json", encoding="utf-8") as f:
+            rm = json.load(f)
+    except Exception:
+        return ""
+
+    today = datetime.now(timezone.utc).date()
+
+    # ── Helpers ──────────────────────────────────────────────────────────────
+    def days_until(date_str):
+        try:
+            d = datetime.strptime(date_str, "%Y-%m-%d").date()
+            return (d - today).days
+        except Exception:
+            return None
+
+    def tag_html(tags):
+        colors = {"strategy": "var(--blue)", "signal": "var(--purple)", "treasury": "var(--cyan)",
+                  "bug": "var(--red)", "infra": "var(--muted)", "backtest": "var(--green)",
+                  "shadow": "var(--yellow)"}
+        return "".join(
+            f'<span style="font-size:.65rem;padding:2px 7px;border-radius:4px;'
+            f'background:rgba(255,255,255,0.08);color:{colors.get(t,"var(--muted)")};margin-right:4px">{t}</span>'
+            for t in (tags or [])
+        )
+
+    # ── Changelog ────────────────────────────────────────────────────────────
+    changelog_html = ""
+    for entry in reversed(rm.get("changelog", [])):
+        changelog_html += f'''
+        <div style="display:flex;gap:16px;margin-bottom:14px;align-items:flex-start">
+            <div style="min-width:82px;font-size:.75rem;color:var(--muted);padding-top:2px">{entry.get("date","")}</div>
+            <div style="flex:1;border-left:2px solid var(--border);padding-left:14px">
+                <div style="font-weight:600;font-size:.88rem;margin-bottom:2px">{entry.get("version","")}
+                    <span style="margin-left:8px">{tag_html(entry.get("tags",[]))}</span>
+                </div>
+                <div style="font-size:.8rem;color:var(--muted);margin-bottom:3px">{entry.get("summary","")}</div>
+                <div style="font-size:.75rem;color:var(--green)">{entry.get("impact","")}</div>
+            </div>
+        </div>'''
+
+    # ── Experiments ──────────────────────────────────────────────────────────
+    exp_html = ""
+    for exp in rm.get("experiments", []):
+        d = days_until(exp.get("review_by", ""))
+        if d is None:
+            countdown = ""
+        elif d < 0:
+            countdown = f'<span style="color:var(--red)">Review {abs(d)}d geleden</span>'
+        elif d == 0:
+            countdown = f'<span style="color:var(--yellow)">Review vandaag</span>'
+        else:
+            countdown = f'<span style="color:var(--cyan)">Review over {d}d</span>'
+
+        status = exp.get("status", "ACTIVE")
+        sc = "var(--green)" if status == "DONE" else "var(--yellow)"
+        exp_html += f'''
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-left:3px solid {sc};
+                    border-radius:10px;padding:16px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-weight:600;font-size:.9rem">{exp.get("id","")} — {exp.get("name","")}</div>
+                <div style="display:flex;gap:10px;align-items:center;font-size:.75rem">
+                    {countdown}
+                    <span style="color:{sc};font-weight:600">{status}</span>
+                </div>
+            </div>
+            <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px"><em>{exp.get("hypothesis","")}</em></div>
+            <div style="font-size:.75rem;color:var(--cyan)">Metric: {exp.get("metric","")}</div>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:4px">Wijziging: <code style="color:var(--text)">{exp.get("change","")}</code></div>
+        </div>'''
+
+    # ── Backlog ───────────────────────────────────────────────────────────────
+    backlog_html = ""
+    prio_color = {"HIGH": "var(--red)", "MID": "var(--yellow)", "LOW": "var(--blue)"}
+    for item in rm.get("backlog", []):
+        prio = item.get("priority", "MID")
+        pc = prio_color.get(prio, "var(--muted)")
+        blocked = item.get("blocked_until")
+        blocked_html = ""
+        if blocked:
+            d = days_until(blocked)
+            unblock_txt = f"Beschikbaar over {d}d ({blocked})" if d and d > 0 else f"Beschikbaar vanaf {blocked}"
+            blocked_html = f'<div style="font-size:.72rem;color:var(--yellow);margin-top:6px">&#x23F3; {unblock_txt} — {item.get("blocked_reason","")}</div>'
+        backlog_html += f'''
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-left:3px solid {pc};
+                    border-radius:10px;padding:14px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                <div style="font-weight:600;font-size:.88rem">{item.get("id","")} — {item.get("title","")}</div>
+                <div style="display:flex;gap:8px">
+                    <span style="font-size:.7rem;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.06);color:{pc}">{prio}</span>
+                    <span style="font-size:.7rem;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.04);color:var(--muted)">{item.get("category","")}</span>
+                </div>
+            </div>
+            <div style="font-size:.78rem;color:var(--muted)">{item.get("description","")}</div>
+            {blocked_html}
+        </div>'''
+
+    updated = rm.get("updated_at", "")
+    return f'''
+    <div class="section">
+        <div class="section-header">
+            <span class="section-title">&#x1F9EA; Actieve Experimenten</span>
+            <span class="section-badge">{len(rm.get("experiments",[]))} actief</span>
+            <span class="section-line"></span>
+        </div>
+        {exp_html or '<div style="color:var(--muted);font-size:.85rem">Geen actieve experimenten.</div>'}
+    </div>
+    <div class="section">
+        <div class="section-header">
+            <span class="section-title">&#x1F4CB; Backlog</span>
+            <span class="section-badge">{len(rm.get("backlog",[]))} items</span>
+            <span class="section-line"></span>
+        </div>
+        {backlog_html or '<div style="color:var(--muted);font-size:.85rem">Backlog leeg.</div>'}
+    </div>
+    <div class="section">
+        <div class="section-header">
+            <span class="section-title">&#x1F4DC; Changelog</span>
+            <span class="section-badge">bijgewerkt {updated}</span>
+            <span class="section-line"></span>
+        </div>
+        {changelog_html or '<div style="color:var(--muted);font-size:.85rem">Geen entries.</div>'}
+    </div>'''
+
+
 def _build_cpo_section(backlog_items):
     """Build the product backlog UI section showing CPO ideas."""
+    roadmap_html = _build_roadmap_section()
     if not backlog_items:
-         return '''<div class="explainer-card">
+        return roadmap_html or '''<div class="explainer-card">
             <div class="explainer-title">&#x1F4A1; CPO Vision Board</div>
             <div class="explainer-text">The Product Owner is analyzing logs. No backlog items generated yet.</div>
          </div>'''
@@ -804,10 +935,10 @@ def _build_cpo_section(backlog_items):
         '''
         cards.append(html)
 
-    return f'''
+    cpo_cards_html = f'''
     <div class="section">
         <div class="section-header">
-            <span class="section-title">&#x1F4CB; System Backlog & Ideas</span>
+            <span class="section-title">&#x1F4CB; CPO Agent Insights</span>
             <span class="section-badge">{len(backlog_items)} insights</span>
             <span class="section-line"></span>
         </div>
@@ -816,6 +947,7 @@ def _build_cpo_section(backlog_items):
         </div>
     </div>
     '''
+    return roadmap_html + cpo_cards_html
 
 
 def _build_rsi_section() -> str:

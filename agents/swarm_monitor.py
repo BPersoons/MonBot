@@ -233,6 +233,9 @@ class SwarmMonitor:
         # Check 18: trade drought — silent funnel halt, threshold-independent
         self._safe_check(self._check_trade_drought, now)
 
+        # ── Check 19: HL API wallet expiry warning ──────
+        self._safe_check(self._check_api_key_expiry, now)
+
         # Add detected_at timestamp to all findings
         now_str = now.strftime("%H:%M:%S UTC")
         for f in findings:
@@ -1811,6 +1814,124 @@ class SwarmMonitor:
         if _telegram_token() and _telegram_chat_id():
             self._send_telegram(msg)
         logger.warning(f"SwarmMonitor: treasury_state.json is {age_h:.1f}h stale")
+
+    # Check 19: HL API wallet expiry
+    # Hyperliquid API wallets expire after 180 days. Warn at 170/175/180.
+    _API_KEY_EXPIRY_DAYS   = 180
+    _API_KEY_WARN_DAYS     = [170, 175, 180]
+    _API_KEY_COOLDOWN_SEC  = 24 * 3600   # one alert per day per severity
+    _SECRETS_META_FILE     = "config/secrets_meta.json"
+    _API_KEY_DATE_CACHE_TTL = 6 * 3600   # re-query GCP at most every 6h
+    _api_key_date_cache: "Optional[Tuple[float, datetime]]" = None
+
+    def _get_api_key_created_at(self) -> "Optional[datetime]":
+        """Return the creation date of the latest HL_PRIVATE_KEY version.
+
+        Primary source: GCP Secret Manager (create_time of the latest version).
+        This updates automatically on every secret rotation — no manual step needed.
+        Fallback: secrets_meta.json (created_at field) for local dev without GCP.
+        Result is cached for _API_KEY_DATE_CACHE_TTL seconds.
+        """
+        now_ts = time.time()
+        if self._api_key_date_cache is not None:
+            cache_ts, cached_dt = self._api_key_date_cache
+            if now_ts - cache_ts < self._API_KEY_DATE_CACHE_TTL:
+                return cached_dt
+
+        # ── Try GCP Secret Manager first ──────────────────────────────────
+        try:
+            from google.cloud import secretmanager
+            project_id = (
+                os.getenv("GOOGLE_CLOUD_PROJECT")
+                or os.getenv("GCP_PROJECT")
+                or os.getenv("GCP_PROJECT_ID", "gen-lang-client-0441524375")
+            )
+            client = secretmanager.SecretManagerServiceClient()
+            name = f"projects/{project_id}/secrets/HL_PRIVATE_KEY/versions/latest"
+            version = client.get_secret_version(request={"name": name})
+            ct = version.create_time
+            # create_time is a protobuf Timestamp or already a datetime depending on library
+            if hasattr(ct, "ToDatetime"):
+                created = ct.ToDatetime()          # → naive UTC datetime
+            else:
+                created = ct.replace(tzinfo=None)  # already datetime, strip tz
+            self._api_key_date_cache = (now_ts, created)
+            return created
+        except Exception as e:
+            logger.debug(f"SwarmMonitor: GCP secret version date unavailable: {e}")
+
+        # ── Fallback: secrets_meta.json ────────────────────────────────────
+        try:
+            with open(self._SECRETS_META_FILE) as f:
+                meta = json.load(f)
+            created_str = meta.get("hl_api_wallet", {}).get("created_at")
+            if created_str:
+                created = datetime.fromisoformat(created_str).replace(tzinfo=None)
+                self._api_key_date_cache = (now_ts, created)
+                return created
+        except Exception:
+            pass
+
+        return None
+
+    def _check_api_key_expiry(self, now: datetime):
+        """Warn before the HL API wallet's 180-day expiry on Hyperliquid."""
+        if now.tzinfo is not None:
+            now = now.replace(tzinfo=None)
+
+        created = self._get_api_key_created_at()
+        if created is None:
+            return  # source unavailable — skip silently
+
+        age_days = (now - created).days
+        if age_days < min(self._API_KEY_WARN_DAYS):
+            return
+
+        if age_days >= 180:
+            severity  = "🚨 URGENT"
+            days_left = 0
+            cooldown  = 12 * 3600
+            alert_key = "api_key_expiry_urgent"
+        elif age_days >= 175:
+            severity  = "⚠️ DRINGEND"
+            days_left = 180 - age_days
+            cooldown  = self._API_KEY_COOLDOWN_SEC
+            alert_key = "api_key_expiry_dringend"
+        else:
+            severity  = "⚠️ WAARSCHUWING"
+            days_left = 180 - age_days
+            cooldown  = self._API_KEY_COOLDOWN_SEC
+            alert_key = "api_key_expiry_warning"
+
+        last_sent = self._sent_alerts.get(alert_key)
+        if last_sent and (now - last_sent).total_seconds() < cooldown:
+            return
+
+        self._sent_alerts[alert_key] = now
+        # Display address from meta file if available
+        addr = ""
+        try:
+            with open(self._SECRETS_META_FILE) as f:
+                addr = json.load(f).get("hl_api_wallet", {}).get("address", "")
+        except Exception:
+            pass
+        short = f"{addr[:8]}…{addr[-6:]}" if len(addr) > 14 else (addr or "onbekend")
+        days_msg = "VERLOPEN" if days_left == 0 else f"nog {days_left} dag(en)"
+        msg = (
+            f"{severity}: *HL API wallet loopt af*\n"
+            f"Wallet `{short}` is {age_days} dagen oud ({days_msg}).\n\n"
+            f"Stappen:\n"
+            f"1. Maak nieuwe API wallet aan op Hyperliquid\n"
+            f"2. Update `HL_WALLET_ADDRESS` + `HL_PRIVATE_KEY` in GCP Secret Manager\n"
+            f"3. `docker restart agent_trader_swarm`\n"
+            f"_(created\\_at wordt automatisch gelezen uit de nieuwe secret-versie)_"
+        )
+        if _telegram_token() and _telegram_chat_id():
+            self._send_telegram(msg)
+        logger.warning(
+            f"SwarmMonitor: HL API wallet {age_days}d oud "
+            f"(limiet {self._API_KEY_EXPIRY_DAYS}d, {days_msg})"
+        )
 
     # ──────────────────────────────────────────
     # Telegram command polling

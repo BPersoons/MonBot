@@ -1,0 +1,147 @@
+{
+  "updated_at": "2026-06-30",
+  "note": "Dit bestand is de single source of truth voor het product roadmap. Handmatig editeerbaar. Wordt gelezen door het dashboard.",
+
+  "changelog": [
+    {
+      "date": "2026-03-23",
+      "version": "RSI Fase 1",
+      "summary": "Extended Parameter RSI + CPO Auto-Execution live",
+      "impact": "Auto-tunable runtime params via auto_params.json",
+      "tags": ["infra"]
+    },
+    {
+      "date": "2026-05-18",
+      "version": "Funnel fix",
+      "summary": "tech_prefilter_min verlaagd naar 0.10 na noodstop",
+      "impact": "Trading hervat na zero-signal periode",
+      "tags": ["signal"]
+    },
+    {
+      "date": "2026-05-24",
+      "version": "Treasury Fase 1-2",
+      "summary": "Morpho, Gains gUSDC, FundingHarvest, RiskModel, YieldOracle, AllocationOptimizer live",
+      "impact": "Autonoom yield-systeem operationeel op Arbitrum",
+      "tags": ["treasury"]
+    },
+    {
+      "date": "2026-05-29",
+      "version": "Strategie v2",
+      "summary": "Regime-aware strategie: EMA200 gate + asset-class routing + commodity weights",
+      "impact": "+44.2% vs -9.1% baseline (backtest 60d, 18 tickers, +53pp)",
+      "tags": ["strategy", "backtest"]
+    },
+    {
+      "date": "2026-06-12",
+      "version": "Funnel heropening",
+      "summary": "Dead zone gefixed: LLM-bands nu threshold-derived i.p.v. hardcoded 0.38/0.28",
+      "impact": "0 trades Jun 7-12 → live trading hersteld",
+      "tags": ["bug", "signal"]
+    },
+    {
+      "date": "2026-06-22",
+      "version": "Signal quality v1",
+      "summary": "Regime×direction multipliers (auto-adaptief via shadow book) + FA weight 0.5→0.20",
+      "impact": "FA was consistent contra-indicator over 125+ trades; slechte regime/richting combis geblokkeerd",
+      "tags": ["signal", "shadow"]
+    },
+    {
+      "date": "2026-06-30",
+      "version": "Signal quality v2 + Fase 3 her-validatie",
+      "summary": "MeanRev conviction-bar (1h MeanRev 0.30/0.40) + ZEC 14d bench; Fase 3 tech-sizing en SA-degrade ge-invalideerd op live data",
+      "impact": "Live sinds 06-12: +$42.80, PF 1.20, 51% WR (71 trades). MeanRev LONG 0/3 nu geblokt; tech-magnitude & conviction blijken contra/extensie-proxy (size NIET opschalen); SA al structureel gedegradeerd",
+      "tags": ["signal", "shadow", "analysis"]
+    }
+  ],
+
+  "experiments": [
+    {
+      "id": "EXP-001",
+      "name": "FA weight reductie",
+      "status": "ACTIVE",
+      "started": "2026-06-22",
+      "review_by": "2026-06-29",
+      "hypothesis": "FA (fundamental) is een contra-indicator: verlagen van 0.5 naar 0.20 verbetert WR in de 0.20-0.25 scoreband",
+      "metric": "Score band 0.20-0.25 WR (baseline: 36.4%, target: >42%) + algemene trade kwaliteit",
+      "change": "core/agent_weights.json: fundamental 0.5 → 0.20"
+    },
+    {
+      "id": "EXP-002",
+      "name": "Regime×direction multipliers",
+      "status": "ACTIVE",
+      "started": "2026-06-22",
+      "review_by": "2026-07-06",
+      "hypothesis": "Auto-adapterende threshold multipliers per (regime, richting) combinatie verbeteren signaalfiltering en passen zich aan bij marktwisselingen",
+      "metric": "Shadow WR per regime×direction cel; live WR vergelijking pre/post",
+      "change": "agents/project_lead.py: _DEFAULT_REGIME_DIR_MULTIPLIERS + _load_regime_dir_multipliers()"
+    }
+  ],
+
+  "backlog": [
+    {
+      "id": "BL-001",
+      "priority": "HIGH",
+      "title": "MONITOR zone aanscherpen",
+      "category": "Signal Quality",
+      "description": "MONITOR heeft WR 33.7% vs NO_GO 39.7% — de pipeline bewaakt actief slechte setups. Promotielogica aanscherpen of MONITOR-window verkorten.",
+      "blocked_until": "2026-06-29",
+      "blocked_reason": "Wacht op resultaten EXP-001 (FA weight)"
+    },
+    {
+      "id": "BL-002",
+      "priority": "HIGH",
+      "title": "Scan universe: meer stocks, minder crypto",
+      "category": "Universe",
+      "description": "Tech stocks WR 52.8% (n=72) vs crypto WR 35.3% (n=235). Universe is nu 70% crypto. Tilten naar meer XYZ-stocks verhoogt gemiddelde signaalqualiteit. [2026-06-30 VERSTERKT] Shadow book (n=534) bevestigt scherper: tech_stock WR 48.3% (+37.6%) vs crypto 35.7% (−144%) vs commodity 40.8% (−4%). Enige consistent winstgevende klasse. Bij uitvoering: verifieer of XYZ-tokens door volume-ranking buiten de top-35 scan-universe vallen.",
+      "blocked_until": "2026-07-06",
+      "blocked_reason": "Wacht op EXP-002 review (07-06) + settelen MeanRev/ZEC changes van 06-30 voor schone attributie"
+    },
+    {
+      "id": "BL-003",
+      "priority": "MID",
+      "title": "MeanRev setup evalueren",
+      "category": "Signal Quality",
+      "status": "PARTIALLY_DONE",
+      "description": "[2026-06-30 GE-ACTIONEERD] MeanRev conviction-bar toegevoegd in project_lead.py SETUP_MIN_CONVICTION (1h MeanRev: 0.30 loose / 0.40 strict). Via ×0.60 SHORT-korting → SHORT effectief 0.18 (houdt winstgevende shorts), LONG hard 0.30 (blokt de bleeders). Origineel: 8 live trades WR 38%, −$13.40 netto; uitgesplitst is MeanRev LONG 0/3 (alle verlies, conv 0.27-0.32) en SHORT 3/5 (winstgevend) — vandaar de asymmetrische bar. Monitoren of de LONG-bleed nu stopt.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-004",
+      "priority": "MID",
+      "title": "SA weight evalueren",
+      "category": "Signal Quality",
+      "status": "RESOLVED_WONTFIX",
+      "description": "[2026-06-30 GERESOLVED — niet uitvoeren] De 'SA hoger voor losers (0.342 vs 0.303)' was een SHORT-confound: SA wordt al volledig uitgesloten uit SHORT-scoring (project_lead.py ~401-411) en 53/71 trades zijn SHORT. Op LONG-only (waar SA wél scoort) is SA NIET anti-predictief: PF 1.47, +$29 (n=18); alle longs self-selecten op bullish SA. SA niet verder verlagen — het is al excluded op shorts en geattenueerd op longs (0.5 × regime × active_weights).",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-005",
+      "priority": "MID",
+      "title": "Treasury Fase 3: Pendle PT executor",
+      "category": "Treasury",
+      "description": "Custom AMM (niet ERC-4626). Vereist swapExactTokenForPt(). Must hold to maturity voor par redemption. Hoog yield potentieel maar illiquide.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-006",
+      "priority": "LOW",
+      "title": "Limit-order entry op swing/fib retest",
+      "category": "Execution",
+      "description": "Betere entry via limit orders op pullbacks (fibonacci retest, swing lows). Verlaagt slippage en verbetert RRR. Vereist nieuwe ExecutionAgent logica.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-007",
+      "priority": "LOW",
+      "title": "Polymarket signaal activeren (Fase 2)",
+      "category": "Signal Quality",
+      "description": "Polymarket is nu in shadow/calibratie (Fase 1). Na voldoende data (>200 matches) evalueren of het scoring impact verdient.",
+      "blocked_until": null,
+      "blocked_reason": null
+    }
+  ]
+}

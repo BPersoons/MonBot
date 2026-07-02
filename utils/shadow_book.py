@@ -35,14 +35,22 @@ _BOOK_FILE   = "shadow_book.json"
 _REPORT_FILE = "shadow_report.json"
 
 _MIN_SCORE    = 0.10   # record decisions from just below the gate-1 SHORT floor
-_SL_PCT       = 3.0    # uniform bracket: stop loss %
-_TP_PCT       = 4.5    # uniform bracket: take profit % (1:1.5)
+_SL_PCT       = 3.0    # default bracket stop loss % (crypto)
+_TP_PCT       = 4.5    # default bracket take profit % (crypto, 1:1.5)
 _TIME_EXIT_H  = 24     # uniform time exit
 _COOLDOWN_H   = 6      # max one virtual trade per setup+direction per window
 _MAX_OPEN     = 80
 _MAX_RESOLVED = 1500
 _REPORT_DAYS  = 14     # aggregation window
 _BANDS = [(0.10, 0.15), (0.15, 0.20), (0.20, 0.25), (0.25, 1.01)]
+
+# Per-asset-class brackets: calibrated to typical 15m volatility per class.
+# R:R stays 1:1.5 across all; only the absolute width differs.
+_BRACKETS = {
+    "crypto":     {"sl": 3.0,  "tp": 4.5},   # crypto 15m vol ~1-2%
+    "tech_stock": {"sl": 2.0,  "tp": 3.0},   # XYZ equity daily vol ~1.5-3%
+    "commodity":  {"sl": 1.5,  "tp": 2.25},  # commodities slow-moving EMA entries
+}
 
 
 def _sanitize(obj):
@@ -127,9 +135,11 @@ class ShadowBook:
             except Exception:
                 asset_class = "crypto"
 
+            bkt = _BRACKETS.get(asset_class, {"sl": _SL_PCT, "tp": _TP_PCT})
+            sl_pct, tp_pct = bkt["sl"], bkt["tp"]
             is_long = str(direction).upper() != "SHORT"
-            sl = price * (1 - _SL_PCT / 100) if is_long else price * (1 + _SL_PCT / 100)
-            tp = price * (1 + _TP_PCT / 100) if is_long else price * (1 - _TP_PCT / 100)
+            sl = price * (1 - sl_pct / 100) if is_long else price * (1 + sl_pct / 100)
+            tp = price * (1 + tp_pct / 100) if is_long else price * (1 - tp_pct / 100)
             book.append({
                 "key": key,
                 "setup_id": setup_id,
@@ -140,6 +150,8 @@ class ShadowBook:
                 "entry_price": price,
                 "sl_price": sl,
                 "tp_price": tp,
+                "sl_pct": sl_pct,
+                "tp_pct": tp_pct,
                 "asset_class": asset_class,
                 "regime": self._regime(),
                 "analyst_signals": _sanitize(analyst_signals or {}),
@@ -219,6 +231,8 @@ class ShadowBook:
         sl, tp = float(trade["sl_price"]), float(trade["tp_price"])
         entry = float(trade["entry_price"])
 
+        trade_sl_pct = float(trade.get("sl_pct", _SL_PCT))
+        trade_tp_pct = float(trade.get("tp_pct", _TP_PCT))
         for c in candles:
             ts, high, low, close = c[0] / 1000.0, float(c[2]), float(c[3]), float(c[4])
             if ts < entry_ts:
@@ -226,10 +240,10 @@ class ShadowBook:
             hit_sl = (low <= sl) if is_long else (high >= sl)
             hit_tp = (high >= tp) if is_long else (low <= tp)
             if hit_sl:  # pessimistic: SL wins inside the same candle
-                pnl = -_SL_PCT
+                pnl = -trade_sl_pct
                 reason = "SL"
             elif hit_tp:
-                pnl = _TP_PCT
+                pnl = trade_tp_pct
                 reason = "TP"
             elif ts >= deadline:
                 pnl = (close / entry - 1) * 100 * (1 if is_long else -1)
@@ -268,7 +282,10 @@ class ShadowBook:
         report = {
             "generated_at": datetime.utcnow().isoformat(),
             "window_days": _REPORT_DAYS,
-            "bracket": {"sl_pct": _SL_PCT, "tp_pct": _TP_PCT, "time_exit_h": _TIME_EXIT_H},
+            "bracket": {
+                "sl_pct": _SL_PCT, "tp_pct": _TP_PCT, "time_exit_h": _TIME_EXIT_H,
+                "per_asset_class": _BRACKETS,
+            },
             "open_count": sum(1 for t in book if t.get("status") == "OPEN"),
             "overall": self._stats(resolved),
             "by_band": {},
@@ -276,6 +293,7 @@ class ShadowBook:
             "by_asset_class": {},
             "by_decision": {},
             "by_regime": {},
+            "by_band_x_direction": {},
         }
         for lo, hi in _BANDS:
             sel = [t for t in resolved if lo <= abs(float(t.get("score", 0))) < hi]
@@ -287,6 +305,19 @@ class ShadowBook:
                 groups[str(t.get(field, "?"))].append(t)
             for g, sel in groups.items():
                 report[key][g] = self._stats(sel)
+        for lo, hi in _BANDS:
+            for d in ("LONG", "SHORT"):
+                sel = [t for t in resolved
+                       if lo <= abs(float(t.get("score", 0))) < hi and t.get("direction") == d]
+                if sel:
+                    report["by_band_x_direction"][f"{lo:.2f}-{hi:.2f}_{d}"] = self._stats(sel)
+        regimes = sorted({str(t.get("regime", "?")) for t in resolved})
+        report["by_regime_x_direction"] = {}
+        for reg in regimes:
+            for d in ("LONG", "SHORT"):
+                sel = [t for t in resolved if t.get("regime") == reg and t.get("direction") == d]
+                if sel:
+                    report["by_regime_x_direction"][f"{reg}_{d}"] = self._stats(sel)
         try:
             with open(_REPORT_FILE, "w", encoding="utf-8") as f:
                 json.dump(_sanitize(report), f, indent=1)

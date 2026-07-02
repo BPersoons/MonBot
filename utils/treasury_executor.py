@@ -253,6 +253,28 @@ def _send_tx(to: str, data: str, private_key: str, gas_limit: int) -> str:
     return _rpc("eth_sendRawTransaction", [raw])
 
 
+def _estimate_gas(to: str, data: str, from_addr: str, fallback: int,
+                  buffer: float = 1.3, cap: int = 1_500_000) -> int:
+    """
+    Size a gas limit via eth_estimateGas + buffer, clamped to [fallback, cap].
+    Falls back to `fallback` when the RPC can't estimate (unsupported/blocked).
+
+    On Arbitrum the limit is only a ceiling — you pay for gasUsed — so
+    over-provisioning is free insurance against revert-on-out-of-gas. The
+    fixed _GAS_SUPPLY (320k) is sized for Aave's single supply() but is too
+    low for a Morpho MetaMorpho deposit, which iterates the supply queue
+    across multiple Morpho Blue markets (~500-900k gas). A too-low limit
+    reverts with status 0x0 / gasUsed==gasLimit, which eth_call dry-run does
+    NOT catch — so estimate dynamically.
+    """
+    try:
+        est = int(_rpc("eth_estimateGas", [{"from": from_addr, "to": to, "data": data}]), 16)
+    except Exception as e:
+        logger.warning(f"TreasuryExecutor: gas estimate failed ({e}) — using fallback {fallback}")
+        return fallback
+    return max(fallback, min(int(est * buffer), cap))
+
+
 # ── HL withdrawal ─────────────────────────────────────────────────────────────
 
 def _create_vault_withdrawal_client():
@@ -517,7 +539,12 @@ def _deposit_erc4626(amount_usd: float, vault_address: str, private_key: str) ->
 
     logger.info(f"TreasuryExecutor: depositing {amount_usd:.2f} USDC into ERC-4626 vault…")
     try:
-        deposit_hash = _send_tx(vault_address, deposit_data, private_key, _GAS_SUPPLY)
+        # Estimate gas now that allowance is set — Morpho MetaMorpho deposits
+        # iterate the supply queue and exceed the fixed _GAS_SUPPLY (320k),
+        # reverting out-of-gas (the prior BBQUSDC failures: gasUsed==320k).
+        deposit_gas  = _estimate_gas(vault_address, deposit_data, on_behalf, _GAS_SUPPLY)
+        logger.info(f"TreasuryExecutor: ERC-4626 deposit gas limit = {deposit_gas}")
+        deposit_hash = _send_tx(vault_address, deposit_data, private_key, deposit_gas)
         receipt = _wait_receipt(deposit_hash)
         if not receipt or receipt.get("status") != "0x1":
             raise RuntimeError(f"ERC-4626 deposit TX failed: {deposit_hash}")

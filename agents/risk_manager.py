@@ -32,21 +32,20 @@ class RiskManager:
             self.correlation_tracker = None
 
     def _get_btc_regime(self) -> str:
-        """BEARISH/BULLISH/NEUTRAL based on BTC 4h price vs 20-SMA. Fail-open → NEUTRAL."""
+        """Return BTC market regime from cached market_regime.json (written by ResearchAgent).
+
+        Values: TRENDING_BULL | TRENDING_BEAR | RANGING | VOLATILE | NEUTRAL.
+        Falls back to NEUTRAL when the file is absent, unreadable, or stale (>30 min).
+        Using the cached file avoids creating a fresh ccxt instance per trade validation
+        (~11s market-list reload) and keeps regime logic consistent with the rest of the pipeline.
+        """
         try:
-            import ccxt as _ccxt
-            _ex = _ccxt.hyperliquid({'enableRateLimit': True, 'options': {'defaultType': 'swap'}})
-            candles = _ex.fetch_ohlcv("BTC/USDC:USDC", timeframe="4h", limit=25)
-            if not candles or len(candles) < 21:
+            stat = os.stat("market_regime.json")
+            if time.time() - stat.st_mtime > 1800:  # stale after 30 min
                 return "NEUTRAL"
-            closes = [c[4] for c in candles]
-            sma20 = sum(closes[-20:]) / 20
-            current = closes[-1]
-            if current < sma20 * 0.995:
-                return "BEARISH"
-            elif current > sma20 * 1.005:
-                return "BULLISH"
-            return "NEUTRAL"
+            with open("market_regime.json") as f:
+                data = json.load(f)
+            return data.get("regime", "NEUTRAL")
         except Exception:
             return "NEUTRAL"
 
@@ -425,23 +424,25 @@ class RiskManager:
                     'metrics': {}, 'displacement_candidate': None}
 
         # STEP -2.5: MACRO REGIME GATE
-        # LONGs blocked in BEARISH regime; SHORTs blocked in BULLISH regime.
-        # NEUTRAL passes both directions — only strong trending regimes gate entries.
-        # XYZ-* assets (stocks/commodities) are exempt: they don't correlate with BTC on 4h.
+        # Reads market_regime.json (written each scan cycle by ResearchAgent).
+        # Gate fires only on confirmed strong trends — RANGING and VOLATILE pass both
+        # directions (shadow data: RANGING_SHORT WR=47% vs TRENDING_BULL_SHORT WR=0%).
+        # XYZ-* assets are exempt: stock/commodity correlation with BTC 4h is negligible.
         _action = trade_proposal.get('action', 'BUY')
         _is_xyz = str(ticker).startswith('XYZ-')
         if not _is_xyz:
             _regime = self._get_btc_regime()
-            if _action == 'BUY' and _regime == 'BEARISH':
-                self.logger.info(f"[MACRO_GATE] {ticker}: BUY blocked — BTC 4h BEARISH")
+            if _action == 'BUY' and _regime == 'TRENDING_BEAR':
+                self.logger.info(f"[MACRO_GATE] {ticker}: BUY blocked — BTC TRENDING_BEAR")
                 return {'approved': False,
-                        'reason': 'Macro regime BEARISH: long entries blocked (BTC below 4h 20-SMA)',
+                        'reason': 'Macro regime TRENDING_BEAR: long entries blocked',
                         'metrics': {'regime': _regime}, 'displacement_candidate': None}
-            if _action == 'SELL' and _regime == 'BULLISH':
-                self.logger.info(f"[MACRO_GATE] {ticker}: SELL blocked — BTC 4h BULLISH")
+            if _action == 'SELL' and _regime == 'TRENDING_BULL':
+                self.logger.info(f"[MACRO_GATE] {ticker}: SELL blocked — BTC TRENDING_BULL")
                 return {'approved': False,
-                        'reason': 'Macro regime BULLISH: short entries blocked (BTC above 4h 20-SMA)',
+                        'reason': 'Macro regime TRENDING_BULL: short entries blocked',
                         'metrics': {'regime': _regime}, 'displacement_candidate': None}
+            self.logger.info(f"[MACRO_GATE] {ticker}: {_action} passes — regime={_regime}")
         else:
             self.logger.info(f"[MACRO_GATE] {ticker}: XYZ asset — BTC regime gate skipped")
 

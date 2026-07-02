@@ -68,6 +68,8 @@ class ProjectLead:
         self.reasoning_history = []
         self._risk_veto_alert_times: dict = {}  # ticker → last_sent datetime (1h cooldown)
         self.load_weights()
+        self._regime_dir_multipliers: dict = dict(self._DEFAULT_REGIME_DIR_MULTIPLIERS)
+        self._shadow_mult_loaded_at: datetime | None = None
         try:
             from utils.auto_params import AutoParams
             self._auto_params = AutoParams()
@@ -104,6 +106,52 @@ class ProjectLead:
                     self.weights = json.load(f)
             except Exception as e:
                 self.logger.error(f"Failed to load weights: {e}")
+
+    def _load_regime_dir_multipliers(self) -> None:
+        """Recompute regime×direction threshold multipliers from shadow_report.json.
+        Falls back to _DEFAULT_REGIME_DIR_MULTIPLIERS for cells with insufficient data.
+        Called at startup and every 30 min during live operation.
+        """
+        from datetime import timedelta
+
+        def _mult(n: int, wr: float, avg_pnl: float, direction: str) -> float:
+            if n < self._SHADOW_MIN_SAMPLES:
+                return 1.0  # not enough data — stay neutral, keep default
+            if avg_pnl < -0.30 and wr < 35:
+                return 3.0 if direction == "LONG" else 2.0  # clearly bad edge
+            if avg_pnl < -0.10 and wr < 42:
+                return 1.50                                   # mediocre edge
+            if avg_pnl > 0.20 and wr > 47:
+                return 0.85                                   # good edge
+            return 1.0                                        # neutral
+
+        try:
+            with open("shadow_report.json") as f:
+                report = json.load(f)
+            multipliers = dict(self._DEFAULT_REGIME_DIR_MULTIPLIERS)
+            for key, stats in report.get("by_regime_x_direction", {}).items():
+                parts = key.rsplit("_", 1)
+                if len(parts) != 2 or parts[1] not in ("LONG", "SHORT"):
+                    continue
+                regime_key, dir_key = parts[0], parts[1]
+                m = _mult(stats.get("n", 0), stats.get("wr", 50),
+                          stats.get("avg_pnl_pct", 0), dir_key)
+                if m != 1.0:
+                    multipliers[(regime_key, dir_key)] = m
+                    self.logger.debug(
+                        f"[ShadowMult] {regime_key}+{dir_key}: "
+                        f"n={stats['n']} WR={stats['wr']:.1f}% avg={stats['avg_pnl_pct']:.3f}% → ×{m}"
+                    )
+            self._regime_dir_multipliers = multipliers
+            self.logger.info(
+                f"[ShadowMult] Loaded {len(multipliers)} regime×direction multipliers from shadow_report.json"
+            )
+        except FileNotFoundError:
+            pass  # shadow report not yet generated — defaults stay
+        except Exception as e:
+            self.logger.warning(f"[ShadowMult] Load failed: {e} — keeping current multipliers")
+        finally:
+            self._shadow_mult_loaded_at = datetime.now(timezone.utc)
 
     def _determine_strategic_weights(self, details: dict, direction: str = "LONG") -> tuple[dict, str]:
         """
@@ -171,6 +219,21 @@ class ProjectLead:
     _RANGING_SA_MIN   = 0.30   # below this → no clear catalyst in a ranging market
     _RANGING_FA_FLOOR = -0.20  # below this → fundamental red flag, not worth the risk
 
+    # Regime×direction threshold multipliers — bootstrapped from 336 shadow decisions (2026-06-22).
+    # The shadow loader overwrites these once shadow_report.json has enough samples per cell.
+    # Multiplier >1 = raise the bar (bad edge); <1 = lower the bar (good edge).
+    # Applied BEFORE the SHORT ×0.60 discount so both corrections are independent.
+    _DEFAULT_REGIME_DIR_MULTIPLIERS: dict = {
+        ("VOLATILE",      "LONG"):  3.0,   # WR 22%, avg -1.30%  n=27 — panic LONGs bleed out
+        ("RANGING",       "SHORT"): 2.0,   # WR 28%, avg -0.58%  n=69 — no trend to follow
+        ("TRENDING_BEAR", "LONG"):  1.5,   # WR 36%, avg -0.40%  n=36 — fighting the trend
+        ("TRENDING_BULL", "SHORT"): 1.5,   # WR 42%, avg -0.45%  n=19 — shorting a bull
+        ("RANGING",       "LONG"):  0.90,  # WR 51%, avg +0.51%  n=86 — mean-rev LONGs work
+        ("TRENDING_BEAR", "SHORT"): 0.90,  # WR 55%, avg +0.43%  n=11 — trend shorts work
+        ("VOLATILE",      "SHORT"): 0.85,  # WR 73%, avg +1.42%  n=11 — panic shorts work
+    }
+    _SHADOW_MIN_SAMPLES = 15  # below this, shadow data is noise — keep default
+
     async def synthesize_signals_async(self, ticker: str, market_context: dict = None) -> dict:
         """
         Gather signals from analysts concurrently and synthesize using LLM Council Debate.
@@ -197,6 +260,12 @@ class ProjectLead:
         tech_view = {"signal": 0.0, "status": "ERROR", "timeframes": {}, "summary": "TA Failed"}
         fund_view = {"signal": 0.0, "status": "SKIPPED", "summary": "Skipped (tech pre-filter)"}
         sent_view = {"signal": 0.0, "status": "SKIPPED", "summary": "Skipped (tech pre-filter)"}
+
+        # Refresh regime×direction multipliers from shadow_report every 30 min
+        from datetime import timedelta as _td
+        if self._shadow_mult_loaded_at is None or \
+                (datetime.now(timezone.utc) - self._shadow_mult_loaded_at) > _td(minutes=30):
+            self._load_regime_dir_multipliers()
 
         # XYZ — skip analysis when the underlying market is closed (asset-class aware):
         # equities trade Mon-Fri 14:30-21:00 UTC; commodities ~24/5 (Sun 23:00–Fri 22:00,
@@ -416,11 +485,13 @@ class ProjectLead:
         # VOLATILE raises it (only high-conviction in choppy conditions).
         _threshold = self._get_score_threshold()
         _threshold *= self._REGIME_THRESHOLD_MULT.get(regime, 1.0)
+        _rd_mult = self._regime_dir_multipliers.get((regime, direction), 1.0)
+        _threshold *= _rd_mult
         _effective_threshold = _threshold * 0.60 if direction == "SHORT" else _threshold
-        if regime not in ("NEUTRAL", "RANGING", "TRENDING_BULL"):
+        if _rd_mult != 1.0 or regime not in ("NEUTRAL", "RANGING", "TRENDING_BULL"):
             self.logger.info(
-                f"[{ticker}] Regime={regime} → threshold={_threshold:.3f} "
-                f"(mult={self._REGIME_THRESHOLD_MULT.get(regime, 1.0)})"
+                f"[{ticker}] Regime={regime} dir={direction} → threshold={_effective_threshold:.3f} "
+                f"(regime×{self._REGIME_THRESHOLD_MULT.get(regime, 1.0)} dir×{_rd_mult})"
             )
         if abs(base_score) < _effective_threshold:
             self.logger.info(f"[FUNNEL] {ticker}: GATE_1_FAILED score={base_score:.2f} < {_effective_threshold:.3f} threshold (dir={direction})")
@@ -781,12 +852,18 @@ class ProjectLead:
                 "1h Macro":   0.35,
                 "Macro News": 0.30,
                 "4h Swing":   0.40,
+                "1h MeanRev": 0.40,
             }
         else:
             SETUP_MIN_CONVICTION = {
                 "1h Macro":   0.25,
                 "Macro News": 0.20,
                 "4h Swing":   0.30,
+                # MeanRev bar +0.05 above 1h Macro (live data 2026-06-30: MeanRev LONG
+                # 0/3, conv 0.27-0.32; MeanRev SHORT 3/5 profitable). With the SHORT ×0.60
+                # discount below this lands at 0.18 for SHORT (keeps profitable shorts)
+                # and a hard 0.30 for LONG (blocks the bleeders).
+                "1h MeanRev": 0.30,
             }
         _setup_tf = (market_context or {}).get(ticker, {}).get('timeframe', '1h Macro')
         MIN_CONVICTION = SETUP_MIN_CONVICTION.get(_setup_tf, SETUP_MIN_CONVICTION["1h Macro"])
