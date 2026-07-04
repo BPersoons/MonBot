@@ -192,6 +192,15 @@
       "description": "[2026-07-02] Grootste enkele allocatie zit in een epoch-based (niet-instant) vault, terwijl de liquidity guard nieuwe deposits daar juist blokkeert. Bespreekpunt: afbouwen naar Aave/Morpho voor liquiditeit, of bewust houden voor de hogere yield.",
       "blocked_until": null,
       "blocked_reason": null
+    },
+    {
+      "id": "BL-011",
+      "priority": "HIGH",
+      "title": "MASTERPLAN: sleeves + meta-allocator (docs/MASTERPLAN.md)",
+      "category": "Strategy",
+      "description": "[2026-07-04] Strategische herijking richting passief inkomen op 100k+: 5 sleeves (yield core, basis/funding delta-neutraal, house-vaults/HLP, directionele swarm, XYZ-lab) met eigen NAV, risk budget en kill-criteria, plus meta-allocator die wekelijks herweegt op rolling risk-adjusted rendement. Fasering F0-F5 met validatiepoorten; kapitaal-opschaling 3k->10k->30k->100k op poorten, niet op datums. Eerste stap: Fase 0 sleeve-NAV boekhouding. Volledige plan: docs/MASTERPLAN.md.",
+      "blocked_until": null,
+      "blocked_reason": null
     }
   ]
 }
