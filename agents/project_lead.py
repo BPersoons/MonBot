@@ -893,16 +893,37 @@ class ProjectLead:
 
         # Structure-based RRR gate — skip trades where market structure doesn't
         # offer >=1.5 reward per unit risk. Measured on swing-low/high + Fib 1.618.
+        # 2026-07-04: only enforced when execution would actually trade NEAR these
+        # structure levels (structure SL within the setup's SL cap). When the structure
+        # SL is wider than the cap, StrategyManager.calculate_levels() discards the
+        # structure and falls back to ATR brackets (SL <= cap, RRR >= 1.5 by
+        # construction) — hard-rejecting on those discarded hypothetical levels starved
+        # the funnel (07-02..04: 175 downgrades, 0 trades in 53h; e.g. VVV SHORT with a
+        # 12%-wide structure SL from a stale swing high while price fell another 4%).
         MIN_STRUCTURE_RRR = 1.5
         _swing = details.get('technical', {}).get('swing_levels', {}) or {}
         if next_step == "BUILD_CASE" and _swing.get('valid'):
             _irrr = float(_swing.get('implied_rrr', 0.0) or 0.0)
+            _sl_cap = 0.05 if _setup_tf == "4h Swing" else 0.03
+            _sl_s = float(_swing.get('sl_suggest') or 0.0)
+            _structure_sl_pct = (abs(current_price - _sl_s) / current_price
+                                 if current_price and _sl_s else 1.0)
             if _irrr < MIN_STRUCTURE_RRR:
-                self.logger.info(
-                    f"[FUNNEL] {ticker}: RRR_GATE implied_rrr={_irrr:.2f} < {MIN_STRUCTURE_RRR} "
-                    f"(sl={_swing.get('sl_suggest')}, tp={_swing.get('tp_suggest')}) → MONITOR"
-                )
-                next_step = "MONITOR"
+                if _structure_sl_pct <= _sl_cap:
+                    # Structure is nearby and genuinely poor: invalidation close,
+                    # target close — the ATR bracket would sit inside bad structure.
+                    self.logger.info(
+                        f"[FUNNEL] {ticker}: RRR_GATE implied_rrr={_irrr:.2f} < {MIN_STRUCTURE_RRR} "
+                        f"(sl={_swing.get('sl_suggest')}, tp={_swing.get('tp_suggest')}, "
+                        f"structure_sl={_structure_sl_pct*100:.1f}%) → MONITOR"
+                    )
+                    next_step = "MONITOR"
+                else:
+                    self.logger.info(
+                        f"[FUNNEL] {ticker}: RRR_GATE skipped — structure SL "
+                        f"{_structure_sl_pct*100:.1f}% > {_sl_cap*100:.0f}% cap; "
+                        f"execution uses ATR brackets (implied_rrr={_irrr:.2f} ignored)"
+                    )
 
         if next_step == "BUILD_CASE":
 

@@ -91,7 +91,8 @@
       "name": "Signal quality v3 — gate-unificatie + no-progress stop + universe tilt",
       "status": "ACTIVE",
       "started": "2026-07-02",
-      "review_by": "2026-07-09",
+      "review_by": "2026-07-11",
+      "note_2026_07_04": "RRR_GATE-fix toegevoegd: gate vuurt alleen nog als structuur-SL binnen de setup-cap ligt (anders gebruikt executie toch ATR-brackets — 175 onterechte downgrades, 0 trades in 53h). Review verschoven 07-09 → 07-11: meetvenster bevatte 3 dode dagen (4-juli-weekend, XYZ dicht + crypto-chop).",
       "hypothesis": "Funnel heropenen (multiplier-fix + soft MACRO_GATE), stage-0 bleed kappen (no-progress stop 5h) en universe naar XYZ-equities tilten (1/3 slots) herstelt trade flow en brengt PF > 1.0",
       "metric": "Trades/dag > 4; PF sinds ijkpunt 07-02 > 1.0; aandeel stage-0 verlies in totaal verlies omlaag (baseline sinds 06-12: -$236 van -$248 bruto); XYZ-aandeel in executed trades omhoog (baseline 14%); NO_PROGRESS_TIMEOUT exits gemiddeld kleiner verlies dan STOP_LOSS exits",
       "change": "project_lead.py (_load_regime_dir_multipliers fix, deferred flag), risk_manager.py (MACRO_GATE soft), strategy_manager.py (rule 5c NO_PROGRESS_TIMEOUT + detect_asset_class guard), research_agent.py (UniverseTilt), main.py (deferred skip), ticker_state.py (cooldowns), config/auto_params.json (no_progress_exit_hours=5.0)"
