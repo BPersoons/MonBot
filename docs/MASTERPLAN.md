@@ -54,7 +54,7 @@ Nieuwe protocollen betalen vroege gebruikers (points/airdrops). Klein kapitaal, 
 
 ### Bron F — TradFi-sleeve: ETF's + optie-inkomen (toegevoegd 2026-07-05)
 De enige bron met **decennia aan validatiedata**, vrijwel onbeperkte capaciteit en gereguleerde EUR-custody — en daarmee ook de structurele oplossing voor venue-concentratie bij 100k. Volledig automatiseerbaar via de IBKR-API (ib_insync), inclusief **gratis paper-trading account** voor snel-falen zonder risico. Drie bewezen, systematische strategieën:
-1. **Kern-compounder**: accumulerende wereld-index-ETF (lange termijn ~7-10% nominaal) als TradFi-fundament. Fiscaal doorgaans gunstig voor accumulerend in België (check accountant — geen advies).
+1. **Kern-compounder**: accumulerende wereld-index-ETF (lange termijn ~7-10% nominaal) als TradFi-fundament. NB (NL, box 3): vermogensbelasting op het vermogen zelf, geen belasting per transactie — strategiekeuze is fiscaal weinig gevoelig; check niettemin de actuele box-3-regels (werkelijk rendement) met een adviseur.
 2. **Trend/dual-momentum overlay**: 12-maands trendfilter / relatieve momentum over index-ETF's — 50+ jaar literatuur en data, historisch vergelijkbaar rendement met fors kleinere drawdowns dan buy&hold. Maandelijkse herweging = traag, robuust, goedkoop.
 3. **Optie-inkomen (variance risk premium)**: covered calls op de kernpositie / cash-secured puts — structureel betaald worden om risico te dragen, zelfde filosofie als onze funding- en house-sleeves maar op gereguleerde markten. Doel: 5-12% premie-inkomen per jaar bovenop de onderliggende positie.
 
@@ -160,7 +160,42 @@ De directionele swarm doet ondertussen gewoon mee (EXP-003 loopt, review 07-11) 
 2. **Basisvaluta**: rapportage in EUR én USD; 100k in USD-stables = een impliciete EUR/USD-positie. Optie voor later: deel yield core in EUR-stables (EURC op Aave).
 3. **Lab-sleeve E (points/airdrops)**: default AAN, max 5%, alleen protocollen met RiskModel-profiel.
 4. **HLP-drawdowns**: default geaccepteerd (capped op sleeve-budget) — je bent het huis, het huis heeft slechte avonden.
-5. **Broker voor TradFi-sleeve**: default IBKR (enige met volwaardige API voor volledige automatisering + opties + paper-accounts). Alternatieven (Bolero/DEGIRO/Saxo) zijn fiscaal-administratief eenvoudiger voor Belgen maar niet of nauwelijks automatiseerbaar — en "alles beheerd" was de eis.
+5. **Broker voor TradFi-sleeve**: default IBKR (enige met volwaardige API voor volledige automatisering + opties + paper-accounts). NL-alternatieven (DEGIRO, Saxo) zijn administratief eenvoudiger maar niet of nauwelijks automatiseerbaar — en "alles beheerd" was de eis.
+
+---
+
+## 8. Opportunity Radar — het vinden van kansen als systeemfunctie
+
+*Toegevoegd 2026-07-05. ETFs bleken een gat in het plan; de les is niet "voeg ETFs toe" maar "maak kansen-scouting structureel". Dit is de levende lijst + het proces.*
+
+### Proces: maandelijkse Opportunity Scan
+Elke maand (routine, ProductOwner-agent uitbreiden + mens): (1) welke nieuwe markten/protocollen/instrumenten zijn er bijgekomen, (2) welke structurele geldstroom zit erachter (wie betaalt wie, en waarom), (3) past het bij een bestaande sleeve of is het lab-materiaal, (4) shadow-first ontwerp. Elke kandidaat krijgt een radar-entry hieronder met status: IDEE → SHADOW → LIVE-KLEIN → SLEEVE / KILLED.
+
+### Tier 1 — direct inpasbaar in bestaande sleeves (IDEE)
+| Kans | Geldstroom | Past in | Waarom onderbenut |
+|---|---|---|---|
+| **Staking (ETH/SOL + LSTs)** | Netwerk-inflatie + fees (3-7%) | Yield core | Onze yield core is 100% stablecoin — hele laag ontbreekt |
+| **Tokenized T-bills / RWA** (sDAI, Ondo) | US risicovrije rente on-chain | Yield core | De vloer waar elke sleeve boven moet presteren |
+| **Crypto-optiepremie** (Deribit/Aevo) | Variance risk premium — dikker dan TradFi door gokkers | House | Vol verkopen in crypto is dun bezet terrein |
+| **FX carry** (via IBKR) | Renteverschillen tussen valuta | TradFi | Institutionele klassieker, particulieren doen het zelden systematisch |
+
+### Tier 2 — nieuwe infra, weinig concurrentie (IDEE)
+| Kans | Geldstroom | Past in | Validatie |
+|---|---|---|---|
+| **Token-unlock kalender** | Voorspelbare verkoopdruk op publieke unlock-datums | Lab | Shadow: log koersgedrag rond unlocks, n≥30 events |
+| **Cross-venue funding-arb** (HL vs Binance/Bybit) | Funding-differentieel tussen venues | Basis | Vereist 2e venue-account + transfer-infra |
+| **Keeper/liquidation bots** (Aave/Morpho bounties) | Protocol betaalt uitvoerders — infrastructuur-inkomen | Lab | Klein beginnen: bounty-monitor in shadow |
+| **Depeg-reversie** | Paniekverkopers betalen premie voor exit | Lab | Staande limietorders, kost niets tot het gebeurt |
+| **Weekend/kalender-effecten** | Structurele patronen (wij zagen zelf 4-juli-effect) | Lab | Shadow op bestaande data |
+
+### Tier 3 — het systeem zelf als product (LANGE TERMIJN)
+- **HL vault met externe deposits + winstdeling**: zodra sleeves een bewezen track record hebben, kan het systeem kapitaal van derden beheren tegen fees. Passief inkomen ontkoppelt dan van eigen inleg — het track record wórdt het product. Voorwaarde: ≥6 maanden geauditeerde sleeve-NAV historie.
+- Zelfde patroon elders: Morpho-curator, copy-trading platformen.
+
+### Radar-regels
+1. Niets gaat live zonder shadow-fase of paper-account — meten is gratis, verliezen niet.
+2. Elke radar-entry die 2 scans blijft liggen zonder actie wordt expliciet KILLED of gepromoveerd — geen eeuwige lijstjes.
+3. De vraag bij elke kans is altijd dezelfde: **welke structurele geldstroom vang ik, en wie betaalt hem waarom?** Geen antwoord = geen kans.
 
 ---
 
