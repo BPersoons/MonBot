@@ -52,6 +52,14 @@ Alles éérst in shadow (het patroon dat we al hebben), pas live bij aangetoonde
 ### Lab-bron E (optioneel) — Early-protocol incentives
 Nieuwe protocollen betalen vroege gebruikers (points/airdrops). Klein kapitaal, systematisch gekwalificeerd, historisch de meest asymmetrische "passieve" opbrengst in crypto. Default: max 5% van kapitaal, alleen protocollen die al door onze RiskModel-profilering komen.
 
+### Bron F — TradFi-sleeve: ETF's + optie-inkomen (toegevoegd 2026-07-05)
+De enige bron met **decennia aan validatiedata**, vrijwel onbeperkte capaciteit en gereguleerde EUR-custody — en daarmee ook de structurele oplossing voor venue-concentratie bij 100k. Volledig automatiseerbaar via de IBKR-API (ib_insync), inclusief **gratis paper-trading account** voor snel-falen zonder risico. Drie bewezen, systematische strategieën:
+1. **Kern-compounder**: accumulerende wereld-index-ETF (lange termijn ~7-10% nominaal) als TradFi-fundament. Fiscaal doorgaans gunstig voor accumulerend in België (check accountant — geen advies).
+2. **Trend/dual-momentum overlay**: 12-maands trendfilter / relatieve momentum over index-ETF's — 50+ jaar literatuur en data, historisch vergelijkbaar rendement met fors kleinere drawdowns dan buy&hold. Maandelijkse herweging = traag, robuust, goedkoop.
+3. **Optie-inkomen (variance risk premium)**: covered calls op de kernpositie / cash-secured puts — structureel betaald worden om risico te dragen, zelfde filosofie als onze funding- en house-sleeves maar op gereguleerde markten. Doel: 5-12% premie-inkomen per jaar bovenop de onderliggende positie.
+
+*Brug op huidige rails: XYZ-SP500/XYZ100 geven al synthetische equity-beta op HL — bruikbaar voor het lab, geen vervanging voor echte custody.*
+
 De **directionele swarm blijft bestaan** — als sleeve met vast, klein budget en een harde bewijslast (PF > 1.3 over 100+ trades) vóór hij meer krijgt. Hij is de optie op hoge upside, niet de kurk waar alles op drijft.
 
 ---
@@ -84,13 +92,14 @@ De **directionele swarm blijft bestaan** — als sleeve met vast, klein budget e
 
 | Sleeve | Startgewicht | Realistisch target | Karakter |
 |---|---|---|---|
-| Yield core (A+C) | 40% | 5-9% APY | Fundament, altijd liquide |
-| Basis/funding (A) | 25% | 8-20% APY | Marktneutraal, schaalt in mania |
-| House-vaults (B) | 15% | 10-20% APY | Drawdowns horen erbij |
-| Directionele swarm | 10% | optie op >30%, bewijs vereist | Hoog risico |
-| Lab (D+E) | 10% | asymmetrisch | Experimenten, klein per stuk |
+| TradFi (F): ETF-kern + trend + optie-inkomen | 30% | 8-15% (beta + premie) | Onbeperkte capaciteit, EUR-custody, decennia data |
+| Yield core (A+C) | 25% | 5-9% APY | Fundament, altijd liquide |
+| Basis/funding (A) | 20% | 8-20% APY, 30-50% in mania | Marktneutraal, schaalt juist in gekte |
+| House-vaults (B) | 10% | 10-20% APY | Drawdowns horen erbij |
+| Directionele swarm | 7,5% | optie op >30%, bewijs vereist | Hoog risico |
+| Lab (D+E) | 7,5% | asymmetrisch | Experimenten, klein per stuk |
 
-**Eerlijke verwachting**: blended 8-15% per jaar bij vol beheer = **€8-15k passief inkomen op 100k**, met upside in gunstige regimes. Geen beloftes van 50%+; wie dat belooft verkoopt iets.
+**Verwachting, eerlijk geformuleerd**: het **basisscenario** bij deze startgewichten is blended 8-15% per jaar (= €8-15k passief op 100k). Dat is de vloer waarop je plant, **geen plafond**: de allocator is er juist voor gebouwd om gewichten te verschuiven naar wat op dat moment meer verdient — funding-regimes van 30-50%, een swarm die zijn bewijs levert, een lab-strategie die aanslaat. In gunstige regimes is 20-30% blended haalbaar; het verschil met "beloofd rendement" is dat wij het pas geloven als de sleeve-NAV het laat zien. Geen beloftes van structureel 50%+; wie dat belooft verkoopt iets.
 
 ---
 
@@ -126,6 +135,14 @@ De **directionele swarm blijft bestaan** — als sleeve met vast, klein budget e
 - TreasuryAgent-uitbreiding: wekelijkse herweging over álle sleeves op rolling risk-adjusted rendement. Eerste 4 weken mens-in-de-loop (Telegram-approve), daarna autonoom binnen het risicokader.
 - *Poort F5: 4 weken schaduw-adviezen die je zelf ook gedaan zou hebben → autonoom.*
 
+### Fase 6 — TradFi-sleeve via IBKR (week 2-12, parallel — start in paper)
+- Week 2-3: IBKR-account (echt + paper), API-koppeling (ib_insync), sleeve-NAV integratie.
+- Week 3-8: trend/dual-momentum strategie **eerst backtesten op 20+ jaar data** (dat kán hier, uniek onder onze sleeves), daarna live in **paper-account** — gratis snel-falen.
+- Week 4-8: covered-call module in paper naast de kern-ETF.
+- *Poort F6a: backtest bevestigt literatuur (Sharpe > buy&hold, kleinere max DD) → kern-ETF live met echte eerste tranche.*
+- *Poort F6b: 4 weken paper-trading zonder executie-verrassingen → trend-overlay en optie-inkomen live.*
+- Fiscale check (accumulerend vs distribuerend, optiepremies) door accountant vóór echte inleg — geen fiscaal advies van het systeem.
+
 ### Kapitaal-opschaling (poorten, geen datums)
 | Stap | Voorwaarde |
 |---|---|
@@ -143,6 +160,7 @@ De directionele swarm doet ondertussen gewoon mee (EXP-003 loopt, review 07-11) 
 2. **Basisvaluta**: rapportage in EUR én USD; 100k in USD-stables = een impliciete EUR/USD-positie. Optie voor later: deel yield core in EUR-stables (EURC op Aave).
 3. **Lab-sleeve E (points/airdrops)**: default AAN, max 5%, alleen protocollen met RiskModel-profiel.
 4. **HLP-drawdowns**: default geaccepteerd (capped op sleeve-budget) — je bent het huis, het huis heeft slechte avonden.
+5. **Broker voor TradFi-sleeve**: default IBKR (enige met volwaardige API voor volledige automatisering + opties + paper-accounts). Alternatieven (Bolero/DEGIRO/Saxo) zijn fiscaal-administratief eenvoudiger voor Belgen maar niet of nauwelijks automatiseerbaar — en "alles beheerd" was de eis.
 
 ---
 
