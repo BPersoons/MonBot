@@ -388,6 +388,14 @@ def main():
             try:
                 _nav_report = sleeve_nav.snapshot_if_new_day()
                 if _nav_report:
+                    # Combineer met de Fase 1 shadow-status in één dagelijkse
+                    # digest — anders blijft ShadowBasis dagenlang stil zodra
+                    # de funding-rate onder de open-drempel zit.
+                    if shadow_basis is not None:
+                        try:
+                            _nav_report += "\n" + shadow_basis.daily_status_text()
+                        except Exception as e:
+                            logger.debug(f"ShadowBasis daily_status_text failed: {e}")
                     sleeve_nav.send_telegram(_nav_report)
             except Exception as e:
                 logger.error(f"⚠️ SleeveNAV failed: {e}")

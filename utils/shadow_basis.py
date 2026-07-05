@@ -286,6 +286,43 @@ class ShadowBasis:
             except Exception as e:
                 logger.warning(f"ShadowBasis: Telegram send mislukt (mode={parse_mode}): {e}")
 
+    # ── daily heartbeat ──────────────────────────────────────────────
+    def daily_status_text(self) -> str:
+        """Compact status blurb for the daily digest — bedoeld om aan het
+        SleeveNAV-bericht te plakken zodat Fase 1 ook zichtbaar blijft
+        tijdens dagen zonder virtuele open/close (rate onder drempel).
+        Leest alleen bestaande state/report-bestanden — geen live HL-calls,
+        zodat dit nooit de dagelijkse digest kan vertragen of laten falen.
+        """
+        state = self._load_state()
+        try:
+            with open(_REPORT_FILE) as f:
+                report = json.load(f)
+        except Exception:
+            report = {}
+
+        lines = ["", "🧪 *Shadow Basis (Fase 1, virtueel — geen echt kapitaal)*"]
+        if state.get("status") == "ACTIVE":
+            hours = (time.time() - state.get("opened_ts", time.time())) / 3600.0
+            lines.append(
+                f"  Open: {state.get('asset')} sinds {hours:.1f}h "
+                f"(rate bij open {state.get('rate_at_open', 0):.4f}%/8h, "
+                f"laatst gezien {state.get('last_rate', 0):.4f}%/8h)"
+            )
+        else:
+            lines.append(f"  Status: IDLE — wacht op funding ≥ {_MIN_RATE_8H:.3f}%/8h op BTC/ETH")
+
+        n = report.get("n_closed", 0)
+        if n > 0:
+            lines.append(
+                f"  Historie: {n}x gesloten | netto ${report.get('total_net_pnl_usd', 0):+.2f} "
+                f"(gem. {report.get('avg_net_apy_pct_annualized', 0):+.0f}% APY — "
+                f"korte holds vertekenen dit, zie cumulatieve USD als hoofdmaat)"
+            )
+        else:
+            lines.append("  Historie: nog geen gesloten virtuele trades")
+        return "\n".join(lines)
+
     # ── report ───────────────────────────────────────────────────────
     def build_report(self) -> dict:
         try:
