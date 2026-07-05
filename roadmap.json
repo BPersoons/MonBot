@@ -204,6 +204,16 @@
       "blocked_reason": null
     },
     {
+      "id": "BL-012",
+      "priority": "HIGH",
+      "title": "Fase 1 Funding Harvest 2.0 — ontwerp klaar, wacht op F0-poort",
+      "category": "Treasury",
+      "status": "DESIGN_READY",
+      "description": "[2026-07-05] Volledig ontwerp in docs/FASE1_FUNDING_HARVEST_DESIGN.md. Kernvondst: HL heeft UBTC/USDC (@142) en UETH/USDC (@151) spot-pairs met scherpe spreads (~1,6 bps / ~0,6 bps) en voldoende diepte voor 2.500 euro test-notional, basis vs perp verwaarloosbaar (~2 bps) -- echte delta-neutrale hedge (long spot + short perp, zelfde venue) is haalbaar. Gap: exchange_client.py hardcoded defaultType=swap, kiest altijd perp boven spot -- spot-order-capability moet gebouwd worden. Bestaande FundingHarvestor (naakte short, $150 cap, BTC/ETH) blijft ongewijzigd/apart. Geen code/kapitaal aangeraakt -- start pas na EXP-004 F0-poort (7 dagen foutloos).",
+      "blocked_until": null,
+      "blocked_reason": "Wacht op EXP-004 F0-poort (sleeve-NAV, 7 dagen foutloos) voordat kapitaal wordt ingezet"
+    },
+    {
       "id": "BL-011",
       "priority": "HIGH",
       "title": "MASTERPLAN: sleeves + meta-allocator (docs/MASTERPLAN.md)",
