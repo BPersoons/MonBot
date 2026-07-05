@@ -68,18 +68,31 @@ De centrale vraag was: heeft HL spot-markten met genoeg liquiditeit om de long-p
 
 ---
 
-## 7. Concreet stappenplan (uit te voeren zodra F0-poort valt)
+## 7. Shadow mode — live sinds 2026-07-05 (geen kapitaal, geen orders)
+
+Op Bart's voorstel: in plaats van te wachten tot de F0-poort valt voordat er iets gebeurt, draait er nu een **virtuele** versie van de basis-trade mee — `utils/shadow_basis.py`, zelfde filosofie als het bestaande ShadowBook-patroon. Elke ~5 minuten: haalt live funding-rates + de echte UBTC/UETH-orderboeken op (publieke HL-endpoints, geen keys nodig), simuleert open/monitor/close volgens de logica uit sectie 5, en logt het resultaat — inclusief een placeholder fee-aanname (3,5 bps × 4 poten, expliciet gemarkeerd als te vervangen zodra de echte fee-schedule bekend is, zie open vraag #3). Bij elke virtuele close krijgt Bart een Telegram-melding.
+
+Bestanden: `shadow_basis_state.json` (open virtuele positie), `shadow_basis_log.json` (gesloten, bounded 500), `shadow_basis_report.json` (cumulatief: totale funding, fees, netto P&L, gemiddelde APY, max geobserveerde basis-spread, close-reden-verdeling).
+
+**Nieuwe, striktere gate-volgorde** (vervangt de oude enkelvoudige Poort F1):
+
+- **Poort F1-shadow**: N dagen shadow-data (richtwaarde: 2-3 weken, genoeg voor meerdere funding-cycli en marktomstandigheden) met modelmatig netto APY > 8% en een stabiele basis (geen herhaalde `basis_blowout`-closes). Kost niets, loopt al.
+- **Poort F1-live** (pas ná F1-shadow én de F0-poort): eerste echte inzet, klein (€500-2.500), ≥3 weken, netto APY > 8% ná échte fees, max drawdown < 2% → pas dan opschalen naar het volledige sleeve-gewicht.
+
+**Methodologische kanttekening** (ontdekt tijdens het testen van de rekenkern): bij korte houdduren domineren de fees de geannualiseerde APY enorm — een positie die na 2 uur sluit op de rate-drop-conditie toont een APY van honderden procenten negatief, puur omdat een vast kostenbedrag over een paar uur wordt geëxtrapoleerd naar een jaar. Beoordeel de shadow-resultaten dus op **cumulatieve netto USD** en het gemiddelde over voldoende trades, niet op de APY van een individuele korte trade.
+
+## 8. Concreet stappenplan voor de LIVE stap (uit te voeren zodra beide poorten vallen)
 
 1. `exchange_client.py`: spot-order-capability toevoegen (nieuwe methode, geen breaking change aan bestaand perp-pad).
-2. `treasury_agent.py`: nieuwe `BasisHarvestor`-klasse (of uitbreiding van de bestaande) met de symmetrische open/monitor/close-logica uit sectie 5, eigen `treasury_basis.json`.
+2. `treasury_agent.py`: nieuwe `BasisHarvestor`-klasse (of uitbreiding van de bestaande) met de symmetrische open/monitor/close-logica uit sectie 5, eigen `treasury_basis.json`. Kan grotendeels de bewezen logica uit `shadow_basis.py` hergebruiken.
 3. `config/sleeves.json`: mapping voor de spot-component van de basis-sleeve toevoegen; `utils/sleeve_nav.py` uitbreiden zodat een sleeve met twee componenten (spot + perp-marge) correct optelt zonder dubbeltelling.
-4. HL fee-schedule ophalen, netto-APY-rekenmodel vastleggen (funding − fees beide poten − slippage beide poten).
+4. HL fee-schedule ophalen, de placeholder-aanname in het netto-APY-model vervangen door echte cijfers.
 5. RiskManager: expliciete uitsluiting/aparte boeking van basis-trade-posities in de correlation-cap-check.
-6. Test-notional €2.500 (of kleiner startbedrag, bv. €500, als extra voorzichtige eerste stap — te beslissen bij uitvoering), BTC of ETH afhankelijk van welke op dat moment de beste funding-rate heeft.
-7. Live monitoren tegen **Poort F1**: ≥3 weken, netto APY > 8%, max drawdown < 2% → pas dan opschalen naar het volledige sleeve-gewicht.
+6. Test-notional €2.500 (of kleiner startbedrag, bv. €500, als extra voorzichtige eerste stap — te beslissen bij uitvoering), BTC of ETH afhankelijk van welke op dat moment de beste funding-rate + shadow-track-record heeft.
+7. Live monitoren tegen **Poort F1-live** → pas dan opschalen naar het volledige sleeve-gewicht.
 
 ---
 
-## 8. Wat dit ontwerp NIET doet
+## 9. Wat dit ontwerp NIET doet
 
-Geen regel productiecode aangeraakt, geen order geplaatst, geen kapitaal verplaatst. Puur onderzoek + architectuur, in lijn met de afspraak: F0 eerst laten uitlopen, Fase 1 pas live zodra die poort valt.
+Geen order geplaatst, geen kapitaal verplaatst, geen wijziging aan de echte trading- of treasury-paden. `shadow_basis.py` raakt uitsluitend publieke read-only endpoints en zijn eigen los bestand. In lijn met de afspraak: geen echt kapitaal vóór beide poorten (shadow + F0) vallen.

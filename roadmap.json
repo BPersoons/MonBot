@@ -206,12 +206,12 @@
     {
       "id": "BL-012",
       "priority": "HIGH",
-      "title": "Fase 1 Funding Harvest 2.0 — ontwerp klaar, wacht op F0-poort",
+      "title": "Fase 1 Funding Harvest 2.0 — shadow mode live, wacht op dubbele poort voor echt kapitaal",
       "category": "Treasury",
-      "status": "DESIGN_READY",
-      "description": "[2026-07-05] Volledig ontwerp in docs/FASE1_FUNDING_HARVEST_DESIGN.md. Kernvondst: HL heeft UBTC/USDC (@142) en UETH/USDC (@151) spot-pairs met scherpe spreads (~1,6 bps / ~0,6 bps) en voldoende diepte voor 2.500 euro test-notional, basis vs perp verwaarloosbaar (~2 bps) -- echte delta-neutrale hedge (long spot + short perp, zelfde venue) is haalbaar. Gap: exchange_client.py hardcoded defaultType=swap, kiest altijd perp boven spot -- spot-order-capability moet gebouwd worden. Bestaande FundingHarvestor (naakte short, $150 cap, BTC/ETH) blijft ongewijzigd/apart. Geen code/kapitaal aangeraakt -- start pas na EXP-004 F0-poort (7 dagen foutloos).",
+      "status": "SHADOW_ACTIVE",
+      "description": "[2026-07-05] Ontwerp in docs/FASE1_FUNDING_HARVEST_DESIGN.md. Kernvondst: HL heeft UBTC/USDC (@142) en UETH/USDC (@151) spot-pairs met scherpe spreads (~1,6-7,6 bps) en voldoende diepte voor 2.500 euro test-notional, basis vs perp klein -- echte delta-neutrale hedge (long spot + short perp, zelfde venue) is haalbaar. Gap: exchange_client.py hardcoded defaultType=swap, kiest altijd perp boven spot -- spot-order-capability moet nog gebouwd worden voor de LIVE stap. [2026-07-05 UITGEBREID] utils/shadow_basis.py: virtuele versie draait nu elke ~5min tegen publieke HL-data (geen keys, geen orders, geen kapitaal), logt open/monitor/close + Telegram bij elke virtuele close. Placeholder fee-model (3,5bps x4 poten) tot echte fee-schedule bekend is.",
       "blocked_until": null,
-      "blocked_reason": "Wacht op EXP-004 F0-poort (sleeve-NAV, 7 dagen foutloos) voordat kapitaal wordt ingezet"
+      "blocked_reason": "Echt kapitaal wacht op Poort F1-shadow (2-3 weken shadow-data, netto APY >8%, stabiele basis) EN EXP-004 F0-poort (sleeve-NAV, 7 dagen foutloos)"
     },
     {
       "id": "BL-011",

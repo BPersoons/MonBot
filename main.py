@@ -256,6 +256,17 @@ def main():
         logger.error(f"   ⚠️ SleeveNAV FAILED (non-critical): {e}")
         sleeve_nav = None
 
+    # --- ShadowBasis (Masterplan Fase 1: delta-neutral basis trade, shadow-only) ---
+    shadow_basis = None
+    try:
+        logger.info("   → Initializing ShadowBasis...")
+        from utils.shadow_basis import ShadowBasis
+        shadow_basis = ShadowBasis()
+        logger.info("   ✅ ShadowBasis initialized successfully")
+    except Exception as e:
+        logger.error(f"   ⚠️ ShadowBasis FAILED (non-critical): {e}")
+        shadow_basis = None
+
     logger.info("=" * 60)
     logger.info("🎉 All critical agents initialized successfully!")
     logger.info("=" * 60)
@@ -380,6 +391,20 @@ def main():
                     sleeve_nav.send_telegram(_nav_report)
             except Exception as e:
                 logger.error(f"⚠️ SleeveNAV failed: {e}")
+
+        # 0a4. ShadowBasis (Masterplan Fase 1, BL-012): virtual-only delta-neutral
+        # basis trade — public HL data only, zero capital/orders. Runs regardless
+        # of the F0 gate; pure measurement while Fase 1 waits for approval.
+        if shadow_basis is not None and cycle_count % 5 == 4:
+            try:
+                shadow_basis.run_cycle()
+            except Exception as e:
+                logger.error(f"⚠️ ShadowBasis failed: {e}")
+            if cycle_count % 60 == 0:
+                try:
+                    shadow_basis.build_report()
+                except Exception as e:
+                    logger.error(f"⚠️ ShadowBasis report failed: {e}")
 
         # 0b. SwarmLearner: Decision pipeline diagnostics (Every 60 cycles, ~1 hour)
         if cycle_count % 60 == 0 and swarm_learner is not None:
