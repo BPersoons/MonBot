@@ -13,7 +13,7 @@
   "default_yield_sleeve": "yield_core",
   "venue_map": {
     "hl_snapshot.balance": "hyperliquid",
-    "treasury_wallet_usdc": "arbitrum_wallet",
+    "treasury_wallet_usdc": "wallet",
     "yield_balances.aave-v3-arbitrum-usdc": "aave",
     "yield_balances.morpho-bbqusdc-arbitrum": "morpho",
     "yield_balances.morpho-gtusdcc-arbitrum": "morpho",

@@ -253,15 +253,27 @@ class SleeveNAV:
         if not token or not chat_id:
             logger.info(f"SleeveNAV (geen Telegram):\n{text}")
             return
-        try:
-            params = urllib.parse.urlencode(
-                {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-            ).encode()
-            req = urllib.request.Request(
-                f"https://api.telegram.org/bot{token}/sendMessage",
-                data=params, method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=10):
-                pass
-        except Exception as e:
-            logger.warning(f"SleeveNAV: Telegram send mislukt: {e}")
+        # Eerst Markdown; bij een parse-fout (bv. underscore in een naam buiten
+        # backticks → 400 can't parse entities) opnieuw als plain text zodat het
+        # rapport ALTIJD aankomt.
+        for parse_mode in ("Markdown", None):
+            payload = {"chat_id": chat_id, "text": text}
+            if parse_mode:
+                payload["parse_mode"] = parse_mode
+            try:
+                params = urllib.parse.urlencode(payload).encode()
+                req = urllib.request.Request(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    data=params, method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=10):
+                    return
+            except Exception as e:
+                body = ""
+                try:
+                    body = e.read().decode()[:200]  # HTTPError heeft een body
+                except Exception:
+                    pass
+                logger.warning(
+                    f"SleeveNAV: Telegram send mislukt (mode={parse_mode}): {e} {body}"
+                )
