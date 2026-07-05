@@ -244,7 +244,18 @@ def main():
     except Exception as e:
         logger.error(f"   ⚠️ ShadowBook FAILED (non-critical): {e}")
         shadow_book = None
-    
+
+    # --- SleeveNAV (Masterplan F0: sleeve-boekhouding) ---
+    sleeve_nav = None
+    try:
+        logger.info("   → Initializing SleeveNAV...")
+        from utils.sleeve_nav import SleeveNAV
+        sleeve_nav = SleeveNAV()
+        logger.info("   ✅ SleeveNAV initialized successfully")
+    except Exception as e:
+        logger.error(f"   ⚠️ SleeveNAV FAILED (non-critical): {e}")
+        sleeve_nav = None
+
     logger.info("=" * 60)
     logger.info("🎉 All critical agents initialized successfully!")
     logger.info("=" * 60)
@@ -358,6 +369,17 @@ def main():
                 shadow_book.resolve_open()
             except Exception as e:
                 logger.error(f"⚠️ ShadowBook resolve failed: {e}")
+
+        # 0a3. SleeveNAV (Masterplan F0): max één snapshot per UTC-dag; goedkope
+        # no-op check op andere cycli. Offset 3 zodat treasury (0), shadow (2)
+        # en NAV (3) nooit in dezelfde cyclus stapelen.
+        if sleeve_nav is not None and cycle_count % 5 == 3:
+            try:
+                _nav_report = sleeve_nav.snapshot_if_new_day()
+                if _nav_report:
+                    sleeve_nav.send_telegram(_nav_report)
+            except Exception as e:
+                logger.error(f"⚠️ SleeveNAV failed: {e}")
 
         # 0b. SwarmLearner: Decision pipeline diagnostics (Every 60 cycles, ~1 hour)
         if cycle_count % 60 == 0 and swarm_learner is not None:

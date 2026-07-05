@@ -1,0 +1,38 @@
+{
+  "_comment": "Masterplan F0 — sleeve-mapping en risicolimieten. Bron: docs/MASTERPLAN.md sectie 4. source_map wijst kapitaalbronnen (velden uit treasury_state.json) toe aan sleeves; onbekende yield-protocollen vallen terug op default_yield_sleeve.",
+  "version": 1,
+  "sleeves": ["tradfi", "yield_core", "basis", "house", "swarm", "lab"],
+  "source_map": {
+    "hl_snapshot.balance": "swarm",
+    "treasury_wallet_usdc": "yield_core",
+    "yield_balances.aave-v3-arbitrum-usdc": "yield_core",
+    "yield_balances.morpho-bbqusdc-arbitrum": "yield_core",
+    "yield_balances.morpho-gtusdcc-arbitrum": "yield_core",
+    "yield_balances.gains-network-arbitrum-usdc": "house"
+  },
+  "default_yield_sleeve": "yield_core",
+  "venue_map": {
+    "hl_snapshot.balance": "hyperliquid",
+    "treasury_wallet_usdc": "arbitrum_wallet",
+    "yield_balances.aave-v3-arbitrum-usdc": "aave",
+    "yield_balances.morpho-bbqusdc-arbitrum": "morpho",
+    "yield_balances.morpho-gtusdcc-arbitrum": "morpho",
+    "yield_balances.gains-network-arbitrum-usdc": "gains"
+  },
+  "limits": {
+    "max_venue_pct": {
+      "hyperliquid": 40.0,
+      "gains": 40.0,
+      "aave": 60.0,
+      "morpho": 40.0
+    },
+    "max_sleeve_drawdown_pct": {
+      "yield_core": 3.0,
+      "basis": 5.0,
+      "house": 20.0,
+      "swarm": 15.0,
+      "lab": 30.0,
+      "tradfi": 25.0
+    }
+  }
+}
