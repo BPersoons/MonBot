@@ -25,27 +25,6 @@ services:
     networks:
       - trader_net
 
-  # Dashboard UI (Optional separate container)
-  dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: agent_trader_dashboard
-    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0
-    restart: unless-stopped
-    env_file:
-      - .env.adk
-    ports:
-      - "8501:8501"
-    volumes:
-      # Must mount same files to share state
-      - ./dashboard.json:/app/dashboard.json
-      - ./trade_log.json:/app/trade_log.json
-      - ./active_assets.json:/app/active_assets.json
-      - ./logs:/app/logs
-    networks:
-      - trader_net
-
 networks:
   trader_net:
     driver: bridge

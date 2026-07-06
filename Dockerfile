@@ -27,18 +27,14 @@ RUN pip install --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Validation Layer (The Pre-Flight Shield)
-# Moved to Runtime CMD to avoid build-time permission issues
-# RUN python validate_imports.py
-
 # Create non-root user
 RUN useradd -m -u 1000 trader && \
     chown -R trader:trader /app
 
 USER trader
 
-# Expose ports for Streamlit dashboard and embedded dashboard server
-EXPOSE 8501 8080
+# Expose port for embedded dashboard server
+EXPOSE 8080
 
 # Default command runs the robust main heartbeat after validation
 CMD ["python", "main.py"]

@@ -65,3 +65,40 @@ htmlcov/
 
 # ADK specific
 .adk_cache/
+
+# --- Opschoning 2026-07-06: geen scratch of stale runtime-state in het image ---
+_archive/
+_audit/
+.codex/
+_*.py
+check.html
+remote_dashboard.json
+remote_trade_log.json
+trade_log.json
+active_assets.json
+dashboard.json
+decision_history.json
+ticker_state.json
+data_cache.json
+pipeline_events.json
+cpo_state.json
+pl_status.json
+pl_meta.json
+learning_report.json
+supabase_health.json
+polymarket_shadow_log.json
+shadow_book.json
+shadow_report.json
+treasury_state.json
+treasury_harvest.json
+treasury_proposals.json
+market_regime.json
+cost_log.json
+portfolio_peak.json
+audited_trades.json
+pnl_snapshots.json
+stocks_active_positions.json
+stocks_decision_history.json
+stocks_pending_approval.json
+stocks_trade_log.json
+stocks_watchlist.json

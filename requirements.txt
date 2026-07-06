@@ -15,9 +15,7 @@ ccxt==4.5.56
 eth-account
 
 # Database & State Management
-redis
 supabase
-psycopg2-binary
 
 # Utilities
 python-dotenv
@@ -29,10 +27,6 @@ nest-asyncio
 beautifulsoup4
 requests
 duckduckgo-search
-
-# Dashboard
-streamlit
-plotly
 
 # Stocks Department (Phase 1)
 yfinance

@@ -19,7 +19,6 @@ main.py (Heartbeat Loop, 60s cycles)
   -> PerformanceAuditor — governance & P/L auditing
   -> ShadowBook — virtual-outcome feedback engine (records every scored decision, resolves vs real candles)
   -> TreasuryAgent — autonomous capital allocator (full run every 60 cycles + startup, fast run every 5)
-  -> ProductOwner (CPO) — periodic system improvement analysis (optional)
   -> SwarmLearner — decision pipeline diagnostics (optional, every 20 cycles)
   -> SwarmMonitor — watchdog thread (every 5 min, 18 checks)
   -> DashboardServer — HTTP on port 8080
@@ -37,7 +36,6 @@ utils/           — shared utilities (llm_client, exchange_client, db_client, g
 integrations/    — supabase_client.py + SQL schemas
 scripts/         — deploy_update.sh, upload helpers, migration scripts
 tests/           — test suite + tests/pre_flight/ (check_imports, check_connections)
-templates/       — dashboard_template.html
 docs/            — SOP.md
 ```
 
@@ -51,7 +49,7 @@ docs/            — SOP.md
 | `decision_history.json` | Rolling 2000-entry decision log. Field: `score` (not weighted_score) |
 | `ticker_state.json` | Tiered scanning cooldowns per setup_id; `consecutive_monitor_count` per ticker |
 | `pipeline_events.json` | State transition audit log |
-| `cpo_state.json` | ProductOwner analysis state |
+| `cpo_state.json` | Legacy ProductOwner state (agent verwijderd 2026-07-06; main.py rapporteert CPO als IDLE) |
 | `pl_status.json` / `pl_meta.json` | Pipeline status metadata |
 | `data_cache.json` | Cached market data |
 | `learning_report.json` | SwarmLearner diagnostics (funnel, bottlenecks, missed trades) |
@@ -123,7 +121,7 @@ Pre-flight checks → `gcloud builds submit` → SCP config → `deploy_update.s
 | VM | `agent-trader-swarm-vm` (`e2-medium`, 2 vCPU 4 GB) |
 | Image URI | `europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest` |
 | Container | `agent_trader_swarm` |
-| Ports | `8080` (dashboard), `8501` (Streamlit, optional) |
+| Ports | `8080` (dashboard) |
 
 ## Required Secrets
 
