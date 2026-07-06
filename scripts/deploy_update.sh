@@ -13,6 +13,22 @@ fi
 echo "Configuring Docker authentication..."
 sudo gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet 2>/dev/null || true
 
+# 2b. Preserve container-local state BEFORE stopping the old container.
+# Newly volume-mounted state files must start life on the host as a copy of the
+# running container's freshest state — otherwise the empty host file shadows it.
+# Only copies when the host file is missing; on later deploys the host file IS the
+# state (volume mount), so this is a no-op. Non-fatal by design (set -e safety).
+STATE_FILES="shadow_book.json shadow_report.json shadow_basis_state.json shadow_basis_log.json shadow_basis_report.json ticker_state.json decision_history.json treasury_harvest.json treasury_proposals.json audited_trades.json portfolio_peak.json cost_log.json polymarket_shadow_log.json config/treasury_allocation.json"
+sudo mkdir -p config
+if sudo docker ps --format '{{.Names}}' | grep -q '^agent_trader_swarm$'; then
+    echo "Preserving container state to host (first-time migration for new mounts)..."
+    for f in $STATE_FILES; do
+        if [ ! -f "$f" ] && [ ! -d "$f" ]; then
+            sudo docker cp "agent_trader_swarm:/app/$f" "$f" 2>/dev/null || true
+        fi
+    done
+fi
+
 # 3. Stop ALL existing containers (including orphans from previous deploys)
 echo "Stopping existing containers..."
 sudo docker-compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
@@ -34,12 +50,19 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 5. Ensure state files exist as files (not directories) before mounting
+# 5. Ensure state files exist as files (not directories) before mounting.
+# A bind-mount source that doesn't exist makes Docker create a DIRECTORY in its
+# place, which breaks every JSON read — hence the dir-guard + touch below.
 echo "Initialising state files..."
-for f in dashboard.json trade_log.json active_assets.json; do
+for f in dashboard.json trade_log.json active_assets.json $STATE_FILES; do
     if [ -d "$f" ]; then
         sudo rm -rf "$f"
     fi
+done
+# Empty (0-byte) files behave like "missing" for the app's try/except JSON readers,
+# so plain touch is the correct seed — no '{}' vs '[]' type guessing.
+for f in $STATE_FILES; do
+    [ -f "$f" ] || sudo touch "$f" 2>/dev/null || true
 done
 [ -f "dashboard.json" ]      || echo '{}' > dashboard.json
 [ -f "active_assets.json" ]  || echo '[]' > active_assets.json
@@ -112,6 +135,7 @@ fi
 # deploy AFTER the old container was stopped but BEFORE `up`, leaving the swarm down. Keep
 # this non-fatal so a single unchmod-able file can never take production offline.
 sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json 2>/dev/null || true
+sudo chmod 666 $STATE_FILES 2>/dev/null || true
 sudo chmod 777 logs data config
 
 # 6. Start fresh containers
