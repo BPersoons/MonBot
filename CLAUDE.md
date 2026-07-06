@@ -41,6 +41,8 @@ docs/            — SOP.md
 
 ## Runtime State Files (root dir, JSON)
 
+Sinds 2026-07-06 zijn álle leer- en positie-statebestanden volume-mounted in `docker-compose.prod.yml` (shadow_book/report, shadow_basis_*, ticker_state, decision_history, treasury_harvest/proposals, audited_trades, portfolio_peak, cost_log, polymarket_shadow_log, config/treasury_allocation) — ze overleven een full redeploy. `deploy_update.sh` stap 2b migreert container-state eenmalig naar de host vóór de stop; de `STATE_FILES`-lijst daar moet synchroon blijven met de compose-mounts. Nieuwe statebestanden die een redeploy moeten overleven: voeg toe aan BEIDE.
+
 | File | Purpose |
 |---|---|
 | `dashboard.json` | Main dashboard state (cycle count, market data, discovery pipeline) |
