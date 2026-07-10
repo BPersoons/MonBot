@@ -121,7 +121,7 @@ class LLMClient:
 
                 self.model = genai.GenerativeModel(self.model_name)
                 # Lightweight model for simple scoring prompts (no thinking tokens)
-                self.fast_model_name = os.getenv("GEMINI_FAST_MODEL", "gemini-2.5-flash-lite")
+                self.fast_model_name = os.getenv("GEMINI_FAST_MODEL", "gemini-3.1-flash-lite")
                 self.fast_model = genai.GenerativeModel(self.fast_model_name)
                 self.available = True
                 self.logger.info(f"LLMClient initialized with google.generativeai ({self.model_name}, fast={self.fast_model_name})")
@@ -134,7 +134,7 @@ class LLMClient:
                 from vertexai.generative_models import GenerativeModel
                 self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
                 self.model = GenerativeModel(self.model_name)
-                self.fast_model_name = os.getenv("GEMINI_FAST_MODEL", "gemini-2.5-flash-lite")
+                self.fast_model_name = os.getenv("GEMINI_FAST_MODEL", "gemini-3.1-flash-lite")
                 self.fast_model = GenerativeModel(self.fast_model_name)
                 self.available = True
                 self.logger.info(f"LLMClient initialized with vertexai ({self.model_name}, fast={self.fast_model_name})")
@@ -197,5 +197,5 @@ class LLMClient:
             self.logger.error("LLM Generation Timed Out (120s)")
             raise RuntimeError("LLM Timed Out")
         except Exception as e:
-            self.logger.error(f"LLM generation failed with model {self.model.model_name}: {e}")
+            self.logger.error(f"LLM generation failed with model {active_model_name}: {e}")
             raise RuntimeError(f"LLM Call Failed: {e}")
