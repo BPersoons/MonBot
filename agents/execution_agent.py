@@ -146,8 +146,8 @@ class ExecutionAgent:
             for t in trades:
                 if t.get("status") not in ("OPEN", "PLACED"):
                     continue
-                if t.get("harvest"):
-                    continue  # Treasury harvest positions: managed by TreasuryAgent
+                if t.get("harvest") or t.get("thematic_dip"):
+                    continue  # Treasury harvest / Thematic Dip Sleeve positions: managed elsewhere
                 if t.get("take_profit") and t.get("stop_loss"):
                     continue  # Already has levels
                 ep = t.get("entry_price", 0.0)
@@ -267,8 +267,8 @@ class ExecutionAgent:
         for t in trades:
             if t.get("status") not in ("OPEN", "PLACED"):
                 continue
-            if t.get("harvest"):
-                continue  # Treasury harvest positions: managed by TreasuryAgent
+            if t.get("harvest") or t.get("thematic_dip"):
+                continue  # Treasury harvest / Thematic Dip Sleeve positions: managed elsewhere
             _base = (t.get("ticker") or "").split("/")[0].upper()
             if _base in hl_bases_live:
                 continue

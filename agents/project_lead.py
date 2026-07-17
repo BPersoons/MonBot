@@ -144,6 +144,38 @@ class ProjectLead:
                 if m is None:
                     continue
                 multipliers[(regime_key, dir_key)] = m
+
+            # TRENDING_BULL+SHORT reward disabled 2026-07-14: the shadow sample behind
+            # it (n=21, WR 61.9%) doesn't generalize to sustained bull trends. Live SHORT
+            # WR collapsed 45.8%→22.7% during 07-02/07-09 (62% TRENDING_BULL by ADX/ATR
+            # reconstruction — the strongest bull stretch the swarm had seen), while the
+            # reward pushed SHORT concentration to 95.6% of trades, crowding out LONGs
+            # that would have followed the actual trend. Floor at neutral until a larger,
+            # more diverse sample (spanning multiple distinct bull runs) rebuilds
+            # confidence — penalties on this cell (>1.0) still pass through normally.
+            if multipliers.get(("TRENDING_BULL", "SHORT"), 1.0) < 1.0:
+                multipliers[("TRENDING_BULL", "SHORT")] = 1.0
+
+            # TRENDING_BULL+LONG penalty capped at neutral 2026-07-14: symmetric fix,
+            # same root cause as the SHORT reward above. All 29 shadow observations
+            # behind this cell's ×2.0 penalty date from 07-06→07-14 — the shadow_book
+            # reset on 07-06 wiped everything older, so there is no independent window
+            # to check it against, and it's the exact same stretch that broke the SHORT
+            # reward. Only 5 live LONG trades exist since 07-02 (the penalty suppresses
+            # its own evidence). Cap at neutral until a larger, independent sample
+            # rebuilds confidence — penalties below the cap (1.0–2.0) still pass through.
+            if multipliers.get(("TRENDING_BULL", "LONG"), 1.0) > 1.0:
+                multipliers[("TRENDING_BULL", "LONG")] = 1.0
+
+            # VOLATILE+SHORT reward floored at neutral 2026-07-14: same red flag as
+            # the two TRENDING_BULL cells above, found during a systematic audit —
+            # n=21 clears the sample-size threshold, but every single observation
+            # dates from ONE calendar day (07-08), not multiple independent volatile
+            # episodes. One market event masquerading as a validated edge. Floor at
+            # neutral until the reward holds up across several distinct VOLATILE days.
+            if multipliers.get(("VOLATILE", "SHORT"), 1.0) < 1.0:
+                multipliers[("VOLATILE", "SHORT")] = 1.0
+
             self._regime_dir_multipliers = multipliers
             table = ", ".join(
                 f"{r}+{d}=×{m:g}" for (r, d), m in sorted(multipliers.items()) if m != 1.0

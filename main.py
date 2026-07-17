@@ -267,6 +267,30 @@ def main():
         logger.error(f"   ⚠️ ShadowBasis FAILED (non-critical): {e}")
         shadow_basis = None
 
+    # --- ShadowXyzLab (Masterplan Fase 3: XYZ-lab shadow-recorders, EXP-007) ---
+    shadow_xyz_lab = None
+    try:
+        logger.info("   → Initializing ShadowXyzLab...")
+        from utils.shadow_xyz_lab import ShadowXyzLab
+        shadow_xyz_lab = ShadowXyzLab()
+        logger.info("   ✅ ShadowXyzLab initialized successfully")
+    except Exception as e:
+        logger.error(f"   ⚠️ ShadowXyzLab FAILED (non-critical): {e}")
+        shadow_xyz_lab = None
+
+    # --- ThematicDipLab (EXP-008: Thematic Dip Sleeve, crash-scanner + T1 live) ---
+    thematic_dip_lab = None
+    try:
+        logger.info("   → Initializing ThematicDipLab...")
+        from utils.thematic_dip_lab import ThematicDipLab
+        thematic_dip_lab = ThematicDipLab(
+            exchange_client=project_lead.execution_agent.exchange if project_lead and hasattr(project_lead, 'execution_agent') else None,
+        )
+        logger.info("   ✅ ThematicDipLab initialized successfully")
+    except Exception as e:
+        logger.error(f"   ⚠️ ThematicDipLab FAILED (non-critical): {e}")
+        thematic_dip_lab = None
+
     logger.info("=" * 60)
     logger.info("🎉 All critical agents initialized successfully!")
     logger.info("=" * 60)
@@ -381,6 +405,26 @@ def main():
             except Exception as e:
                 logger.error(f"⚠️ ShadowBook resolve failed: {e}")
 
+        # 0a2b. ShadowXyzLab (Masterplan Fase 3, EXP-007): weekend-funding
+        # recorder — public HL data only, zero capital/orders. Mostly a no-op
+        # outside the Fri-evening baseline capture and the weekend window.
+        if shadow_xyz_lab is not None and cycle_count % 5 == 1:
+            try:
+                shadow_xyz_lab.run_cycle()
+            except Exception as e:
+                logger.error(f"⚠️ ShadowXyzLab failed: {e}")
+
+        # 0a2c. ThematicDipLab (EXP-008): crash-scanner over het XYZ-universum +
+        # T1-executie op bevestigde, sectorbrede pullbacks. Zelfde offset als
+        # ShadowXyzLab (beide zijn publieke xyz-dex-data, aparte try/except).
+        # LET OP: dit plaatst ECHTE orders (klein budget, 1x isolated) — geen
+        # virtuele/shadow-module zoals de andere modules in dit blok.
+        if thematic_dip_lab is not None and cycle_count % 5 == 1:
+            try:
+                thematic_dip_lab.run_cycle()
+            except Exception as e:
+                logger.error(f"⚠️ ThematicDipLab failed: {e}")
+
         # 0a3. SleeveNAV (Masterplan F0): max één snapshot per UTC-dag; goedkope
         # no-op check op andere cycli. Offset 3 zodat treasury (0), shadow (2)
         # en NAV (3) nooit in dezelfde cyclus stapelen.
@@ -396,6 +440,16 @@ def main():
                             _nav_report += "\n" + shadow_basis.daily_status_text()
                         except Exception as e:
                             logger.debug(f"ShadowBasis daily_status_text failed: {e}")
+                    if shadow_xyz_lab is not None:
+                        try:
+                            _nav_report += "\n" + shadow_xyz_lab.daily_status_text()
+                        except Exception as e:
+                            logger.debug(f"ShadowXyzLab daily_status_text failed: {e}")
+                    if thematic_dip_lab is not None:
+                        try:
+                            _nav_report += "\n" + thematic_dip_lab.daily_status_text()
+                        except Exception as e:
+                            logger.debug(f"ThematicDipLab daily_status_text failed: {e}")
                     sleeve_nav.send_telegram(_nav_report)
             except Exception as e:
                 logger.error(f"⚠️ SleeveNAV failed: {e}")
@@ -408,7 +462,7 @@ def main():
                 shadow_basis.run_cycle()
             except Exception as e:
                 logger.error(f"⚠️ ShadowBasis failed: {e}")
-            if cycle_count % 60 == 0:
+            if cycle_count % 60 == 4:
                 try:
                     shadow_basis.build_report()
                 except Exception as e:

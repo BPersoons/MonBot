@@ -1,0 +1,529 @@
+{
+ "_comment": "Thematic Dip Sleeve (EXP-008) \u2014 thema-registry + ticker-classificatie. themes[].target_weight is alleen richtinggevend voor classificatie/breedte-meting, NIET voor allocatie (die is rank-gebaseerd, zie thematic_dip_lab.py). tickers[].themes zijn fractionele lidmaatschapsgewichten (kunnen optellen tot <1.0 als een naam ook buiten de geregistreerde thema's valt). status: CONFIRMED (telt mee in scoring/executie) | PENDING_REVIEW (LLM-voorstel, wacht op handmatige correctie) | PENDING_MANUAL (LLM-classificatie mislukt, telt niet mee tot iemand het hier invult) | IGNORED (bewust uitgesloten).",
+ "version": 1,
+ "seeded_at": "2026-07-16",
+ "themes": {
+  "semiconductors": {
+   "target_weight": 0.3,
+   "note": "AI-chip epicentrum van de 2026-07 selloff: SOX-index, Micron, Intel, AMD"
+  },
+  "memory_storage": {
+   "target_weight": 0.2,
+   "note": "Memory/storage supply chain \u2014 Korea-circuit-breakers (Samsung/SK Hynix), Micron"
+  },
+  "optical_networking": {
+   "target_weight": 0.15,
+   "note": "AI-datacenter-netwerk/optical buildout \u2014 expliciet genoemd in juli-2026-berichtgeving (Lumentum, Coherent, Applied Optoelectronics)"
+  },
+  "hyperscaler_cloud": {
+   "target_weight": 0.25,
+   "note": "Hyperscaler AI-capex-ROI-scepsis (MSFT/GOOGL/AMZN daalden na eigen earnings calls)"
+  },
+  "ai_native": {
+   "target_weight": 0.1,
+   "note": "AI-native cloud/software pure-plays \u2014 hoogste beta als de capex-these breekt"
+  }
+ },
+ "tickers": {
+  "XYZ-NVDA": {
+   "real_symbol": "NVDA",
+   "themes": {
+    "semiconductors": 0.4
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-AMD": {
+   "real_symbol": "AMD",
+   "themes": {
+    "semiconductors": 0.2
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-TSM": {
+   "real_symbol": "TSM",
+   "themes": {
+    "semiconductors": 0.2
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-ASML": {
+   "real_symbol": "ASML",
+   "themes": {
+    "semiconductors": 0.1
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-INTC": {
+   "real_symbol": "INTC",
+   "themes": {
+    "semiconductors": 0.1
+   },
+   "status": "CONFIRMED",
+   "note": "-21% in 7 handelsdagen bij seed \u2014 mogelijk deels bedrijfsspecifiek (18A-foundry-yield-problemen), extra due diligence v\u00f3\u00f3r averagen"
+  },
+  "XYZ-MU": {
+   "real_symbol": "MU",
+   "themes": {
+    "memory_storage": 0.35
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-SNDK": {
+   "real_symbol": "SNDK",
+   "themes": {
+    "memory_storage": 0.2
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-SMSN": {
+   "real_symbol": "SMSN",
+   "themes": {
+    "memory_storage": 0.2
+   },
+   "status": "CONFIRMED",
+   "note": "Vermoedelijk Samsung Electronics \u2014 identiteit afgeleid van tickercode, niet uit een offici\u00eble mapping-registry. Verifieer in de HL-app v\u00f3\u00f3r de eerste live order."
+  },
+  "XYZ-SKHX": {
+   "real_symbol": "SKHX",
+   "themes": {
+    "memory_storage": 0.15
+   },
+   "status": "CONFIRMED",
+   "note": "Vermoedelijk SK Hynix \u2014 zelfde identiteits-caveat als XYZ-SMSN, verifi\u00ebren v\u00f3\u00f3r live order."
+  },
+  "XYZ-DRAM": {
+   "real_symbol": "DRAM",
+   "themes": {
+    "memory_storage": 0.1
+   },
+   "status": "PENDING_MANUAL",
+   "note": "Vermoedelijk een DRAM-prijsindex, geen los verhandelbaar bedrijf \u2014 geen yfinance real_symbol beschikbaar voor prijshistorie. Uitgesloten van scoring/executie tot handmatig bevestigd en van een bruikbare historische bron voorzien."
+  },
+  "XYZ-LITE": {
+   "real_symbol": "LITE",
+   "themes": {
+    "optical_networking": 0.6
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-MRVL": {
+   "real_symbol": "MRVL",
+   "themes": {
+    "optical_networking": 0.4
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-MSFT": {
+   "real_symbol": "MSFT",
+   "themes": {
+    "hyperscaler_cloud": 0.3
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-GOOGL": {
+   "real_symbol": "GOOGL",
+   "themes": {
+    "hyperscaler_cloud": 0.25
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-AMZN": {
+   "real_symbol": "AMZN",
+   "themes": {
+    "hyperscaler_cloud": 0.25
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-ORCL": {
+   "real_symbol": "ORCL",
+   "themes": {
+    "hyperscaler_cloud": 0.2
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-CRWV": {
+   "real_symbol": "CRWV",
+   "themes": {
+    "ai_native": 0.5
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-NBIS": {
+   "real_symbol": "NBIS",
+   "themes": {
+    "ai_native": 0.3
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-PLTR": {
+   "real_symbol": "PLTR",
+   "themes": {
+    "ai_native": 0.2
+   },
+   "status": "CONFIRMED"
+  },
+  "XYZ-META": {
+   "real_symbol": "META",
+   "themes": {
+    "hyperscaler_cloud": 0.0,
+    "ai_native": 0.0
+   },
+   "status": "IGNORED",
+   "note": "Bewust buiten de scoring: Meta Compute-aankondiging (2026-07-01) is zelf de trigger van deze selloff \u2014 onzekerheid het grootst, wachten tot duidelijker hoe dit uitpakt v\u00f3\u00f3rdat deze naam meedoet."
+  },
+  "XYZ-XYZ100": {
+   "real_symbol": "XYZ100",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-TSLA": {
+   "real_symbol": "TSLA",
+   "themes": {
+    "ai_native": 0.4
+   },
+   "status": "PENDING_REVIEW"
+  },
+  "XYZ-GOLD": {
+   "real_symbol": "GOLD",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-HOOD": {
+   "real_symbol": "HOOD",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-COIN": {
+   "real_symbol": "COIN",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-AAPL": {
+   "real_symbol": "AAPL",
+   "themes": {
+    "hyperscaler_cloud": 0.3,
+    "ai_native": 0.4
+   },
+   "status": "PENDING_REVIEW"
+  },
+  "XYZ-MSTR": {
+   "real_symbol": "MSTR",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-CRCL": {
+   "real_symbol": "CRCL",
+   "themes": {
+    "optical_networking": 0.9,
+    "ai_native": 0.1
+   },
+   "status": "PENDING_REVIEW"
+  },
+  "XYZ-NFLX": {
+   "real_symbol": "NFLX",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-COST": {
+   "real_symbol": "COST",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-LLY": {
+   "real_symbol": "LLY",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-JPY": {
+   "real_symbol": "JPY",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-EUR": {
+   "real_symbol": "EUR",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-SILVER": {
+   "real_symbol": "SILVER",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-RIVN": {
+   "real_symbol": "RIVN",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-BABA": {
+   "real_symbol": "BABA",
+   "themes": {
+    "hyperscaler_cloud": 0.4,
+    "ai_native": 0.2
+   },
+   "status": "PENDING_REVIEW"
+  },
+  "XYZ-CL": {
+   "real_symbol": "CL",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-COPPER": {
+   "real_symbol": "COPPER",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-NATGAS": {
+   "real_symbol": "NATGAS",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-URANIUM": {
+   "real_symbol": "URANIUM",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-ALUMINIUM": {
+   "real_symbol": "ALUMINIUM",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-PLATINUM": {
+   "real_symbol": "PLATINUM",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-USAR": {
+   "real_symbol": "USAR",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-URNM": {
+   "real_symbol": "URNM",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-PALLADIUM": {
+   "real_symbol": "PALLADIUM",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-DXY": {
+   "real_symbol": "DXY",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-GME": {
+   "real_symbol": "GME",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-KR200": {
+   "real_symbol": "KR200",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-SOFTBANK": {
+   "real_symbol": "SOFTBANK",
+   "themes": {
+    "semiconductors": 0.5,
+    "ai_native": 0.4
+   },
+   "status": "PENDING_REVIEW"
+  },
+  "XYZ-JP225": {
+   "real_symbol": "JP225",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-HYUNDAI": {
+   "real_symbol": "HYUNDAI",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-KIOXIA": {
+   "real_symbol": "KIOXIA",
+   "themes": {
+    "semiconductors": 0.9,
+    "memory_storage": 1.0,
+    "hyperscaler_cloud": 0.3,
+    "ai_native": 0.4
+   },
+   "status": "PENDING_REVIEW"
+  },
+  "XYZ-EWY": {
+   "real_symbol": "EWY",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-EWJ": {
+   "real_symbol": "EWJ",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-BRENTOIL": {
+   "real_symbol": "BRENTOIL",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-VIX": {
+   "real_symbol": "VIX",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-HIMS": {
+   "real_symbol": "HIMS",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-SP500": {
+   "real_symbol": "SP500",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-DKNG": {
+   "real_symbol": "DKNG",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-CORN": {
+   "real_symbol": "CORN",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), retroactief opgeschoond na notificatie-spam-fix 2026-07-16"
+  },
+  "XYZ-WHEAT": {
+   "real_symbol": "WHEAT",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-TTF": {
+   "real_symbol": "TTF",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-VOL": {
+   "real_symbol": "VOL",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-EWZ": {
+   "real_symbol": "EWZ",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-KRW": {
+   "real_symbol": "KRW",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-NIFTY": {
+   "real_symbol": "NIFTY",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-EWT": {
+   "real_symbol": "EWT",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-GBP": {
+   "real_symbol": "GBP",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-IBOV": {
+   "real_symbol": "IBOV",
+   "themes": {},
+   "status": "IGNORED",
+   "note": "non-equity instrument (FX/index/commodity), auto-uitgesloten"
+  },
+  "XYZ-XLE": {
+   "real_symbol": "XLE",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-BX": {
+   "real_symbol": "BX",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-PURRDAT": {
+   "real_symbol": "PURRDAT",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-RKLB": {
+   "real_symbol": "RKLB",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-BIRD": {
+   "real_symbol": "BIRD",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-CBRS": {
+   "real_symbol": "CBRS",
+   "themes": {
+    "semiconductors": 1.0,
+    "optical_networking": 0.5
+   },
+   "status": "PENDING_REVIEW"
+  },
+  "XYZ-ZM": {
+   "real_symbol": "ZM",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-EBAY": {
+   "real_symbol": "EBAY",
+   "themes": {},
+   "status": "PENDING_MANUAL"
+  },
+  "XYZ-H100": {
+   "real_symbol": "H100",
+   "themes": {
+    "semiconductors": 1.0,
+    "ai_native": 1.0
+   },
+   "status": "PENDING_REVIEW"
+  },
+  "XYZ-ARM": {
+   "real_symbol": "ARM",
+   "themes": {
+    "semiconductors": 1.0,
+    "ai_native": 0.5
+   },
+   "status": "PENDING_REVIEW"
+  }
+ },
+ "pending": {}
+}

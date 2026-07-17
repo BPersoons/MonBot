@@ -1,7 +1,7 @@
 {
-  "_comment": "Masterplan F0 — sleeve-mapping en risicolimieten. Bron: docs/MASTERPLAN.md sectie 4. source_map wijst kapitaalbronnen (velden uit treasury_state.json) toe aan sleeves; onbekende yield-protocollen vallen terug op default_yield_sleeve.",
-  "version": 1,
-  "sleeves": ["tradfi", "yield_core", "basis", "house", "swarm", "lab"],
+  "_comment": "Masterplan F0 — sleeve-mapping en risicolimieten. Bron: docs/MASTERPLAN.md sectie 4. source_map wijst kapitaalbronnen (velden uit treasury_state.json) toe aan sleeves; onbekende yield-protocollen vallen terug op default_yield_sleeve. 'thematic_dip' (EXP-008, toegevoegd 2026-07-16) wordt NIET via source_map/treasury_state.json gevoed — utils/sleeve_nav.py berekent hem apart uit thematic_dip_positions.json en trekt het bedrag af van 'swarm' om dubbeltelling van HL-balans te voorkomen. max_venue_pct.hyperliquid was 40.0 (masterplan-default); bewust verhoogd naar 60.0 op 2026-07-16 (EXP-008, Bart's expliciete keuze) omdat de thematic_dip-sleeve alleen op de HL XYZ-synthetics-rails uitvoerbaar is en het budget (€1.250) niet binnen de oude 40%-cap paste. Terugbrengen naar 40.0 zodra het totaalportfolio genoeg groeit dat 40% weer voldoende ruimte geeft.",
+  "version": 2,
+  "sleeves": ["tradfi", "yield_core", "basis", "house", "swarm", "lab", "thematic_dip"],
   "source_map": {
     "hl_snapshot.balance": "swarm",
     "treasury_wallet_usdc": "yield_core",
@@ -21,9 +21,9 @@
   },
   "limits": {
     "max_venue_pct": {
-      "hyperliquid": 40.0,
+      "hyperliquid": 60.0,
       "gains": 40.0,
-      "aave": 60.0,
+      "aave": 85.0,
       "morpho": 40.0
     },
     "max_sleeve_drawdown_pct": {
@@ -32,7 +32,8 @@
       "house": 20.0,
       "swarm": 15.0,
       "lab": 30.0,
-      "tradfi": 25.0
+      "tradfi": 25.0,
+      "thematic_dip": 25.0
     }
   }
 }

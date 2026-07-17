@@ -354,8 +354,8 @@
       <div class="sub">Van directionele trading-swarm naar autonome vermogensbeheerder. Zes sleeves, een meta-allocator, en een reeks poorten die kapitaal pas vrijgeven als de data het bewijst.</div>
     </div>
     <div class="meta">
-      Stand: <b>2026-07-05</b> · cycle #10<br>
-      Portefeuille: <b>$3.147,97</b> / €2.752,20
+      Stand: <b>2026-07-13</b><br>
+      Portefeuille: <b>$3.098,16</b> / €2.712,45
     </div>
   </div>
 
@@ -363,18 +363,18 @@
   <div class="gates">
 
     <div class="gate-card">
-      <div class="ring" style="--pct: 14; --ring-color: var(--active);"><span>1/7</span></div>
+      <div class="ring" style="--pct: 100; --ring-color: var(--good);"><span>7/7</span></div>
       <div class="gate-body">
-        <div class="gate-title">EXP-004 · Sleeve-NAV <span class="chip active">Fase 0</span></div>
-        <div class="gate-desc"><b>Dag 1 van 7</b> foutloze rapportage. Review 2026-07-13. Eerste snapshot 07-05 gelukt na een Telegram-Markdown-fix.</div>
+        <div class="gate-title">EXP-004 · Sleeve-NAV <span class="chip good">Poort F0 gehaald</span></div>
+        <div class="gate-desc"><b>9 opeenvolgende dagen</b> (07-05 t/m 07-13) foutloze snapshot + Telegram-rapport, geen gaten, EUR/USD altijd gevuld. Afgesloten 07-13 — zie BL-013/BL-014 voor bevindingen onderweg.</div>
       </div>
     </div>
 
     <div class="gate-card">
-      <div class="ring" style="--pct: 33; --ring-color: var(--active);"><span>3d</span></div>
+      <div class="ring" style="--pct: 92; --ring-color: var(--critical);"><span>PF .74</span></div>
       <div class="gate-body">
-        <div class="gate-title">EXP-003 · Funnel-fix <span class="chip active">Review 07-11</span></div>
-        <div class="gate-desc">Sinds 07-02: <b>6 trades, +$5,11</b> (16,7% WR) — te klein om te oordelen. RRR-gate-fix (07-04) leverde de eerste NO_PROGRESS_TIMEOUT-exit op.</div>
+        <div class="gate-title">EXP-003 · Funnel-fix <span class="chip critical">Review morgen 07-14</span></div>
+        <div class="gate-desc">Sinds 07-02: <b>56 trades, −$26,73</b> (23,2% WR, PF 0,74). Trades/dag 5,1 haalt de &gt;4-bar wel, PF mist de &gt;1,0-bar ruim.</div>
       </div>
     </div>
 
@@ -382,7 +382,7 @@
       <div class="ring" style="--pct: 5; --ring-color: var(--pending);"><span>d0</span></div>
       <div class="gate-body">
         <div class="gate-title">BL-012 · Shadow Basis <span class="chip pending">Wacht op signaal</span></div>
-        <div class="gate-desc">Live sinds 07-05, 0 virtuele trades — funding (0,00125%/8h) zit nog ruim onder de openingsdrempel (0,010%/8h). Geen kapitaal, geen orders.</div>
+        <div class="gate-desc">Live sinds 07-05, nog steeds <b>0 virtuele trades</b> — BTC/ETH funding kwam nooit boven de openingsdrempel (0,010%/8h). Reporting-bug (build_report onbereikbaar) gefixed 07-13; klok voor de F1-poort is feitelijk nog niet begonnen.</div>
       </div>
     </div>
 
@@ -391,15 +391,15 @@
   <div class="rail-section">
     <div class="eyebrow">Faseplan (docs/MASTERPLAN.md)</div>
     <div class="rail">
-      <div class="station live">
+      <div class="station done">
         <div class="dot">F0</div>
         <div class="label">Meetfundament</div>
-        <div class="note">sleeve-NAV, dag 1/7</div>
+        <div class="note">sleeve-NAV, poort gehaald</div>
       </div>
       <div class="station shadow">
         <div class="dot">F1</div>
         <div class="label">Funding basis</div>
-        <div class="note">shadow actief</div>
+        <div class="note">shadow, wacht op funding</div>
       </div>
       <div class="station">
         <div class="dot">F2</div>
@@ -421,10 +421,10 @@
         <div class="label">Meta-allocator</div>
         <div class="note">wekelijkse herweging</div>
       </div>
-      <div class="station">
+      <div class="station live">
         <div class="dot">F6</div>
         <div class="label">TradFi / IBKR</div>
-        <div class="note">paper-first</div>
+        <div class="note">aanbevolen volgende stap</div>
       </div>
     </div>
   </div>
@@ -434,21 +434,22 @@
     <div>
       <div class="eyebrow">Experimentlog</div>
 
-      <div class="log-entry active">
-        <div class="row1"><span class="id">EXP-004</span><span class="chip active">Actief</span></div>
+      <div class="log-entry good">
+        <div class="row1"><span class="id">EXP-004</span><span class="chip good">Concluded — passed</span></div>
         <div class="name">Masterplan Fase 0 — sleeve-NAV boekhouding</div>
-        <div class="meta-line">Start 07-05 → review 07-13</div>
-        <div class="verdict">Poort: <b>7 opeenvolgende dagen</b> foutloze snapshot + Telegram-rapport, geen gaten, EUR/USD gevuld.</div>
+        <div class="meta-line">Start 07-05 → reviewed 07-13</div>
+        <div class="verdict">Poort <b>gehaald</b>: 9 dagen foutloze snapshot + rapport. Bevindingen onderweg: Gains gUSDC volledig afgebouwd (BL-010, → BL-013 Aave-concentratie), NAV nog niet flow-adjusted (BL-014, blokkeert vóór F5).</div>
       </div>
 
-      <div class="log-entry active">
-        <div class="row1"><span class="id">EXP-003</span><span class="chip active">Actief</span></div>
+      <div class="log-entry" style="border-left:2px solid var(--critical)">
+        <div class="row1"><span class="id">EXP-003</span><span class="chip critical">Review morgen 07-14</span></div>
         <div class="name">Signal quality v3 — gate-unificatie + no-progress stop + universe tilt</div>
-        <div class="meta-line">Start 07-02 → review 07-11 (verschoven van 07-09, 4-juli-weekend in venster)</div>
-        <div class="verdict">Poort: trades/dag &gt;4, PF sinds ijkpunt &gt;1.0, stage-0-verliesaandeel omlaag, XYZ-aandeel omhoog.</div>
+        <div class="meta-line">Start 07-02 → review 07-14 (2x verschoven: 4-juli-weekend, daarna Gemini fast-model-storing 07-09/10)</div>
+        <div class="verdict">Poort: trades/dag &gt;4, PF sinds ijkpunt &gt;1.0, stage-0-verliesaandeel omlaag, XYZ-aandeel omhoog. Trade-frequentie haalt de bar, PF niet — voer de review uit vóórdat er verder gebouwd wordt.</div>
         <table class="metric-table">
-          <tr><td>Sinds 07-02</td><td>6 trades · +$5,11 · 16,7% WR</td></tr>
-          <tr><td>RRR_GATE skip → trade</td><td>28 skip / 7 downgrade</td></tr>
+          <tr><td>Sinds 07-02</td><td>56 trades · −$26,73 · 23,2% WR</td></tr>
+          <tr><td>Profit factor</td><td>0,74 (bar: &gt;1,0)</td></tr>
+          <tr><td>Trades/dag</td><td>5,1 (bar: &gt;4) ✓</td></tr>
         </table>
       </div>
 
@@ -475,17 +476,20 @@
         <div class="bl-item"><span class="bl-id">BL-002</span><div><div class="bl-title">Universe tilt naar XYZ-equities</div><div class="bl-sub">1/3 scan-slots gereserveerd — uitgevoerd binnen EXP-003</div></div></div>
         <div class="bl-item"><span class="bl-id">BL-003</span><div><div class="bl-title">MeanRev conviction-bar</div><div class="bl-sub">Asymmetrisch: LONG hard geblokt, SHORT blijft door</div></div></div>
         <div class="bl-item"><span class="bl-id">BL-004</span><div><div class="bl-title">SA weight</div><div class="bl-sub">Wontfix — SHORT-confound, niet anti-predictief op LONG</div></div></div>
+        <div class="bl-item"><span class="bl-id">BL-010</span><div><div class="bl-title">Gains gUSDC heroverwegen</div><div class="bl-sub">Volledig afgebouwd 07-09/10 → Aave (bijeffect: BL-013)</div></div></div>
+        <div class="bl-item"><span class="bl-id">BL-013</span><div><div class="bl-title">Aave-concentratie 81% &gt; cap</div><div class="bl-sub">Root cause: Morpho-vaults te dun (&lt;$5M TVL) om als bestemming te kwalificeren — geen bug. Cap 60→85% opgetrokken</div></div></div>
       </div>
 
       <div class="bl-group">
         <h3><span class="chip active">Loopt</span></h3>
         <div class="bl-item"><span class="bl-id">BL-011</span><div><div class="bl-title">Masterplan sleeves + allocator</div><div class="bl-sub">Strategische bron voor deze hele pagina</div></div></div>
-        <div class="bl-item"><span class="bl-id">BL-012</span><div><div class="bl-title">Fase 1 basis-trade — shadow mode</div><div class="bl-sub">Design klaar, virtueel live, wacht op dubbele poort</div></div></div>
+        <div class="bl-item"><span class="bl-id">BL-012</span><div><div class="bl-title">Fase 1 basis-trade — shadow mode</div><div class="bl-sub">F0-voorwaarde vervallen; wacht alleen nog op F1-shadow (klok nog niet gestart, 0 opens)</div></div></div>
       </div>
 
       <div class="bl-group">
         <h3><span class="chip pending">Geblokkeerd</span></h3>
         <div class="bl-item"><span class="bl-id">BL-001</span><div><div class="bl-title">MONITOR-zone aanscherpen</div><div class="bl-sub">Wacht op EXP-003 review — één variabele tegelijk</div></div></div>
+        <div class="bl-item"><span class="bl-id">BL-014</span><div><div class="bl-title">SleeveNAV flow-adjustment</div><div class="bl-sub">Pas nodig vóór Fase 5 (meta-allocator) start</div></div></div>
       </div>
 
       <div class="bl-group">
@@ -495,29 +499,28 @@
         <div class="bl-item"><span class="bl-id">BL-007</span><div><div class="bl-title">Polymarket activeren</div><div class="bl-sub">Wacht op &gt;200 shadow-matches</div></div></div>
         <div class="bl-item"><span class="bl-id">BL-008</span><div><div class="bl-title">Allocator: PF i.p.v. WR</div><div class="bl-sub">Ontdekt tijdens funnel-incident 07-02</div></div></div>
         <div class="bl-item"><span class="bl-id">BL-009</span><div><div class="bl-title">Idle-margin sweep</div><div class="bl-sub">Naar yield bij &gt;48h &gt;90% idle</div></div></div>
-        <div class="bl-item"><span class="bl-id">BL-010</span><div><div class="bl-title">Gains gUSDC heroverwegen</div><div class="bl-sub">35% in één epoch-based vault</div></div></div>
       </div>
     </div>
 
   </div>
 
   <div class="sleeves">
-    <div class="eyebrow">Sleeve-verdeling — 2026-07-05 (dag 1, nog geen trendlijn)</div>
+    <div class="eyebrow">Sleeve-verdeling — 2026-07-13 (9 dagen historie)</div>
 
     <div class="sleeve-row">
-      <div class="name">house</div>
-      <div class="bar-track"><div class="bar-fill" style="width: 34.6%; background: var(--accent);"></div></div>
-      <div class="value">$1.087,80</div>
+      <div class="name">yield_core</div>
+      <div class="bar-track"><div class="bar-fill" style="width: 81.0%; background: var(--good);"></div></div>
+      <div class="value">$2.510,26</div>
     </div>
     <div class="sleeve-row">
       <div class="name">swarm</div>
-      <div class="bar-track"><div class="bar-fill" style="width: 32.7%; background: var(--active);"></div></div>
-      <div class="value">$1.030,69</div>
+      <div class="bar-track"><div class="bar-fill" style="width: 19.0%; background: var(--active);"></div></div>
+      <div class="value">$587,90</div>
     </div>
     <div class="sleeve-row">
-      <div class="name">yield_core</div>
-      <div class="bar-track"><div class="bar-fill" style="width: 32.7%; background: var(--good);"></div></div>
-      <div class="value">$1.029,48</div>
+      <div class="name">house</div>
+      <div class="bar-track"><div class="bar-fill" style="width: 0%; background: var(--muted);"></div></div>
+      <div class="value">$0 <span style="opacity:.6">(Gains afgebouwd)</span></div>
     </div>
     <div class="sleeve-row">
       <div class="name">basis</div>
@@ -537,12 +540,15 @@
 
     <div class="sleeve-total">
       <span>Totaal</span>
-      <b>$3.147,97 / €2.752,20 (EURUSD 1,1438)</b>
+      <b>$3.098,16 / €2.712,45 (EURUSD 1,1422)</b>
+    </div>
+    <div class="gate-desc" style="margin-top:10px">
+      ⚠️ yield_core (Aave) op 81% concentratie — cap bewust opgetrokken naar 85% (BL-013): Morpho-vaults zijn met &lt;$3M TVL te dun om als bestemming te dienen.
     </div>
   </div>
 
   <footer>
-    Bron: roadmap.json + docs/MASTERPLAN.md + live productie-data (2026-07-05). Volgende beoordeling: EXP-003 &amp; ShadowBasis rond 07-11/13, EXP-004 F0-poort 07-13.
+    Bron: roadmap.json + docs/MASTERPLAN.md + live productie-data (2026-07-13). Volgende beoordeling: EXP-003 review 07-14 (PF 0,74, aandacht vereist). Aanbevolen volgende stap: Fase 6 (TradFi/IBKR) opstarten — enige blocker-vrije track.
   </footer>
 
 </div>

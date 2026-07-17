@@ -3,6 +3,30 @@ set -e
 
 echo "=== Agent Trader Deploy Update ==="
 
+# 0. Canonical working directory — the ONLY place docker-compose may ever run
+# from. Bind-mount sources in docker-compose.prod.yml are relative paths, so
+# the compose working dir determines WHICH host files the container gets. CI
+# runs this script as the service account (lands in /home/sa_.../), manual
+# deploys as bartpersoons_gmail_com — before this block, each created its own
+# parallel state universe. On 2026-07-16 that turned a botched deploy into
+# apparent total state loss (data sat untouched in the other home dir).
+# Fix: the script relocates itself; the caller's cwd no longer matters.
+CANONICAL_DIR="/home/bartpersoons_gmail_com"
+if [ "$(pwd)" != "$CANONICAL_DIR" ]; then
+    echo "Relocating deploy from $(pwd) to canonical dir $CANONICAL_DIR ..."
+    sudo mkdir -p "$CANONICAL_DIR"
+    sudo chmod 755 "$CANONICAL_DIR" 2>/dev/null || true
+    # Bring freshly-uploaded artifacts along (CI scps compose+script to its
+    # own home; those are the newest versions and must win in canonical).
+    for f in docker-compose.prod.yml deploy_update.sh .env.adk; do
+        if [ -f "$f" ]; then
+            sudo cp "$f" "$CANONICAL_DIR/$f"
+        fi
+    done
+    cd "$CANONICAL_DIR"
+    echo "Now in $(pwd)"
+fi
+
 # 1. Install Docker if not present
 if ! command -v docker &> /dev/null; then
     echo "Installing Docker..."
@@ -13,13 +37,37 @@ fi
 echo "Configuring Docker authentication..."
 sudo gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet 2>/dev/null || true
 
+# 2a. Backup every current state file to a timestamped folder BEFORE anything
+# destructive happens. Host-filesystem-only — does NOT require the old
+# container to be running. This is the safety net that was missing on
+# 2026-07-16: a botched deploy stopped the old container without a live
+# replacement ready, so the (container-only) preserve step below had nothing
+# to recover from and ~15 state files got silently touch-emptied. With this
+# backup in place, the touch-loop in step 5 restores from here instead.
+STATE_FILES="shadow_book.json shadow_report.json shadow_basis_state.json shadow_basis_log.json shadow_basis_report.json shadow_xyz_funding_state.json shadow_xyz_funding_log.json shadow_xyz_funding_report.json shadow_xyz_gap_state.json shadow_xyz_gap_log.json shadow_xyz_gap_report.json shadow_xyz_listings_state.json shadow_xyz_listings_log.json shadow_xyz_listings_report.json ticker_state.json decision_history.json treasury_harvest.json treasury_proposals.json audited_trades.json portfolio_peak.json cost_log.json polymarket_shadow_log.json config/treasury_allocation.json config/sleeves.json thematic_dip_state.json thematic_dip_positions.json thematic_dip_report.json"
+sudo mkdir -p config
+BACKUP_DIR="state_backups/$(date -u +%Y%m%d_%H%M%S)"
+backed_up=0
+for f in $STATE_FILES config/auto_params.json config/thematic_dip_themes.json dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
+    if [ -s "$f" ]; then  # -s: exists AND non-empty — never back up an already-empty file
+        sudo mkdir -p "$BACKUP_DIR/$(dirname "$f")" 2>/dev/null || true
+        if sudo cp "$f" "$BACKUP_DIR/$f" 2>/dev/null; then
+            backed_up=$((backed_up + 1))
+        fi
+    fi
+done
+echo "State backup: $BACKUP_DIR ($backed_up files)"
+# Keep only the 10 most recent backups so this doesn't grow unbounded.
+ls -1dt state_backups/*/ 2>/dev/null | tail -n +11 | xargs -r sudo rm -rf
+
 # 2b. Preserve container-local state BEFORE stopping the old container.
 # Newly volume-mounted state files must start life on the host as a copy of the
 # running container's freshest state — otherwise the empty host file shadows it.
 # Only copies when the host file is missing; on later deploys the host file IS the
 # state (volume mount), so this is a no-op. Non-fatal by design (set -e safety).
-STATE_FILES="shadow_book.json shadow_report.json shadow_basis_state.json shadow_basis_log.json shadow_basis_report.json ticker_state.json decision_history.json treasury_harvest.json treasury_proposals.json audited_trades.json portfolio_peak.json cost_log.json polymarket_shadow_log.json config/treasury_allocation.json"
-sudo mkdir -p config
+# Secondary to the backup above: this only helps when the OLD container is still
+# running (e.g. a genuinely new mount on an otherwise-healthy deploy); the
+# 2026-07-16 incident happened precisely because it wasn't.
 if sudo docker ps --format '{{.Names}}' | grep -q '^agent_trader_swarm$'; then
     echo "Preserving container state to host (first-time migration for new mounts)..."
     for f in $STATE_FILES; do
@@ -60,9 +108,23 @@ for f in dashboard.json trade_log.json active_assets.json $STATE_FILES; do
     fi
 done
 # Empty (0-byte) files behave like "missing" for the app's try/except JSON readers,
-# so plain touch is the correct seed — no '{}' vs '[]' type guessing.
+# so plain touch is the correct seed — no '{}' vs '[]' type guessing. If a file
+# is missing here, first try restoring it from the backup taken in step 2a
+# (covers exactly the 2026-07-16 failure mode: old container gone, nothing to
+# docker cp from) before falling back to an empty touch. Either way, log it —
+# a silent touch-empty is how ~15 files vanished unnoticed that day.
+LATEST_BACKUP=$(ls -1dt state_backups/*/ 2>/dev/null | head -1)
 for f in $STATE_FILES; do
-    [ -f "$f" ] || sudo touch "$f" 2>/dev/null || true
+    if [ ! -f "$f" ]; then
+        if [ -n "$LATEST_BACKUP" ] && [ -s "${LATEST_BACKUP}${f}" ]; then
+            echo "⚠️  $f missing on host — restoring from backup $LATEST_BACKUP"
+            sudo mkdir -p "$(dirname "$f")" 2>/dev/null
+            sudo cp "${LATEST_BACKUP}${f}" "$f" 2>/dev/null || sudo touch "$f" 2>/dev/null || true
+        else
+            echo "⚠️  $f missing on host and no backup available — initialising EMPTY (any prior data is lost)"
+            sudo touch "$f" 2>/dev/null || true
+        fi
+    fi
 done
 [ -f "dashboard.json" ]      || echo '{}' > dashboard.json
 [ -f "active_assets.json" ]  || echo '[]' > active_assets.json
@@ -129,12 +191,23 @@ if [ ! -f "config/auto_params.json" ]; then
 }
 EOF
 fi
+# Initialise config/thematic_dip_themes.json from the freshly-pulled image if
+# missing on host (EXP-008). Unlike the plain STATE_FILES above, this file
+# ships pre-seeded (5 themes + 19 CONFIRMED tickers) — touching it empty like
+# a runtime state file would silently wipe that seed on the very first deploy
+# after this mount was added, so it's extracted from the image instead.
+if [ ! -f "config/thematic_dip_themes.json" ]; then
+    echo "Seeding config/thematic_dip_themes.json from image..."
+    sudo docker run --rm europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest \
+        cat /app/config/thematic_dip_themes.json > config/thematic_dip_themes.json 2>/dev/null \
+        || echo '{"themes":{},"tickers":{},"pending":{}}' > config/thematic_dip_themes.json
+fi
 # Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs.
 # Use sudo: config/auto_params.json is written by the container (owned by UID 1000), so a
 # non-sudo chmod fails with "Operation not permitted". Under `set -e` that aborted the whole
 # deploy AFTER the old container was stopped but BEFORE `up`, leaving the swarm down. Keep
 # this non-fatal so a single unchmod-able file can never take production offline.
-sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json 2>/dev/null || true
+sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json config/thematic_dip_themes.json 2>/dev/null || true
 sudo chmod 666 $STATE_FILES 2>/dev/null || true
 sudo chmod 777 logs data config
 

@@ -74,31 +74,18 @@ if (-not $vmExists) {
     Start-Sleep -Seconds 30
 }
 
-# 5. Prepare Remote Docker Compose
-Write-Host "📄 Generating Production Config..." -ForegroundColor Yellow
-$dockerComposeTemplate = @'
-version: '3.8'
-services:
-  agent-trader:
-    image: IMAGE_URI_PLACEHOLDER
-    container_name: agent_trader_swarm
-    restart: always
-    env_file: .env.adk
-    volumes:
-      - ./logs:/app/logs
-      - ./data:/app/data
-      - ./dashboard.json:/app/dashboard.json
-      - ./trade_log.json:/app/trade_log.json
-      - ./active_assets.json:/app/active_assets.json
-    networks: [trader_net]
-
-networks:
-  trader_net:
-    driver: bridge
-'@
-
-$dockerComposeContent = $dockerComposeTemplate.Replace("IMAGE_URI_PLACEHOLDER", $FULL_IMAGE_URI)
-Set-Content -Path "docker-compose.prod.yml" -Value $dockerComposeContent -Encoding UTF8 -Force
+# 5. Remote Docker Compose: the committed docker-compose.prod.yml is the
+# source of truth (full state-file volume-mount list, image URI already
+# matches $FULL_IMAGE_URI, secrets via GCP Secret Manager not env_file).
+# Previously this step REGENERATED the file from a stale 3-mount template
+# (env_file: .env.adk, missing ~25 state-file mounts added since) and
+# overwrote the real file with it before every deploy — silently wiping
+# every volume mount not in that template on the next `docker-compose up`.
+# Fixed 2026-07-16: just validate the real file exists; never regenerate it.
+if (-not (Test-Path "docker-compose.prod.yml")) {
+    Write-Error "docker-compose.prod.yml missing!"
+    exit 1
+}
 
 # 6. Deploy Code & Config
 Write-Host "📤 Deploying configuration to VM..." -ForegroundColor Yellow
@@ -109,21 +96,41 @@ if (-not (Test-Path "trade_log.json")) { Set-Content "trade_log.json" "[]" }
 if (-not (Test-Path "active_assets.json")) { Set-Content "active_assets.json" "[]" }
 if (-not (Test-Path ".env.adk")) { Set-Content ".env.adk" "" }
 # Check for local script path using Windows conventions
-if (-not (Test-Path "scripts\deploy_update.sh")) { 
+if (-not (Test-Path "scripts\deploy_update.sh")) {
     Write-Error "scripts\deploy_update.sh missing!"
+    exit 1
+}
+
+# Resolve the remote home dir explicitly — Windows' bundled pscp has a known
+# bug where a multi-file `gcloud compute scp` to a bare `~/` destination fails
+# with "remote filespec ~/: not a directory" (hit 2026-07-16: silently left
+# the VM on a stale deploy_update.sh, which crashed mid-run and took prod
+# offline). An explicit absolute path avoids the bug entirely.
+$remoteHome = (gcloud compute ssh $VM_NAME --zone=$ZONE --command 'echo $HOME' --quiet | Select-Object -Last 1).Trim()
+if (-not $remoteHome) {
+    Write-Error "❌ Could not resolve remote home directory via SSH. Aborting deployment."
     exit 1
 }
 
 # Quoted paths
 # We copy deploy_update.sh as well
-gcloud compute scp --zone=$ZONE docker-compose.prod.yml .env.adk dashboard.json trade_log.json active_assets.json scripts\deploy_update.sh "${VM_NAME}:~/" --quiet
+gcloud compute scp --zone=$ZONE docker-compose.prod.yml .env.adk dashboard.json trade_log.json active_assets.json scripts\deploy_update.sh "${VM_NAME}:${remoteHome}/" --quiet
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "❌ SCP to VM failed (exit $LASTEXITCODE) — deploy_update.sh may be stale on the VM. Aborting rather than risk running an old script against the new image."
+    exit 1
+}
 
 # 7. Start Services
 Write-Host "🚀 Starting Swarm Containers..." -ForegroundColor Yellow
 
-# Execute the uploaded script
-# Use single quotes to prevent PowerShell from interpreting special chars
-gcloud compute ssh $VM_NAME --zone=$ZONE --command 'chmod +x deploy_update.sh && ./deploy_update.sh' --quiet
+# Execute the uploaded script. `sed -i 's/\r$//'` strips any CRLF line endings
+# that Windows git/scp can introduce (hit 2026-07-16: broke the shebang with
+# "bad interpreter: /bin/bash^M").
+gcloud compute ssh $VM_NAME --zone=$ZONE --command 'sed -i "s/\r$//" deploy_update.sh && chmod +x deploy_update.sh && ./deploy_update.sh' --quiet
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "❌ deploy_update.sh failed on the VM (exit $LASTEXITCODE). Container may be down — check manually: gcloud compute ssh $VM_NAME --zone=$ZONE --command 'sudo docker ps -a'"
+    exit 1
+}
 
 # 8. Access Info
 $IP = gcloud compute instances describe $VM_NAME --zone=$ZONE --format="get(networkInterfaces[0].accessConfigs[0].natIP)"

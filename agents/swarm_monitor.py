@@ -215,6 +215,9 @@ class SwarmMonitor:
         # ── Check 12: 3-day P&L digest ─────────────────
         self._safe_check(self._check_pnl_digest, now)
 
+        # ── Check 12b: sustained performance degradation (standalone) ─
+        self._safe_check(self._check_sustained_degradation, now)
+
         # ── Check 13: Health heartbeat ──────────────────
         self._safe_check(self._check_heartbeat, now)
 
@@ -831,6 +834,18 @@ class SwarmMonitor:
     DEADLOCK_THRESHOLD_MIN = 0.47   # Alert when score_threshold reaches this
     DEADLOCK_NO_TRADE_HOURS = 48    # And no new trades opened in this window
     DEADLOCK_ALERT_COOLDOWN_SEC = 6 * 3600  # Max once per 6 hours
+
+    # Sustained-degradation alert (added 2026-07-14, EXP-003 postmortem): the daily
+    # P&L digest already flags a WR swing ≥10pp on noisy 3-day windows, but that's one
+    # bullet buried in a long routine message — real degradation (WR 45.5%→18.6%,
+    # -$55.57/9d) sat unescalated for ~12 days while an unrelated experiment's review
+    # date got pushed 3x. This check is deliberately independent of any experiment's
+    # calendar: it fires the same day sustained underperformance is statistically
+    # visible, as its own standalone message, not a line item.
+    PF_DEGRADATION_MIN_N_7D = 10       # need a real sample, not 2-3 trades
+    PF_DEGRADATION_MIN_N_30D = 15      # baseline needs its own minimum sample
+    PF_DEGRADATION_PF_THRESHOLD = 0.80  # 7d profit factor below this = alert
+    PF_DEGRADATION_ALERT_COOLDOWN_SEC = 24 * 3600  # daily reminder while unresolved
 
     # ──────────────────────────────────────────
     # Check 18: Trade drought (threshold-independent)
@@ -1481,6 +1496,93 @@ class SwarmMonitor:
         logger.info("SwarmMonitor: P&L digest (trend view) sent via Telegram")
 
     # ──────────────────────────────────────────
+    # Check 12b: Sustained performance degradation — standalone, calendar-independent
+    # ──────────────────────────────────────────
+
+    def _check_sustained_degradation(self, now: datetime):
+        """
+        Fires a standalone, high-visibility Telegram alert when rolling 7-day
+        profit factor drops below threshold on a real sample — independent of
+        any experiment's review schedule. See class docstring note above
+        PF_DEGRADATION_MIN_N_7D for why this exists.
+        """
+        try:
+            if not os.path.exists("trade_log.json"):
+                return
+            with open("trade_log.json", "r", encoding="utf-8-sig") as f:
+                trades = json.load(f)
+        except Exception as e:
+            logger.debug(f"SwarmMonitor: sustained_degradation could not read trade_log.json: {e}")
+            return
+
+        real = [t for t in trades if t.get("close_reason") not in ("HL_HISTORY_IMPORT", "GHOST_POSITION_SYNC")]
+        closed = [t for t in real if t.get("status") == "CLOSED"]
+        if not closed:
+            return
+
+        def _pnl(t):
+            v = t.get("pnl_net")
+            return float(v) if v is not None else float(t.get("pnl") or 0)
+
+        def _exit_ts(t):
+            et = t.get("exit_time")
+            if et:
+                try:
+                    return datetime.fromisoformat(str(et).replace("Z", "+00:00")).timestamp()
+                except Exception:
+                    pass
+            return float(t.get("entry_time") or 0)
+
+        now_ts = now.timestamp()
+
+        def window(days):
+            lo = now_ts - days * 86400
+            return [t for t in closed if _exit_ts(t) >= lo]
+
+        def stats(subset):
+            pnls = [_pnl(t) for t in subset]
+            wins = [p for p in pnls if p > 0]
+            loss = [p for p in pnls if p <= 0]
+            n = len(pnls)
+            wr = (len(wins) / n * 100) if n else 0.0
+            gl = abs(sum(loss))
+            pf = (sum(wins) / gl) if gl else (float("inf") if wins else 0.0)
+            return {"n": n, "wr": wr, "pnl": sum(pnls), "pf": pf}
+
+        s7 = stats(window(7))
+        s30 = stats(window(30))
+
+        if s7["n"] < self.PF_DEGRADATION_MIN_N_7D:
+            return  # not enough recent trades to trust the signal
+        if s7["pf"] >= self.PF_DEGRADATION_PF_THRESHOLD:
+            return  # healthy — nothing to escalate
+
+        alert_key = "sustained_degradation"
+        last_sent = self._sent_alerts.get(alert_key)
+        if last_sent and (now - last_sent).total_seconds() < self.PF_DEGRADATION_ALERT_COOLDOWN_SEC:
+            return
+
+        baseline_note = (
+            f"30d-baseline: PF {s30['pf']:.2f} | WR {s30['wr']:.0f}% (n={s30['n']})"
+            if s30["n"] >= self.PF_DEGRADATION_MIN_N_30D
+            else "30d-baseline: onvoldoende data"
+        )
+        self._sent_alerts[alert_key] = now
+        msg = (
+            f"🚨 AANHOUDENDE ONDERPRESTATIE — swarm verliest structureel geld\n\n"
+            f"Laatste 7 dagen: {s7['n']} trades | WR {s7['wr']:.0f}% | "
+            f"PF {s7['pf']:.2f} | netto {'+' if s7['pnl']>=0 else ''}${s7['pnl']:.2f}\n"
+            f"{baseline_note}\n\n"
+            f"Dit vraagt om een blik NU — los van welk experiment loopt of wanneer "
+            f"de volgende geplande review staat. Overweeg CircuitBreaker.pause_system() "
+            f"als het aanhoudt."
+        )
+        self._send_telegram(msg)
+        logger.warning(
+            f"[SwarmMonitor] Sustained degradation alert: 7d PF={s7['pf']:.2f} n={s7['n']}"
+        )
+
+    # ──────────────────────────────────────────
     # Check 13: Health heartbeat (every 4h)
     # ──────────────────────────────────────────
 
@@ -2005,10 +2107,75 @@ class SwarmMonitor:
             self._cmd_proposals()
         elif cmd == "/status":
             self._cmd_status()
+        elif cmd == "/dipapprove" and args:
+            self._cmd_dip_approve(args[0])
+        elif cmd == "/dipedit" and len(args) >= 2:
+            self._cmd_dip_edit(args[0], args[1])
+        elif cmd == "/dipignore" and args:
+            self._cmd_dip_ignore(args[0])
+        elif cmd == "/diplist":
+            self._cmd_dip_list()
         elif cmd == "/help":
             self._cmd_help()
         else:
             self._send_telegram(f"Onbekend commando: `{cmd}`\nGebruik /help voor een overzicht.")
+
+    # ──────────────────────────────────────────
+    # Thematic Dip Sleeve (EXP-008): nieuwe-ticker-classificatie goedkeuren
+    # via de bestaande, altijd-actieve Telegram-poller — GEEN nieuwe getUpdates
+    # consumer (die zou botsen met de bestaande stocks-poller/AutoExecutor,
+    # zie EXP-008 in roadmap.json).
+    # ──────────────────────────────────────────
+
+    _THEMATIC_DIP_THEMES_FILE = "config/thematic_dip_themes.json"
+
+    def _load_dip_themes(self):
+        with open(self._THEMATIC_DIP_THEMES_FILE) as f:
+            return json.load(f)
+
+    def _cmd_dip_approve(self, ticker: str):
+        from utils.thematic_dip_lab import approve_ticker
+        ok, message = approve_ticker(ticker)
+        self._send_telegram(f"✅ {message}" if ok else f"❌ {message}")
+        if ok:
+            logger.info(f"TelegramPoll: {ticker} thematic-dip CONFIRMED via Telegram")
+
+    def _cmd_dip_edit(self, ticker: str, theme_spec: str):
+        """theme_spec: 'semiconductors:0.6,memory_storage:0.2'"""
+        from utils.thematic_dip_lab import edit_ticker
+        ok, message = edit_ticker(ticker, theme_spec)
+        self._send_telegram(f"✅ {message}" if ok else f"❌ {message}")
+        if ok:
+            logger.info(f"TelegramPoll: {ticker} thematic-dip edited+CONFIRMED via Telegram")
+
+    def _cmd_dip_ignore(self, ticker: str):
+        from utils.thematic_dip_lab import ignore_ticker
+        ok, message = ignore_ticker(ticker)
+        self._send_telegram(f"🚫 {message}" if ok else f"❌ {message}")
+        if ok:
+            logger.info(f"TelegramPoll: {ticker} thematic-dip IGNORED via Telegram")
+
+    def _cmd_dip_list(self):
+        try:
+            data = self._load_dip_themes()
+        except Exception as e:
+            self._send_telegram(f"❌ Kan {self._THEMATIC_DIP_THEMES_FILE} niet laden: {e}")
+            return
+        pending = [
+            (t, e) for t, e in data.get("tickers", {}).items()
+            if e.get("status") in ("PENDING_REVIEW", "PENDING_MANUAL")
+        ]
+        if not pending:
+            self._send_telegram("📋 Geen tickers wachten op classificatie-review.")
+            return
+        lines = ["📋 *Thematic Dip — wacht op review*"]
+        for ticker, entry in pending[:20]:
+            if entry.get("themes"):
+                themes_str = ", ".join(f"{k} ({v:.2f})" for k, v in entry["themes"].items())
+                lines.append(f"  `{ticker}`: {themes_str}")
+            else:
+                lines.append(f"  `{ticker}`: geen voorstel — gebruik /dipedit")
+        self._send_telegram("\n".join(lines))
 
     def _cmd_approve(self, proposal_id: str):
         try:
@@ -2104,7 +2271,12 @@ class SwarmMonitor:
             "/proposals — toon actieve treasury voorstellen\n"
             "/approve `<ID>` — keur een PENDING voorstel goed\n"
             "/reject `<ID>` — wijs een PENDING/APPROVED voorstel af\n"
-            "/status — stuur een health snapshot\n"
+            "/status — stuur een health snapshot\n\n"
+            "*Thematic Dip Sleeve*\n"
+            "/diplist — tickers die wachten op classificatie-review\n"
+            "/dipapprove `<ticker>` — accepteer het voorgestelde thema\n"
+            "/dipedit `<ticker> thema:gewicht[,thema:gewicht]` — corrigeer + accepteer\n"
+            "/dipignore `<ticker>` — sluit ticker uit van scoring/executie\n\n"
             "/help — dit menu"
         )
 

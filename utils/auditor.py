@@ -328,6 +328,25 @@ class PerformanceAuditor:
                         metrics=metrics
                     )
 
+    @staticmethod
+    def _last_activity_epoch(t: dict) -> float:
+        """Best-available timestamp for a trade (exit_time, else entry_time) as
+        a Unix epoch float. exit_time is written as an ISO string by every
+        close path; entry_time is written as a raw epoch float at open —
+        mixing the two (or hitting an older imported record with either type
+        in either field) crashes sort()/comparisons with 'not supported
+        between instances of float and str'. Normalize once, here."""
+        val = t.get('exit_time') or t.get('entry_time') or 0
+        if isinstance(val, str):
+            try:
+                return datetime.fromisoformat(val).timestamp()
+            except Exception:
+                return 0.0
+        try:
+            return float(val)
+        except Exception:
+            return 0.0
+
     def check_asset_performance(self, trades):
         """
         Removes assets that fail performance criteria.
@@ -349,9 +368,14 @@ class PerformanceAuditor:
                     asset_history[ticker] = []
                 asset_history[ticker].append(t)
 
-        # Sort by exit time (if available) or id
+        # Sort by exit time (if available) or entry time. Source data mixes ISO
+        # strings (exit_time, set by the close paths) and raw epoch floats
+        # (entry_time, set at open) — plus older imported records can have
+        # either type in either field. Normalize to a float epoch so sort()
+        # never compares incompatible types (same class of bug already worked
+        # around for audited_ids below — see comment there).
         for ticker in asset_history:
-            asset_history[ticker].sort(key=lambda x: x.get('exit_time') or x.get('entry_time') or 0)
+            asset_history[ticker].sort(key=self._last_activity_epoch)
 
         params_changed = False
 
@@ -382,14 +406,14 @@ class PerformanceAuditor:
         # Ghost asset pass: remove tickers with no open trade and no activity in 7 days.
         # This catches assets that were never traded (never get a loss history) and
         # would otherwise stay in active_assets forever, blocking new trades.
-        from datetime import datetime as _dt, timedelta as _td
-        _seven_days_ago = (_dt.utcnow() - _td(days=7)).isoformat()
+        from datetime import timedelta as _td
+        _seven_days_ago = (datetime.utcnow() - _td(days=7)).timestamp()
         _norm = lambda s: s.replace("/USDT", "/USDC").upper() if s else s
 
         open_tickers = {_norm(t["ticker"]) for t in trades if t.get("status") in ("OPEN", "PLACED")}
         recently_traded = {
             _norm(t["ticker"]) for t in trades
-            if (t.get("exit_time") or t.get("entry_time") or "") >= _seven_days_ago
+            if self._last_activity_epoch(t) >= _seven_days_ago
         }
 
         for ticker in list(active_assets):

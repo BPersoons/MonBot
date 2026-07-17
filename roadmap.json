@@ -1,8 +1,15 @@
 {
-  "updated_at": "2026-07-02",
+  "updated_at": "2026-07-16",
   "note": "Dit bestand is de single source of truth voor het product roadmap. Handmatig editeerbaar. Wordt gelezen door het dashboard.",
 
   "changelog": [
+    {
+      "date": "2026-07-16",
+      "version": "EXP-008 build + deploy-pipeline incident (deploy.ps1/deploy_update.sh)",
+      "summary": "Thematic Dip Sleeve (crash-scanner + T1 live-executie, 1x isolated, klein budget) gebouwd, getest en gedeployed. De deploy zelf faalde in drie stappen: (1) deploy.ps1 regenereerde docker-compose.prod.yml uit een verouderd 3-mount-sjabloon en overschreef zo het echte bestand — verwijderd; (2) Windows' pscp faalt op multi-file scp naar kaal '~/', deploy.ps1 checkte de exit code niet en draaide daardoor het OUDE deploy_update.sh tegen het NIEUWE image, wat crashte op een ongeguarde chmod en de swarm volledig offline liet; (3) deploy_update.sh's state-preserve-stap kopieert alleen vanuit een nog-draaiende oude container — die was er niet meer, dus ~15 state-bestanden werden stilzwijgend leeg geïnitialiseerd.",
+      "impact": "0 open HL-posities op incident-moment (geen kapitaalrisico), balans intact ($575). [UPDATE zelfde dag, ~18:30] De 'verloren' data bleek NIET verloren: eerdere deploys draaiden docker-compose vanuit /home/sa_116183673897831795495/ (CI service-account home), de handmatige deploy vanuit /home/bartpersoons_gmail_com/ — er ontstond een parallelle lege bestandsset terwijl de echte data (timestamps tot 12:56, minuten vóór het incident) onaangeroerd in de SA-home stond. Volledig hersteld via scripts/recover_state_20260716.sh: shadow_book (312 records), decision_history (1,3MB), dashboard-historie, sleeve_nav (volledige F0-reeks 07-05→07-16), cost_log, audited_trades, portfolio_peak, geleerde auto_params (07-02) en treasury_allocation (07-06); post-incident records (5 trades waaronder open XYZ-SKHX-positie, 2 proposals) per id gemerged. Netto verlies: alleen ~5,5h nieuwe shadow/decision-observaties (13:00-18:30). Alle drie de deploy-root-causes gefixed (zie CLAUDE.md pitfall). [UPDATE 2026-07-17] Divergentie-risico structureel opgelost: deploy_update.sh stap 0 pint CANONICAL_DIR=/home/bartpersoons_gmail_com en verhuist zichzelf daarheen ongeacht de aanroeper (CI of handmatig) — e2e-getest door het script vanuit de SA-home te starten (relocatie ✓, state-backup-vangnet eerste echte run: 21 bestanden ✓, geen touch-empties ✓, data intact na recreate: sleeve_nav 13d/shadow_book 337/trade_log 436 ✓). Verouderde SA-home-state gearchiveerd in stale_state_archive_20260716/ met compose-bestand verwijderd als struikeldraad + README.",
+      "tags": ["deploy", "bug", "incident", "masterplan"]
+    },
     {
       "date": "2026-03-23",
       "version": "RSI Fase 1",
@@ -58,6 +65,97 @@
       "summary": "Multiplier stale-default bug gefixed (n>=15 overschrijft ALTIJD, symmetrische tiers, cap x2.0) + MACRO_GATE gedegradeerd naar soft + no-progress time stop (NO_PROGRESS_TIMEOUT, 5h) + BL-002 universe tilt (1/3 XYZ-equity slots) + closed-market XYZ decisions niet meer gelogd",
       "impact": "Sinds 06-22 was het boek -$37.48 (PF 0.79) en de funnel verzegeld: LONG-drempels effectief 0.60 in RANGING/BEAR/VOLATILE door stale defaults, shorts hard geblokt in TRENDING_BULL (terwijl shadow die cel op 66.7% WR zette). 0 open posities, $998 HL idle. sl_stage-data: stage 0 = 3.4% WR/-$236, stage 2 = 100% WR/+$246 -> no-progress stop. Decision-buffer besloeg nog 19.5h door XYZ closed-market churn",
       "tags": ["signal", "shadow", "execution", "bug"]
+    },
+    {
+      "date": "2026-07-13",
+      "version": "Masterplan Fase 0 afgesloten (EXP-004) + ShadowBasis reporting-fix",
+      "summary": "Poort F0 gehaald (9 dagen foutloze sleeve-NAV) + BL-013 (Aave 81%>60% cap) en BL-014 (flow-adjustment) geopend. main.py: ShadowBasis build_report() conditie cycle%5==4 && cycle%60==0 was onbereikbaar (60 is deelbaar door 5, rest kan nooit 4 zijn) -> cycle%60==4",
+      "impact": "shadow_basis_report.json (Fase 1 BL-012 meting) stond sinds 07-06 op 0 bytes, nooit weggeschreven; nu elke ~60 cycli. Aave-concentratie-breach zichtbaar gemaakt maar nog niet opgelost",
+      "tags": ["treasury", "bug", "masterplan"]
+    },
+    {
+      "date": "2026-07-15",
+      "version": "Systematische audit regime-multipliers: VOLATILE+SHORT ook geneutraliseerd",
+      "summary": "Bart's vraag 'zitten er nog meer van zulke regels in' leidde tot een audit van alle regime×richting-cellen op dagen-spreiding. VOLATILE+SHORT (n=21, ×0,85-beloning) bleek volledig van één kalenderdag (07-08) te komen — één marktgebeurtenis, geen gevalideerde edge. Zelfde plafond toegepast als bij de twee TRENDING_BULL-cellen",
+      "impact": "Drie multiplier-fixes nu actief. RANGING/TRENDING_BEAR-cellen spreiden over 6-7 losse dagen en zijn niet apart aangepast — geen acuut rood vlag, maar structurele beperking (geen data vóór de 07-06-reset) geldt voor alle cellen. Deploy-restart gaf een vals-positieve dashboard-hook-melding (HTTP 000 te vroeg gecheckt, 30s later gewoon 200) — geen echte storing",
+      "tags": ["signal", "risk"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "Symmetrische fix: TRENDING_BULL+LONG-straf ook geneutraliseerd (BL-016 vervolg)",
+      "summary": "Bart's vraag 'zoeken we bij stijgende markt ook weer longs' leidde tot dezelfde diepgaande check als bij de SHORT-beloning. Uitkomst: TRENDING_BULL+LONG-straf (×2,0) rust op exact hetzelfde wankele fundament — alle 29 observaties uit hetzelfde 07-06-reset-beperkte venster, en slechts 5 live longs sinds 07-02 (straf onderdrukt eigen bewijs). Ook geplafonneerd op ×1,0",
+      "impact": "Beide TRENDING_BULL-cellen (LONG en SHORT) nu neutraal — systeem kan weer beide richtingen overwegen op basis van signaal i.p.v. een eenzijdige, dun-onderbouwde multiplier. Unit-getest + live geverifieerd tegen draaiende container",
+      "tags": ["signal", "risk"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "Fase 3 EXP-007: nieuwe-listing-detector gebouwd — build-mijlpaal compleet",
+      "summary": "Derde en laatste XYZ-lab sub-tracker: diff huidige HL-universe (beide dexes) tegen known-tickers-set, 7 dagen volgen bij nieuwe listing (range/drift/volume). Eerste-scan-guard voorkomt valse meldingen op de bestaande ~334-ticker-universe",
+      "impact": "Live geverifieerd: baseline correct vastgelegd (232 main + 102 xyz), 0 valse meldingen. Alle 3 EXP-007 sub-trackers nu actief. Volume-mounts voor alle 9 shadow_xyz_*-bestanden toegepast zonder incident (2e geslaagde down/up-recreate op rij)",
+      "tags": ["masterplan", "fase3"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "Fase 3 EXP-007: open-gap-convergentie-recorder gebouwd",
+      "summary": "Tweede XYZ-lab sub-tracker: drie checkpoints rond de echte marktopening, real-open via 1 gebatchte yfinance-call. Ontdekking: HL's ruwe 'xyz:TICKER'-naam is al de echte beursticker, geen mapping-registry nodig",
+      "impact": "Unit-getest vóór deploy, live geverifieerd, volume-mounts toegepast via de nu beproefde veilige down/up-recreate. Eerste meting morgen (14:25-15:30 UTC). Nog open: nieuwe-listing-detector (sub-tracker 3)",
+      "tags": ["masterplan", "fase3"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "Standalone sustained-degradation-alert gebouwd (BL-017, proces-fix)",
+      "summary": "Op Bart's vraag 'hoe hadden we dit eerder gezien': nieuwe SwarmMonitor-check (12b) meldt losstaand + opvallend wanneer rolling 7d PF < 0,80 (min n=10) — onafhankelijk van experiment-kalenders. Reden: bestaande WR-swing-detectie zat begraven in de dagelijkse P&L-digest, EXP-003's review werd 3x verschoven zonder dat iets het bloeden forceerde te checken",
+      "impact": "Getest tegen live data vóór deploy — vuurt correct op de huidige situatie (7d PF 0,55). Blijft actief vuren (24h cooldown) totdat het 7d-venster over de slechte periode heen rolt of het probleem structureel is opgelost",
+      "tags": ["monitoring", "process", "risk"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "Trading gepauzeerd + TRENDING_BULL+SHORT-multiplier geneutraliseerd (BL-016)",
+      "summary": "Na 'is het project verliesgevend'-vraag: bevestigd (-$55,57/9d, WR halveerde van 45,5% naar 18,6% sinds EXP-003). Root cause: 07-02/07-09 was 62% TRENDING_BULL (BTC ADX/ATR-reconstructie) — de shadow-beloonde TRENDING_BULL+SHORT-cel (n=21) duwde 95,6% van trades naar tegen-de-trend shorts tijdens een aanhoudende bull-run. CircuitBreaker.pause_system() gezet (nieuwe entries stil, lopende posities normaal beheerd); project_lead.py plafonneert die cel nu op minimaal ×1,0",
+      "impact": "Bloeden gestopt. Fix live geverifieerd (ShadowMult-log, unit-test). Trading blijft gepauzeerd tot Bart expliciet resume_system() laat draaien — dat is nodig om te zien of de fix daadwerkelijk helpt, want gepauzeerd betekent ook geen nieuwe data om te testen",
+      "tags": ["signal", "bug", "risk", "incident"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "Incident: docker-compose recreate wiste alle hot-patches (~4 min downtime)",
+      "summary": "Volume-mount toevoegen voor shadow_xyz_lab-statebestanden vereiste een docker-compose recreate; dat draaide de container vanaf de gepushte image i.p.v. de hot-patched laag, waardoor main.py/auditor.py/shadow_xyz_lab.py/config/sleeves.json terugvielen naar hun laatst-gebouwde versie. --force-recreate crashte bovendien op een bekende docker-compose v1.29 ContainerConfig-bug",
+      "impact": "Hersteld door alle 4 hot-patches opnieuw te docker cp'en; dashboard binnen ~4 minuten weer op 200. Nieuwe CLAUDE.md-pitfall vastgelegd. [2026-07-14, vervolg] config/sleeves.json alsnog toegevoegd aan docker-compose.prod.yml's volumes-lijst en live toegepast via een tweede, ditmaal veilige (down+up, geen --force-recreate) recreate — 85%-Aave-cap overleeft nu wel toekomstige redeploys, geverifieerd via docker inspect + live content-check.",
+      "tags": ["bug", "deploy", "incident"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "BL-015 afgerond: geen bruikbare hendel gevonden voor stage-0-bleed",
+      "summary": "RRR-bij-entry bleek onreconstrueerbaar data-artefact (TP wordt dynamisch herberekend tijdens stage-progressie); regime×richting via shadow_book (n=247) bevestigt RANGING+TRENDING_BULL/LONG als slechtste cellen, maar de live multipliers passen daar al de maximale ×2,0-penalty op toe — mechanisme werkt zoals ontworpen, geen gat",
+      "impact": "Alle onderzochte kandidaten (conviction/tech/fund/sent/asset-klasse/RRR/regime×richting) uitgeput zonder actionable fix. Stage-0-bleed lijkt structurele grens van de huidige composiet-score, geen losse parameter — bevestigt masterplan-these dat directionele swarm de duurste/dunste opbrengstbron is. Geen verdere threshold-jacht zonder nieuwe data/hypothese",
+      "tags": ["signal", "experiment", "review"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "BL-015 eerste pass: sentiment/XYZ-lead ontkracht tegen shadow-sample",
+      "summary": "Stage-0 vs geprogresseerd (n=64 live) toonde sentiment- en XYZ-verschillen; getoetst tegen shadow_book (n=125 SHORT resolved) — beide leads repliceren NIET, effect is zelfs omgekeerd. Geen gate gebouwd op de ontkrachte lead",
+      "impact": "Bevestigt waarde van shadow-first valideren vóór live-pipeline-wijzigingen — kleine live-sample (n=22 geprogresseerd) wees de verkeerde kant op. Stage-0-oorzaak blijft open; vervolgonderzoek nodig op regime×direction-cel of RRR/structuur i.p.v. scalaire analyst-scores",
+      "tags": ["signal", "experiment", "review"]
+    },
+    {
+      "date": "2026-07-14",
+      "version": "EXP-003 review: poort niet gehaald",
+      "summary": "64 trades sinds 07-02, PF 0,66 (verslechterend), −$38,62 netto. 4/5 deelmetrics verbeteren zoals ontworpen, maar 65,6% van trades bereikt nooit stage 1 (87,4% van bruto-verlies) — entry-kwaliteitsprobleem, geen exit-timingprobleem",
+      "impact": "BL-001 ontgeblokkeerd (wachtte op deze review), nieuw BL-015 (entry-kwaliteit) geopend als voorgestelde vervolgstap. Mechanismen (no-progress-stop, universe-tilt, gate-fix) blijven staan — elk individueel gevalideerd, geen generieke threshold-tightening als reflex",
+      "tags": ["signal", "experiment", "review"]
+    },
+    {
+      "date": "2026-07-13",
+      "version": "PerformanceAuditor: exit_time/entry_time type-crash gefixed",
+      "summary": "check_asset_performance() crashte op tickers met een gemengde exit_time (string)/entry_time (float) sleutel; _last_activity_epoch() normaliseert nu naar float epoch",
+      "impact": "Root cause getraceerd tot 1 legacy GHOST_POSITION_SYNC-record (2026-05-18, oude code schreef closed_at i.p.v. exit_time) — geen actief terugkerende bug, maar de fallback-logica was structureel type-onveilig. Getest tegen live trade_log.json (392 trades, 74 CLOSED-tickers): 0 crashes na de fix, was 1 vóór de fix",
+      "tags": ["bug", "auditor"]
+    },
+    {
+      "date": "2026-07-13",
+      "version": "Masterplan volgende-stap herzien: Fase 6 → Fase 2",
+      "summary": "EXP-005 (IBKR/Fase 6) gepauzeerd na Bart's vraag waarom niet eerst Fase 2; EXP-006 (HLP/house-sleeve) geopend als nieuwe volgende stap",
+      "impact": "Eerste aanbeveling (Fase 6 als 'blocker-vrije' volgende stap) was onvolledig — Fase 2 niet meegewogen. Bij check bleek Fase 2 kleiner te bouwen (zelfde wallet/venue, geen nieuw account/Gateway-probleem) én lost meteen de lege house-sleeve + Aave-concentratie (BL-013) mee op",
+      "tags": ["masterplan", "planning"]
     }
   ],
 
@@ -89,7 +187,7 @@
     {
       "id": "EXP-003",
       "name": "Signal quality v3 — gate-unificatie + no-progress stop + universe tilt",
-      "status": "ACTIVE",
+      "status": "CONCLUDED_PARTIAL",
       "started": "2026-07-02",
       "review_by": "2026-07-14",
       "note_2026_07_04": "RRR_GATE-fix toegevoegd: gate vuurt alleen nog als structuur-SL binnen de setup-cap ligt (anders gebruikt executie toch ATR-brackets — 175 onterechte downgrades, 0 trades in 53h). Review verschoven 07-09 → 07-11: meetvenster bevatte 3 dode dagen (4-juli-weekend, XYZ dicht + crypto-chop).",
@@ -97,17 +195,70 @@
       "note_2026_07_10": "Google zette gemini-2.5-flash-lite (hardcoded fast-model default in utils/llm_client.py, geen env override) 2026-07-09 stil (404), wat alle thinking=False LLM-calls swarm-breed brak — o.a. SentimentAnalyst/FundamentalAnalyst SCORE-parsing (project_lead.py:424-425, gewicht 0.5/0.20 in composite) EN ProjectLead's final_score-override (project_lead.py:606,646) die base_score volledig kan vervangen. Fix om 06:02 UTC gedeployed: fast-model default → gemini-3.1-flash-lite. Beide paden voeden decision_history.json/shadow_book.json → shadow_report.json → de EXP-002/003 multiplier-learner: een modelwissel kan de score-verdeling laten schuiven, zelfde confound-klasse als de 07-06 state-reset. review_by verschoven 07-11 → 07-14 zodat het venster niet half voor/half na de wissel valt en er ≥4 dagen homogene post-swap data zijn.",
       "hypothesis": "Funnel heropenen (multiplier-fix + soft MACRO_GATE), stage-0 bleed kappen (no-progress stop 5h) en universe naar XYZ-equities tilten (1/3 slots) herstelt trade flow en brengt PF > 1.0",
       "metric": "Trades/dag > 4; PF sinds ijkpunt 07-02 > 1.0; aandeel stage-0 verlies in totaal verlies omlaag (baseline sinds 06-12: -$236 van -$248 bruto); XYZ-aandeel in executed trades omhoog (baseline 14%); NO_PROGRESS_TIMEOUT exits gemiddeld kleiner verlies dan STOP_LOSS exits",
-      "change": "project_lead.py (_load_regime_dir_multipliers fix, deferred flag), risk_manager.py (MACRO_GATE soft), strategy_manager.py (rule 5c NO_PROGRESS_TIMEOUT + detect_asset_class guard), research_agent.py (UniverseTilt), main.py (deferred skip), ticker_state.py (cooldowns), config/auto_params.json (no_progress_exit_hours=5.0)"
+      "change": "project_lead.py (_load_regime_dir_multipliers fix, deferred flag), risk_manager.py (MACRO_GATE soft), strategy_manager.py (rule 5c NO_PROGRESS_TIMEOUT + detect_asset_class guard), research_agent.py (UniverseTilt), main.py (deferred skip), ticker_state.py (cooldowns), config/auto_params.json (no_progress_exit_hours=5.0)",
+      "reviewed": "2026-07-14",
+      "verdict": "Poort NIET gehaald. 64 trades sinds 07-02: trades/dag 5,3 (>4 ✓), stage-0-verliesaandeel 95,2%→87,4% (✓ verbeterd), XYZ-aandeel 14%→26,6% (✓ omhoog), NO_PROGRESS_TIMEOUT avg −$1,22 vs STOP_LOSS avg −$1,58 (✓ kleiner verlies) — maar PF 0,66 (<1,0 ✗) en verslechterend (was 0,74 op 56 trades een dag eerder). Alle vier mechanische deelmetrics bewegen de goede kant op, maar de enige die economisch telt (PF) faalt: 65,6% van alle trades (42/64) bereikt stage-0 en komt nooit verder — 0% WR, 87,4% van het bruto-verlies (-$98,64/-$112,81). No-progress-stop knipt die verliezen kleiner maar lost niet op dát ze zo vaak voorkomen — dat is een entry-kwaliteitsprobleem, geen exit-timingprobleem, en dus een andere hendel dan EXP-003 raakte. Mechanismen blijven staan (elk individueel gevalideerd), maar losse tightening van thresholds is NIET de vervolgstap (self-tightening-loop pitfall) — zie BL-015 voor het voorgestelde vervolgexperiment. Bevestigt de masterplan-these dat de directionele swarm de duurste/dunste opbrengstbron is. [2026-07-14, ESCALATIE na vraag Bart 'is het project verliesgevend'] Schone vóór/na-vergelijking rond de EXP-003-grens: 06-12→07-02 (20d, vóór EXP-003) = 77 trades, +$13,86, WR 45,5%, PF 1,06 (marginaal gezond) vs 07-02→07-14 (13d, EXP-003) = 70 trades, −$51,92, WR 18,6% (GEHALVEERD), PF 0,59. Dit is geen 'onvoldoende verbetering' maar een omslag van winstgevend naar verliesgevend die samenvalt met de EXP-003-livegang: de funnel-heropening (meer trades: 3,85→5,38/dag) ging gepaard met een instorting van de trefkans. Portfolio-breed (sleeve-NAV, 9 dagen): totaal -$55,57 (-1,77%), vrijwel volledig toe te schrijven aan de swarm-sleeve — yield_core en kosten zijn verwaarloosbaar in dollars. Vereist een expliciete beslissing van Bart: pauzeren, gericht terugdraaien (welk EXP-003-onderdeel specifiek?), of doorlaten draaien binnen het vaste kleine budget."
+    },
+    {
+      "id": "EXP-005",
+      "name": "Masterplan Fase 6 (start) — TradFi-sleeve via IBKR, week 2-3 mijlpaal",
+      "status": "PAUSED",
+      "started": "2026-07-13",
+      "paused": "2026-07-13",
+      "review_by": "2026-07-27",
+      "hypothesis": "IBKR-account + ib_insync-koppeling + sleeve-NAV-integratie voor de tradfi-sleeve is haalbaar binnen 2 weken en levert een werkende balans-/positie-feed op waarmee de trend/dual-momentum-backtest (week 3-8, Poort F6a) kan starten (docs/MASTERPLAN.md Fase 6)",
+      "metric": "Week 2-3 mijlpaal: (1) paper- en live IBKR-account aangemaakt, (2) utils/ibkr_client.py verbindt en leest accountwaarde/posities, (3) config/sleeves.json + sleeve_nav.py kennen een 'ibkr' venue → tradfi-sleeve, (4) gedocumenteerd besluit over IB Gateway-hosting (zie werkbon). Géén live orders, géén echt kapitaal in deze stap.",
+      "change": "Nog te bouwen: utils/ibkr_client.py (nieuw), config/sleeves.json source_map/venue_map uitbreiding, sleeve_nav.py compute_sleeves() IBKR-tak",
+      "kill_criterion": "Als IB Gateway niet betrouwbaar headless/autonoom te draaien is (herhaalde 2FA/relogin-vereisten die mens-in-de-loop dwingen) binnen de review-termijn, escaleren naar Bart voor een architectuurbeslissing vóórdat er verder gebouwd wordt — niet stilzwijgend een cron-reminder-hack bouwen.",
+      "pause_reason": "[2026-07-13, Bart] Herprioriteert naar EXP-006 (Fase 2, HLP): kleinere bouwstap (zelfde wallet/venue als de rest van de swarm, geen nieuw account, geen Gateway-authenticatie-probleem) en lost meteen de lege house-sleeve + de Aave-concentratie (BL-013) mee op. Sessietaken #1-5 verwijderd, plan blijft hier bewaard voor later oppakken."
+    },
+    {
+      "id": "EXP-006",
+      "name": "Masterplan Fase 2 (start) — house-sleeve via HLP",
+      "status": "PAUSED",
+      "started": "2026-07-13",
+      "paused": "2026-07-13",
+      "review_by": "2026-07-27",
+      "hypothesis": "Een kleine HLP-deposit (€1-2k), gebouwd op de al bestaande HL-wallet-signing-infra (treasury_executor.py gebruikt dezelfde vault-sleutel al voor withdraw3/bridge), geeft de house-sleeve een tweede automated bestemming naast Aave — en genereert binnen 4 weken (Poort F2) genoeg rendement/DD-data om te besluiten over opschalen naar 15%-gewicht (docs/MASTERPLAN.md Fase 2)",
+      "metric": "Bouw-mijlpaal (dit review): HLP-deposit werkt via vaultTransfer L1-actie (ccxt hyperliquid of raw signed action, zelfde wallet als trading), house-sleeve toont een echt HLP-bedrag in de dagelijkse sleeve-NAV-digest. Poort F2 (vervolgreview): 4 weken data, rendement/DD-profiel binnen verwachting → 15%-gewicht.",
+      "change": "Onderzoek gedaan (mechanisme + adres geverifieerd, zie pause_reason), bouw niet gestart: HLP vaultTransfer-functie (utils/exchange_client.py), config/treasury_protocols.json HLP-entry, config/sleeves.json venue_map, TreasuryAgent-wiring voor een klein initieel bedrag",
+      "kill_criterion": "Als vaultTransfer-signing niet werkt met de bestaande wallet-architectuur, of HLP structureel andere/hogere kosten/lock-up kent dan verwacht, escaleren naar Bart vóór een deposit — HLP-drawdowns zijn geaccepteerd per masterplan-default, maar onverwachte illiquiditeit niet.",
+      "pause_reason": "[2026-07-13, na onderzoek] Mechanisme bevestigd (vaultTransfer L1-actie, HLP-adres 0xdfc24b077bc1425ad1dea75bcb6f8158e10df303 geverifieerd tegen HL's vaultDetails-API, 4-daagse lock-up die bij élke nieuwe storting het HELE saldo herlockt — niet alleen het nieuwe bedrag). Herprioriteert naar EXP-007 (Fase 3, XYZ-lab): schaal-mismatch ontdekt — Hyperliquid-venue-cap (40%) laat na de bestaande swarm-balans nog maar ~€570 ruimte, ver onder de in het masterplan genoemde €1-2k, en HLP's illiquiditeit tijdens de lock-up botst met het Fase 0-risicokader ('max drawdown per sleeve → auto-de-risk'). Bart's afweging: waarde aantonen hoeft geen groot bedrag, maar bij HLP is zelfs het bewijs-signaal bij het beschikbare bedrag te klein om iets te zeggen — dat deel wacht op portfoliogroei. Fase 3 kost daarentegen $0 (shadow-first per ontwerp) en toetst de hoogste-conviction hypothese uit het hele plan."
+    },
+    {
+      "id": "EXP-007",
+      "name": "Masterplan Fase 3 (start) — XYZ-lab shadow-recorders",
+      "status": "ACTIVE",
+      "started": "2026-07-13",
+      "review_by": "2026-07-27",
+      "hypothesis": "Drie shadow-recorders (weekend-funding op XYZ-synthetics, open-gap-convergentie rond de US-open, eerste-week-gedrag van nieuwe HL-listings) genereren zonder kapitaalrisico genoeg events om de kernbewering van het masterplan te toetsen: XYZ-synthetics zijn jonge, dunne markten met aantoonbare, na-kosten-positieve inefficiënties (docs/MASTERPLAN.md Fase 3, sectie 2 punt 4: XYZ shadow WR 49,6% vs crypto 36,7%)",
+      "metric": "Poort F3 (per sub-hypothese apart te behalen): n ≥ 30 events met aantoonbare, na-kosten-positieve edge → live met €1k per strategie. Deze review (07-27): build-mijlpaal GEHAALD — alle 3 sub-trackers draaien en loggen (weekend-funding, open-gap, nieuwe-listing).",
+      "change": "[2026-07-13] utils/shadow_xyz_lab.py gebouwd + gedeployed: weekend-funding sub-tracker (cycle-offset 1 mod 5), v1 meet extremiteit t.o.v. weekday-baseline, nog GEEN net-of-costs virtuele trade. Bug onderweg gevonden en gefixed: XYZ-tickers zitten op een aparte HL perp-dex ('xyz'), niet in de standaard metaAndAssetCtxs-call zonder dex-param — zie CLAUDE.md pitfall. Baseline wordt vrijdagavond vastgelegd; eerste weekend-resolve dus pas 2026-07-20 (komend weekend 07-17/19 is de eerste meting). [2026-07-14] Open-gap-convergentie-recorder toegevoegd (sub-tracker 2): drie checkpoints (14:25/14:35/15:30 UTC, matcht het bestaande 14:30 UTC-marktopen-convention uit xyz_technical_analyst.py), real-open via één gebatchte yfinance-call (~90 tickers, 1 request i.p.v. 90), commodities+index uitgesloten. Ontdekking onderweg: HL's ruwe 'xyz:TICKER'-namen ZIJN al de echte beursticker (geen aparte mapping-registry nodig — lost de eerder aangenomen XYZ_EQUITY_MAP-beperking (7/20 tickers) op voor déze meting). [2026-07-14] Nieuwe-listing-detector toegevoegd (sub-tracker 3): diff van huidige HL-universe (beide dexes, ~334 tickers) tegen persistente known-tickers-set, 7 dagen volgen (range/drift/gem. volume) bij een nieuwe listing. Eerste-scan-guard voorkomt dat de hele bestaande universe als 'nieuwe listing' geteld wordt — live geverifieerd: baseline van 232 main + 102 xyz tickers correct vastgelegd, 0 valse meldingen. Alle 3 sub-trackers unit-getest (mock data, volledige state-machines) vóór deploy. Volume-mounts + deploy_update.sh voor alle 9 shadow_xyz_*-bestanden + config/sleeves.json bijgewerkt en live toegepast (veilige down/up-recreate, alle hot-patches teruggezet, geen incident). EXP-007 build-mijlpaal compleet.",
+      "kill_criterion": "Als een sub-hypothese na n≥30 events geen na-kosten-positieve edge toont, expliciet KILLEN in roadmap.json (masterplan radar-regel: geen eeuwige lijstjes) i.p.v. door laten shadowen zonder besluit."
+    },
+    {
+      "id": "EXP-008",
+      "name": "Thematic Dip Sleeve — crash-scanner + T1 live-executie",
+      "status": "ACTIVE",
+      "started": "2026-07-16",
+      "review_by": "2026-07-23",
+      "hypothesis": "Een continu draaiende scanner die het volledige XYZ-synthetics-universum classificeert in thema's (LLM-voorgesteld, handmatig bevestigd) en scoort op vol-genormaliseerde 252d-drawdown + crash-snelheid + sectorbrede breedte, opent correct kleine, volledig gedekte (1x isolated) T1-starterposities op de hardst geraakte, meest liquide namen binnen een vast budget van €1.250 — zonder in elk thema/elke naam te hoeven zitten. Aanleiding: 2026-07 tech/AI-selloff (Nasdaq 100 dagdalingen tot -3,2%, Intel -21%/7d, Nvidia -16 à -18%, Microsoft -29% vanaf ATH), maar het doel is generiek — elk thema met een bevestigde, brede pullback kan triggeren, niet alleen tech/AI.",
+      "metric": "Validatieperiode 7 dagen (t/m 2026-07-23): (1) geen state-corruptie/onbehandelde exceptions in de cycle-hook, (2) elke geplaatste order heeft leverage=1 + margin_mode=isolated (handmatig geverifieerd op HL bij de eerste fill), (3) T1-fills matchen de berekende tranche-grootte (budget/8 namen × 20%), (4) geen guard-bypass (markt-uren/prijs-sanity/min-notional worden gerespecteerd — zichtbaar in de logs als skips), (5) gevlagde thema's/tickers kloppen bij handmatige review (chip/memory/optical horen actief te zijn, niet-geraakte thema's op 0%). Bij groen licht na 7 dagen: Bart zet t2_t4_enabled=true in thematic_dip_state.json.",
+      "change": "config/thematic_dip_themes.json (nieuw, 5 thema's + 19 CONFIRMED tech/AI-tickers als seed), utils/exchange_client.py (create_order: optionele leverage/margin_mode-params, backward-compatible), config/sleeves.json (thematic_dip-sleeve toegevoegd, max_sleeve_drawdown_pct 25%, HL-venue-cap bewust 40%→60% — zie _comment in het bestand), utils/sleeve_nav.py (compute_sleeves() leest thematic_dip_positions.json als aparte sleeve, trekt af van 'swarm' om dubbeltelling te voorkomen), utils/thematic_dip_lab.py (nieuw — hoofdmodule: classificatie, scoring, T1-executie, exit-beheer, funding-monitor, T2-T4-dry-run), main.py (init + cycle-hook % 5 == 1, gedeeld met shadow_xyz_lab + digest-regel), agents/execution_agent.py + agents/strategy_manager.py (isolatie-guards 'thematic_dip': True naast bestaande 'harvest': True, zelfde patroon als Funding Harvest).",
+      "kill_criterion": "Elke uitvoeringsfout met echt kapitaal (verkeerde leverage, order op verkeerde ticker/grootte, guard-bypass) → direct pauzeren (geen nieuwe orders, t2_t4_enabled blijft/gaat false) en escaleren naar Bart vóórdat er verder gebouwd of doorgedraaid wordt — zelfde discipline als EXP-005/EXP-006. Als de scoring-ranking na de validatieperiode structureel onzinnige dingen bovenaan zet (illiquide/ruis-namen i.p.v. de duidelijke sectorbrede pullback), scoringsformule herzien vóór verdere opschaling.",
+      "note_2026_07_16b": "Op Bart's verzoek: handmatige classificatie-review verwijderd uit het kritieke pad. _classify_ticker gebruikt voortaan het al aanwezige (voorheen genegeerde) LLM-confidence-veld: \"high\" → direct CONFIRMED (telt meteen mee voor live T1-executie, geen mens nodig), \"low\"/ontbrekend/mislukt → blijft PENDING_REVIEW/PENDING_MANUAL zoals voorheen. Prompt aangescherpt om \"high\" conservatief te houden (alleen bij ondubbelzinnige bedrijfsidentiteit + thema-fit). Telegram/dashboard-review blijft bestaan als vangnet voor de onzekere/mislukte gevallen, niet meer als verplichte stap voor de duidelijke. Reeds bestaande PENDING-tickers (~30 stuks, van vóór deze wijziging) zijn niet met terugwerkende kracht herclassificeerd — die blijven staan voor handmatige review zoals gepland."
     },
     {
       "id": "EXP-004",
       "name": "Masterplan Fase 0 — sleeve-NAV boekhouding",
-      "status": "ACTIVE",
+      "status": "CONCLUDED_PASSED",
       "started": "2026-07-05",
       "review_by": "2026-07-13",
+      "reviewed": "2026-07-13",
       "hypothesis": "Dagelijkse NAV per sleeve (yield_core/house/swarm/basis/lab/tradfi) + venue-concentratie + drawdown-limieten geeft het meetfundament voor de meta-allocator (docs/MASTERPLAN.md F0)",
       "metric": "Poort F0: 7 opeenvolgende dagen foutloze snapshot + Telegram-rapport (geen gaten, geen stale-skips buiten VM-storingen, EUR/USD-rate gevuld)",
-      "change": "utils/sleeve_nav.py (nieuw), config/sleeves.json (nieuw), main.py hook cycle%5==3; historie in data/sleeve_nav.json (volume-mounted)"
+      "change": "utils/sleeve_nav.py (nieuw), config/sleeves.json (nieuw), main.py hook cycle%5==3; historie in data/sleeve_nav.json (volume-mounted)",
+      "verdict": "Poort F0 GEHAALD: 9 opeenvolgende dagen (07-05 t/m 07-13) foutloze snapshot + Telegram-digest, geen gaten, EUR/USD-rate elke dag gevuld. Drie bevindingen tijdens de meting: (1) het mechanisme werkt zoals bedoeld — de venue/sleeve-breakdown ving een echte treasury-move op (Gains gUSDC $1.088 volledig afgebouwd + HL-marge -$420, rond 07-09/10) zichtbaar in de venue-cijfers; (2) Aave-venue staat sinds 07-10 op ~81% van totaal-NAV tegen een geconfigureerde cap van 60% (config/sleeves.json) — 4 opeenvolgende dagen over de limiet, de ⚠️-regel werd wel elke dag correct meegestuurd in de digest maar er is nog geen actie ondernomen, zie BL-013; (3) het bekende F0-ontwerpgat (NAV-rendement niet flow-adjusted, zie docstring sleeve_nav.py) is empirisch bevestigd: de yield_core '1d-return' van +144% op 07-10 was puur de Gains-deposit, geen rendement — moet gefixed zijn vóór Fase 5 de allocator op 7d/30d-cijfers laat sturen, zie BL-014. Huidige mix (~81% yield_core, ~19% swarm, 0% tradfi/basis/house/lab) wijkt sterk af van het masterplan-doel maar is logisch zolang Fase 1/3/6 nog geen echt kapitaal hebben — vastgelegd als nulmeting."
     }
   ],
 
@@ -118,8 +269,8 @@
       "title": "MONITOR zone aanscherpen",
       "category": "Signal Quality",
       "description": "MONITOR heeft WR 33.7% vs NO_GO 39.7% — de pipeline bewaakt actief slechte setups. [2026-07-02 HERBEVESTIGD] Shadow (n=484): MONITOR WR 38.6% < NO_GO 41.9%, BUILD_CASE 47.8%. Promotielogica aanscherpen of MONITOR-window verkorten.",
-      "blocked_until": "2026-07-09",
-      "blocked_reason": "Wacht op EXP-003 review — één variabele tegelijk"
+      "blocked_until": null,
+      "blocked_reason": "[2026-07-14] EXP-003 gereviewd (poort niet gehaald, zie verdict) — geblokkeerd-reden vervalt. Overweeg samen met BL-015 (zelfde symptoomklasse: te veel laagwaardige entries) i.p.v. apart, één variabele tegelijk blijft het principe."
     },
     {
       "id": "BL-002",
@@ -201,7 +352,8 @@
       "priority": "LOW",
       "title": "Gains gUSDC positie ($1.088, 35% van portfolio) heroverwegen",
       "category": "Treasury",
-      "description": "[2026-07-02] Grootste enkele allocatie zit in een epoch-based (niet-instant) vault, terwijl de liquidity guard nieuwe deposits daar juist blokkeert. Bespreekpunt: afbouwen naar Aave/Morpho voor liquiditeit, of bewust houden voor de hogere yield.",
+      "status": "DONE",
+      "description": "[2026-07-02] Grootste enkele allocatie zat in een epoch-based (niet-instant) vault, terwijl de liquidity guard nieuwe deposits daar juist blokkeert. [2026-07-13, waargenomen bij EXP-004 review] Volledig afgebouwd rond 07-09/10 — yield_balances.gains-network-arbitrum-usdc staat op $0, kapitaal is naar Aave gesweept. Bijeffect: veroorzaakte de Aave-concentratie in BL-013.",
       "blocked_until": null,
       "blocked_reason": null
     },
@@ -213,7 +365,37 @@
       "status": "SHADOW_ACTIVE",
       "description": "[2026-07-05] Ontwerp in docs/FASE1_FUNDING_HARVEST_DESIGN.md. Kernvondst: HL heeft UBTC/USDC (@142) en UETH/USDC (@151) spot-pairs met scherpe spreads (~1,6-7,6 bps) en voldoende diepte voor 2.500 euro test-notional, basis vs perp klein -- echte delta-neutrale hedge (long spot + short perp, zelfde venue) is haalbaar. Gap: exchange_client.py hardcoded defaultType=swap, kiest altijd perp boven spot -- spot-order-capability moet nog gebouwd worden voor de LIVE stap. [2026-07-05 UITGEBREID] utils/shadow_basis.py: virtuele versie draait nu elke ~5min tegen publieke HL-data (geen keys, geen orders, geen kapitaal), logt open/monitor/close + Telegram bij elke virtuele close. Placeholder fee-model (3,5bps x4 poten) tot echte fee-schedule bekend is.",
       "blocked_until": null,
-      "blocked_reason": "Echt kapitaal wacht op Poort F1-shadow (2-3 weken shadow-data, netto APY >8%, stabiele basis) EN EXP-004 F0-poort (sleeve-NAV, 7 dagen foutloos)"
+      "blocked_reason": "[2026-07-13] EXP-004 F0-poort gehaald, die voorwaarde vervalt. Resteert: Poort F1-shadow (2-3 weken shadow-data, netto APY >8%, stabiele basis) — maar de shadow-klok is feitelijk nog niet begonnen: sinds start (07-05) is nog GEEN enkele virtuele positie geopend, BTC/ETH funding rate kwam nooit boven de 0.01%/8h open-drempel. shadow_basis_report.json bevestigt n_closed=0 (main.py build_report-bug tot 07-13 verholpen, rapportage draait nu correct)."
+    },
+    {
+      "id": "BL-017",
+      "priority": "HIGH",
+      "title": "Standalone sustained-degradation-alert (proces-fix na EXP-003-postmortem)",
+      "category": "Monitoring",
+      "status": "DEPLOYED",
+      "description": "[2026-07-14] Bart's vraag 'hoe hadden we dit eerder kunnen zien' — EXP-003's reviewdatum werd 3x verschoven (07-09→07-11→07-14) terwijl het boek ondertussen bloedde; niemand/niets forceerde een tussentijdse blik los van die kalender. Onderzoek: er bestond al gedeeltelijke detectie (_check_pnl_digest, WR-swing ≥10pp op L3d/Prev3d) maar begraven als één bullet in een lange dagelijkse routine-digest — makkelijk te missen, geen escalatie. Fix: nieuwe SwarmMonitor._check_sustained_degradation() (Check 12b) — losstaand, opvallend 🚨-bericht, rolling 7d PF < 0.80 (min n=10) tegen 30d-baseline, 24h cooldown, volledig onafhankelijk van welk experiment loopt of wanneer zijn review gepland staat. Getest tegen live trade_log.json vóór deploy: vuurde correct (7d PF 0.55, WR 19%, -$44.44) — exact het signaal dat 12 dagen eerder al zichtbaar had moeten zijn.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-016",
+      "priority": "HIGH",
+      "title": "TRENDING_BULL+SHORT-beloning geneutraliseerd na WR-instorting + symmetrische LONG/VOLATILE-fix",
+      "category": "Signal Quality",
+      "status": "DEPLOYED_TRADING_RESUMED_SYMMETRIC_FIX",
+      "description": "[2026-07-14, vervolg op EXP-003-escalatie] Root cause van de WR-instorting (45,5%→18,6%) gevonden: regime-reconstructie via BTC 4h ADX/ATR (research_agent.py-logica nagebouwd) toont dat 07-02→07-09 62% TRENDING_BULL was (vs 14,2% in de 20 dagen ervoor) — de sterkste, meest aanhoudende bull-stretch die de swarm had gezien. De shadow-afgeleide multiplier beloonde TRENDING_BULL+SHORT (×0,85, gebaseerd op n=21/WR61,9%), wat SHORT-concentratie naar 95,6% van trades duwde tijdens een aanhoudende bull-trend — live SHORT-WR halveerde van 45,8% (voor EXP-003) naar 22,7%. Geen bug, een generalisatieprobleem: n=21 is te dun om te vertrouwen buiten korte/grillige bull-momentjes. Fix: project_lead.py _load_regime_dir_multipliers() plafonneert TRENDING_BULL+SHORT nu op minimaal ×1,0 (geen beloning meer toegestaan, straf-kant blijft normaal werken). Unit-getest + live geverifieerd. [2026-07-14 16:xx UTC] Bart gaf akkoord: CircuitBreaker.resume_system() gedraaid, can_trade()=True. [2026-07-14, vervolg — Bart's vraag 'zoeken we ook weer longs?'] Gecontroleerd: TRENDING_BULL+LONG-straf (×2,0) bleek op EXACT dezelfde wankele basis te rusten — alle 29 shadow-observaties dateren van 06-07→06-14, hetzelfde door de 07-06-reset beperkte venster als de SHORT-beloning, en slechts 5 live LONG-trades sinds 07-02 (de straf onderdrukt zijn eigen bewijs). Symmetrische fix toegepast: TRENDING_BULL+LONG nu ook geplafonneerd op maximaal ×1,0 tot een grotere, onafhankelijke sample bestaat. Unit-getest (RANGING+LONG blijft correct ongemoeid op ×2,0) + live geverifieerd tegen de draaiende container (beide TRENDING_BULL-cellen nu ×1,0). [2026-07-14/15, vervolg — Bart's vraag 'zitten er nog meer van zulke regels in'] Systematische audit van ALLE regime×richting-cellen op dagen-spreiding (i.p.v. alleen n): RANGING/TRENDING_BEAR-cellen spreiden over 6-7 losse dagen (07-06/07-14), maar VOLATILE+SHORT (n=21, ×0,85-beloning) bleek nog geconcentreerder dan de eerdere twee — ALLE observaties van één enkele kalenderdag (07-08), dus feitelijk één marktgebeurtenis vermomd als gevalideerde edge. VOLATILE+LONG (n=5) zit onder de sample-drempel en gebruikt terecht de oudere, bredere bootstrap-default — niet geraakt. Zelfde plafond toegepast op VOLATILE+SHORT (max ×1,0). Unit-getest + live geverifieerd na een restart-hiccup (dashboard-hook checkte te vroeg, HTTP 000, bleek 30s later gewoon 200 — vals alarm, geen echte storing). Drie multiplier-fixes nu actief: TRENDING_BULL+LONG, TRENDING_BULL+SHORT, VOLATILE+SHORT, alle geplafonneerd/gevloerd op neutraal ×1,0. Structurele beperking blijft: shadow_book heeft door de 07-06-reset geen data van vóór die datum, dus ELKE 'verse' multiplier rust op hooguit ~10 dagen — RANGING/TRENDING_BEAR-cellen zijn niet apart gefixed omdat hun dagen-spreiding vandaag geen acuut rode vlag gaf, niet omdat ze bewezen betrouwbaar zijn. Nu observeren.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-015",
+      "priority": "HIGH",
+      "title": "Entry-kwaliteit: 65,6% van trades bereikt nooit stage 1 (EXP-003 review)",
+      "category": "Signal Quality",
+      "status": "INVESTIGATED_NO_ACTIONABLE_LEAD",
+      "description": "[2026-07-14, EXP-003 review] 42 van 64 trades sinds 07-02 eindigen op sl_stage=0 (SL nooit bewogen): 0% WR, 87,4% van het bruto-verlies. NO_PROGRESS_TIMEOUT (EXP-003) knipt deze trades kleiner dan een harde stop-loss, maar verandert niets aan de entry-selectie die ze veroorzaakt — exit-side fix voor een entry-side probleem. [2026-07-14, VERVOLG 1] Eerste-pass op de 64 live trades: conviction/technical vlak (geen verschil stage0 vs geprogresseerd), fundamental licht hoger bij stage0 (bevestigt bekende FA-contra-indicator), sentiment grootste gap (stage0 -0,05 vs geprogresseerd +0,08) en XYZ oververtegenwoordigd in stage0 (31% vs 18%). BEIDE leads getoetst tegen het grotere shadow_book-sample (n=125 SHORT, resolved) en NIET repliceerbaar: sentiment-effect is daar OMGEKEERD (bearish sentiment bij SHORT → hogere WR 50,0% vs 41,0%, het intuïtief correcte teken), en XYZ presteert in shadow juist BETER dan crypto (WR 49,1% vs 42,9%), niet slechter — de live XYZ-zwakte lijkt een kortetermijn/regime-dip, geen structurele omkering. [2026-07-14, VERVOLG 2] RRR-bij-entry bleek niet reconstrueerbaar: take_profit wordt door strategy_manager.py dynamisch herberekend t.o.v. actuele prijs tijdens stage-progressie (regel ~122/125), dus het huidige TP-veld meet 'uiteindelijk vastgeklikte RRR', niet 'RRR bij entry' — data-artefact, geen signaal. sl_pct (initiële stop-afstand) toont geen verschil (2,99% vs 2,81%). Regime×richting via shadow_book (n=247 resolved): RANGING is 47,8% van alle observaties en negatief in béide richtingen (LONG WR 27,9%/-0,83%, SHORT WR 36,0%/-0,41%), TRENDING_BULL+LONG slechtste gemiddelde (-1,06%, n=28) — MAAR de live regime-dir-multipliers (project_lead.py, EXP-002/003) passen hier al de maximale ×2,0-penalty op toe (RANGING+LONG=×2, TRENDING_BULL+LONG=×2) resp. ×1,5 (RANGING+SHORT); TRENDING_BULL+SHORT (beste cel, WR 61,9%) krijgt terecht ×0,85. Mechanisme werkt zoals ontworpen — geen onontdekt gat. CONCLUSIE: geen van de onderzochte kandidaten (conviction/tech/fund/sent/asset-klasse/RRR/regime×richting) levert een nieuwe, bruikbare hendel op; de regime-adjustering zit al aan zijn plafond op de slechtste cellen. Stage-0-bleed lijkt een structurele grens van de huidige composiet-score te zijn, geen losse fixbare parameter. GEEN gate bouwen. Verder graven op dit pad heeft afnemend rendement — bevestigt de masterplan-these over deze sleeve.",
+      "blocked_until": null,
+      "blocked_reason": null
     },
     {
       "id": "BL-011",
@@ -223,6 +405,25 @@
       "description": "[2026-07-04] Strategische herijking richting passief inkomen op 100k+: 5 sleeves (yield core, basis/funding delta-neutraal, house-vaults/HLP, directionele swarm, XYZ-lab) met eigen NAV, risk budget en kill-criteria, plus meta-allocator die wekelijks herweegt op rolling risk-adjusted rendement. Fasering F0-F5 met validatiepoorten; kapitaal-opschaling 3k->10k->30k->100k op poorten, niet op datums. Eerste stap: Fase 0 sleeve-NAV boekhouding. Volledige plan: docs/MASTERPLAN.md.",
       "blocked_until": null,
       "blocked_reason": null
+    },
+    {
+      "id": "BL-013",
+      "priority": "HIGH",
+      "title": "Aave-venue-concentratie 81% > 60% cap sinds 07-10",
+      "category": "Treasury",
+      "status": "RESOLVED",
+      "description": "[2026-07-13, gevonden bij EXP-004 review, root cause + fix zelfde dag] Sinds de Gains gUSDC-afbouw (~07-09/10) stond yield_balances.aave-v3-arbitrum-usdc op ~81% van totaal-NAV (100% van yield_balances) tegen de geconfigureerde cap van 60% in config/sleeves.json. Root cause: TreasuryAgent's auto-diversificatie (_check_yield_diversification, agents/treasury_agent.py:1019) triggert wel correct (Aave 100% > 80%-drempel) maar vindt geen gekwalificeerde bestemming — get_yield_opportunities() filtert automated-Arbitrum-kandidaten op TVL ≥ $5M (_MIN_TVL_BY_TIER['stable']), en op 07-13 haalt geen enkel alternatief dat: Morpho BBQUSDC $1,95M, Morpho GTUSDCC $2,68M (verder gekrompen sinds de $3,2M uit CLAUDE.md), Compound v3 Arbitrum $4,2M maar nog niet automated=true, Gains uitgesloten als bestemming (epoch-based). Geen bug — de $5M-vloer beschermt terecht tegen het dumpen van ~$879 (30-45% van de Morpho-vault-TVL) in een te dunne vault; het is een stille no-op zonder log/Telegram-melding. Beslissing (Bart, 07-13): Aave is feitelijk de diepste/veiligste beschikbare optie — cap opgetrokken naar 85% in config/sleeves.json i.p.v. geforceerd naar dunne vaults spreiden. Herzien zodra Morpho-TVL groeit of Compound v3 automated wordt.",
+      "blocked_until": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "BL-014",
+      "priority": "MID",
+      "title": "SleeveNAV: rendement flow-adjusted maken vóór Fase 5",
+      "category": "Treasury",
+      "description": "[2026-07-13, bevestigd bij EXP-004 review] sleeve_nav.py's eigen F0-beperking (docstring) is empirisch aangetoond: yield_core '1d-return' sprong +144% op 07-10 door de Gains-deposit, niet door rendement. De meta-allocator (Fase 5) mag pas op 7d/30d sleeve-rendement sturen als stortingen/onttrekkingen apart geboekt worden i.p.v. als NAV-verandering te tellen — anders herweegt hij op kapitaalstromen in plaats van op prestatie. Blokkeert Fase 5, niet eerder.",
+      "blocked_until": null,
+      "blocked_reason": "Pas nodig vóór Fase 5 (meta-allocator) start"
     }
   ]
 }

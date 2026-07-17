@@ -3119,6 +3119,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(f"treasury Error: {e}".encode())
             return
 
+        if self.path in ("/thematic-dip", "/thematic-dip/"):
+            try:
+                from utils.dashboard_thematic_dip import build_thematic_dip_html
+                html = build_thematic_dip_html()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(f"thematic-dip Error: {e}".encode())
+            return
+
         if self.path in ("/performance", "/performance/"):
             try:
                 from utils.dashboard_performance import build_performance_html
@@ -3333,6 +3348,48 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 import json as _j
                 self.wfile.write(_j.dumps({"error": str(e)}).encode())
+            return
+
+        if self.path in ("/api/thematic-dip/approve", "/api/thematic-dip/approve/",
+                          "/api/thematic-dip/edit", "/api/thematic-dip/edit/",
+                          "/api/thematic-dip/ignore", "/api/thematic-dip/ignore/"):
+            import json as _json
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length) if length else b"{}"
+                data = _json.loads(body)
+                ticker = (data.get("ticker") or "").strip()
+                if not ticker:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(_json.dumps({"ok": False, "error": "ticker required"}).encode())
+                    return
+
+                from utils.thematic_dip_lab import approve_ticker, edit_ticker, ignore_ticker
+                if "/approve" in self.path:
+                    ok, message = approve_ticker(ticker)
+                elif "/edit" in self.path:
+                    theme_spec = (data.get("theme_spec") or "").strip()
+                    if not theme_spec:
+                        self.send_response(400)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(_json.dumps({"ok": False, "error": "theme_spec required"}).encode())
+                        return
+                    ok, message = edit_ticker(ticker, theme_spec)
+                else:
+                    ok, message = ignore_ticker(ticker)
+
+                self.send_response(200 if ok else 400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(_json.dumps({"ok": ok, "message": message}).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(_json.dumps({"ok": False, "error": str(e)}).encode())
             return
 
         if self.path in ("/api/notify", "/api/notify/"):

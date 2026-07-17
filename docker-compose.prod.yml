@@ -18,12 +18,22 @@ services:
       - ./active_assets.json:/app/active_assets.json
       - ./pnl_snapshots.json:/app/pnl_snapshots.json
       - ./config/auto_params.json:/app/config/auto_params.json
+      - ./config/sleeves.json:/app/config/sleeves.json
       # Leer- en positie-state: moet een full redeploy overleven (2026-07-06)
       - ./shadow_book.json:/app/shadow_book.json
       - ./shadow_report.json:/app/shadow_report.json
       - ./shadow_basis_state.json:/app/shadow_basis_state.json
       - ./shadow_basis_log.json:/app/shadow_basis_log.json
       - ./shadow_basis_report.json:/app/shadow_basis_report.json
+      - ./shadow_xyz_funding_state.json:/app/shadow_xyz_funding_state.json
+      - ./shadow_xyz_funding_log.json:/app/shadow_xyz_funding_log.json
+      - ./shadow_xyz_funding_report.json:/app/shadow_xyz_funding_report.json
+      - ./shadow_xyz_gap_state.json:/app/shadow_xyz_gap_state.json
+      - ./shadow_xyz_gap_log.json:/app/shadow_xyz_gap_log.json
+      - ./shadow_xyz_gap_report.json:/app/shadow_xyz_gap_report.json
+      - ./shadow_xyz_listings_state.json:/app/shadow_xyz_listings_state.json
+      - ./shadow_xyz_listings_log.json:/app/shadow_xyz_listings_log.json
+      - ./shadow_xyz_listings_report.json:/app/shadow_xyz_listings_report.json
       - ./ticker_state.json:/app/ticker_state.json
       - ./decision_history.json:/app/decision_history.json
       - ./treasury_harvest.json:/app/treasury_harvest.json
@@ -33,6 +43,11 @@ services:
       - ./cost_log.json:/app/cost_log.json
       - ./polymarket_shadow_log.json:/app/polymarket_shadow_log.json
       - ./config/treasury_allocation.json:/app/config/treasury_allocation.json
+      # Thematic Dip Sleeve (EXP-008, 2026-07-16): echte posities + budget-state — moet een full redeploy overleven
+      - ./config/thematic_dip_themes.json:/app/config/thematic_dip_themes.json
+      - ./thematic_dip_state.json:/app/thematic_dip_state.json
+      - ./thematic_dip_positions.json:/app/thematic_dip_positions.json
+      - ./thematic_dip_report.json:/app/thematic_dip_report.json
     networks: [trader_net]
 
 networks:

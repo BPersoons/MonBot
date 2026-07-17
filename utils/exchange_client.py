@@ -204,14 +204,21 @@ class HyperliquidExchange:
 
         return fees, funding
 
-    def create_order(self, ticker, action, quantity, price=None, order_type='market'):
+    def create_order(self, ticker, action, quantity, price=None, order_type='market',
+                      leverage=None, margin_mode=None):
         """
         Executes an On-Chain Order using the Signing Client.
+
+        leverage/margin_mode: optional per-order overrides. When omitted (None),
+        behavior is unchanged from before these params existed — DEFAULT_LEVERAGE
+        env var, cross-then-isolated fallback. Pass explicit values to pin a
+        specific mode for callers that must not inherit the swarm-wide default
+        (e.g. a buy-and-hold sleeve that must never be leveraged).
         """
         if not self.signing_client:
             self.logger.error("No Signing Client available.")
             return None
-            
+
         symbol = self._normalize_symbol(ticker)
         if symbol is None:
             self.logger.error(f"Cannot place order: {ticker} is not listed on Hyperliquid.")
@@ -223,14 +230,20 @@ class HyperliquidExchange:
 
             # Set leverage — 3x default for more positions with small bankroll
             # TP/SL/PnL percentages are on notional, so they stay correct
-            target_leverage = int(os.getenv("DEFAULT_LEVERAGE", "3"))
-            try:
-                self.signing_client.set_leverage(target_leverage, ticker, params={'marginMode': 'cross'})
-            except Exception:
+            target_leverage = int(leverage) if leverage is not None else int(os.getenv("DEFAULT_LEVERAGE", "3"))
+            if margin_mode is not None:
                 try:
-                    self.signing_client.set_leverage(target_leverage, ticker, params={'marginMode': 'isolated'})
+                    self.signing_client.set_leverage(target_leverage, ticker, params={'marginMode': margin_mode})
                 except Exception as lev_err:
-                    self.logger.warning(f"set_leverage({target_leverage}) failed for {ticker}: {lev_err}")
+                    self.logger.warning(f"set_leverage({target_leverage}, marginMode={margin_mode}) failed for {ticker}: {lev_err}")
+            else:
+                try:
+                    self.signing_client.set_leverage(target_leverage, ticker, params={'marginMode': 'cross'})
+                except Exception:
+                    try:
+                        self.signing_client.set_leverage(target_leverage, ticker, params={'marginMode': 'isolated'})
+                    except Exception as lev_err:
+                        self.logger.warning(f"set_leverage({target_leverage}) failed for {ticker}: {lev_err}")
 
             self.logger.info(f"Signing {side} order for {quantity} {ticker}...")
 
