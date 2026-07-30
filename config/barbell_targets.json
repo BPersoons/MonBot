@@ -14,18 +14,39 @@
   "_theme_comment": "Selectie op BOTTLENECK, niet op narratief: wie kan hier de prijs bepalen en waarom kan niemand daaromheen? Gevalideerd over 2008-2026 (scripts/theme_bottleneck_backtest.py): tolhuisje-mand CAGR 16,0% vs wereldindex 7,8% vs narratief-mand -5,0%, en de tolhuisje-mand wint in ALLE drie de deelperiodes. Narratief-thema's (zon/waterstof/batterij/EV) zijn expliciet uitgesloten: kapitaalintensief, uitwisselbaar product, geen prijszettingsmacht.",
   "themes": {
     "SEMIS": {
-      "bottleneck": "EUV-monopolie (ASML), foundry op de scherpste node (TSMC), EDA-duopolie",
+      "bottleneck": "LET OP — hier wijkt het instrument af van de these. De tolhuisjes (ASML EUV, TSMC foundry) zijn samen maar ~15% van het fonds; Micron 14,3% en Intel 8,0% zijn juist commodity-geheugen en een worstelende fab, precies zonder prijszettingsmacht. Wat je koopt is SECTORBETA, geen moat-mand. Toch genomen omdat het 18-jaars bewijs op exact deze index is gemeten (SMH, 21,2%/jr, wint in alle 3 de deelperiodes) — dat bewijs staat los van de vraag of de tolhuisje-verklaring klopt. Index capt op 10% per naam bij herweging, dus de huidige 14,3% is drift sinds de laatste rebalance.",
+      "etf": "VanEck Semiconductor UCITS",
+      "isin": "IE00BMC38736",
+      "ticker": "VVSM",
+      "ter_pct": 0.35,
+      "degiro_kernselectie": true,
       "slot_order": 1
     },
     "DEFENSE": {
-      "bottleneck": "Certificering en programma's over decennia; structureel EU-budget",
+      "bottleneck": "Certificering en programma's over decennia; structureel EU-budget. Instrument dekt de these hier WEL: alleen Europese primes (Thales 12,7%, BAE 11,8%, Rheinmetall 11,2%, Airbus, Rolls-Royce, Safran). Bewust EUDF en niet VanEck DFEN: die heeft Palantir op 8,9% — een softwarebedrijf, geen defensie-prime — en is bovendien duurder (0,55%).",
+      "etf": "WisdomTree Europe Defence UCITS",
+      "isin": "IE0002Y8CX98",
+      "ticker": "EUDF",
+      "ter_pct": 0.40,
+      "degiro_kernselectie": true,
       "slot_order": 2
     },
     "SOFTWARE": {
-      "bottleneck": "Switching costs in infrastructuursoftware",
+      "bottleneck": "Switching costs in infrastructuursoftware. INSTRUMENT NOG NIET GEKOZEN: er is geen zuiver software-infra-fonds in DEGIRO's kernselectie. De beschikbare brede IT-sector-ETF's (bv. QDVE) zitten vol Apple/Microsoft/Nvidia/Broadcom en overlappen zwaar met het SEMIS-slot — dan koop je hetzelfde twee keer. Openstaand; niet urgent want slot 3.",
+      "etf": null,
+      "isin": null,
       "slot_order": 3
+    },
+    "GOLD_INSTRUMENT": {
+      "_note": "Geen thema-slot maar wel vastgelegd: goud (20% v/h groei-been) via een fysiek ETC.",
+      "etf": "iShares Physical Gold ETC",
+      "isin": "IE00B4ND3602",
+      "ticker": "PPFB",
+      "ter_pct": 0.12,
+      "degiro_kernselectie": true
     }
   },
+  "_broker": "DEGIRO. Alle bovenstaande ISIN's staan in de ETF-kernselectie (geverifieerd 2026-07-30 tegen de lijst van 1.415 fondsen), dus EUR 1 per order op Tradegate = 0,2% op een slot van $500. Saxo was eerder in beeld voor AutoInvest bij kleine wekelijkse tranches; met de slot-regel doen we weinig, grotere orders en wint DEGIRO.",
   "_slot_comment": "Een thema-slot gaat pas open als het met min_slot_usd gevuld kan worden — daaronder vreten transactiekosten (EUR 1-3/order) meer dan een halve procent. Vullen op volgorde van slot_order; het aantal slots hangt af van kapitaal, de VOLGORDE ligt vast. Zo schaalt de structuur mee zonder nu te limiteren.",
   "min_slot_usd": 500,
   "bands": {

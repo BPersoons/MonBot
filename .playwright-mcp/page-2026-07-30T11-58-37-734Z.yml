@@ -1,0 +1,1712 @@
+- generic [active] [ref=e1]:
+  - dialog [ref=e2]:
+    - generic [ref=e3]:
+      - img "logo" [ref=e7]
+      - tablist [ref=e9]:
+        - tab "Toestemming" [selected] [ref=e10] [cursor=pointer]
+        - tab "Details" [ref=e11] [cursor=pointer]
+        - tab "Over" [ref=e12] [cursor=pointer]
+      - tabpanel "Toestemming" [ref=e14]:
+        - generic [ref=e16]:
+          - heading "Deze website maakt gebruik van cookies" [level=2] [ref=e17]
+          - generic [ref=e18]: We gebruiken cookies om content en advertenties te personaliseren, om functies voor social media te bieden en om ons websiteverkeer te analyseren. Ook delen we informatie over uw gebruik van onze site met onze partners voor social media, adverteren en analyse. Deze partners kunnen deze gegevens combineren met andere informatie die u aan ze heeft verstrekt of die ze hebben verzameld op basis van uw gebruik van hun services.
+      - generic [ref=e22]:
+        - button "Alleen noodzakelijke cookies" [ref=e23] [cursor=pointer]
+        - button "Aanpassen" [ref=e24] [cursor=pointer]
+        - button "Alles accepteren" [ref=e26] [cursor=pointer]
+  - text: 
+  - generic [ref=e28]:
+    - banner [ref=e29]:
+      - generic [ref=e31]:
+        - generic [ref=e33]:
+          - generic [ref=e34]: Toegankelijkheidsmodus
+          - generic [ref=e35]:
+            - checkbox "Toegankelijkheidsmodus Toegankelijkheidsmodus" [ref=e36]
+            - switch "Toegankelijkheidsmodus" [ref=e37]
+        - button "Direct naar de hoofdinhoud" [ref=e38] [cursor=pointer]
+      - navigation [ref=e39]:
+        - generic [ref=e43]:
+          - link "Online broker DEGIRO" [ref=e44] [cursor=pointer]:
+            - /url: https://www.degiro.nl/
+            - img "Online broker DEGIRO"
+          - button "Toggle navigation" [ref=e45] [cursor=pointer]
+          - text: Nieuw Nieuw
+        - generic: Nieuw Nieuw
+    - main [ref=e46]:
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - heading "Ontdek de Kernselectie" [level=1] [ref=e51]
+          - paragraph [ref=e52]: Met de vernieuwde Kernselectie krijg je toegang tot een breed scala aan beursgenoteerde producten tegen lage kosten. Hiermee beleg je in nog meer ETF's ETC's en ETN's voor slechts €1 per transactie op Tradegate. En geniet je van nog meer keuze tegen dezelfde ongekend lage kosten en zonder de beperkingen van een Fair Use Policy.
+          - generic [ref=e53]:
+            - button "Start met beleggen" [ref=e56] [cursor=pointer]
+            - link "Inloggen" [ref=e58] [cursor=pointer]:
+              - /url: https://trader.degiro.nl/login/nl
+        - img "Smartphone met DEGIRO app. Aandelengrafiek en mand met diverse producten die diversificatie van een portefeuille illustreren" [ref=e60]
+      - generic [ref=e63]:
+        - img "diversification" [ref=e66]
+        - generic [ref=e67]:
+          - heading "Kies uit een breed productaanbod voor € 1" [level=2] [ref=e68]
+          - paragraph [ref=e69]: Met de vernieuwde Kernselectie krijg je toegang tot het volledige aanbod van ETF's, ETC's en ETN's dat beschikbaar is op Tradegate. Dat betekent dat je meer dan 1000 producten kunt verhandelen tegen slechts €1 handelingskosten. Valuta-, externe product- en spreadkosten kunnen van toepassing zijn.
+      - generic [ref=e72]:
+        - generic [ref=e74]:
+          - heading "Diversificatie van je portefeuille" [level=2] [ref=e75]
+          - paragraph [ref=e76]: Eén van de belangrijkste aspecten van beleggen is diversificatie. ETF's kunnen je daarbij helpen. Omdat elke ETF meestal een mandje met effecten bevat, beleg je met één transactie in tientallen, honderden of zelfs duizenden beursgenoteerde bedrijven of onderliggende waarden. Hierdoor spreid je het risico over verschillende sectoren, regio’s en producten waardoor je minder afhankelijk bent de prestaties van één bedrijf of markt. De Kernselectie is ontworpen om je te helpen bij het diversifiëren van je beleggingen, zonder een aanslag op je portemonnee te zijn.
+        - img "Phone product list" [ref=e79]
+      - generic [ref=e81]:
+        - generic [ref=e83]:
+          - heading "De populairste ETF’s binnen onze Kernselectie" [level=2] [ref=e84]
+          - paragraph [ref=e85]: Dit zijn de meest verhandelde ETF's in 2025 uit onze Kernselectie, gebaseerd op het totaal aantal transacties op ons Nederlandse platform.
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - img "Vrijheidsbeeld met fakkel en tablet met een blauwe achtergrondvorm" [ref=e89]
+            - paragraph [ref=e90]: VANGUARD S&P 500 ETF
+            - paragraph [ref=e91]: IE00B3XXRP09
+          - generic [ref=e92]:
+            - img "Historisch zeilschip met meerdere masten en zeilen op een blauwe achtergrond" [ref=e94]
+            - paragraph [ref=e95]: VANGUARD FTSE ALL-WLD UCI
+            - paragraph [ref=e96]: IE00B3RBWM25
+          - generic [ref=e97]:
+            - img "Een bureau-globe met een wereldkaart tegen een blauwe driehoek" [ref=e99]
+            - paragraph [ref=e100]: ISHARES CORE MSCI WORLD E
+            - paragraph [ref=e101]: IE00B4L5Y983
+          - generic [ref=e102]:
+            - img "Close-up van een bureau-globe met een wereldkaart op een blauwe achtergrondvorm" [ref=e104]
+            - paragraph [ref=e105]: VANGUARD FTSE ALL-WLD UCI
+            - paragraph [ref=e106]: IE00BK5BQT80
+        - generic [ref=e107]:
+          - button "Start met beleggen" [ref=e109] [cursor=pointer]
+          - button "Inloggen" [ref=e111] [cursor=pointer]
+      - generic [ref=e113]:
+        - generic [ref=e115]:
+          - heading "Bekijk de volledige Kernselectie" [level=2] [ref=e116]
+          - paragraph [ref=e117]: Met zoveel ETF’s, ETC's en ETN's in de Kernselectie is de keuze eindeloos om je beleggingen af te stemmen op je interesses en doelen. Of het nu een bepaalde sector, regio of thema is; voor elke belegger is er een ETF, ETN of ETC.
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - button "Regio " [expanded] [ref=e125]:
+              - generic [ref=e126]: Regio
+              - generic [ref=e127]: 
+              - text: 
+            - button "Totale kostenratio " [expanded] [ref=e131]:
+              - generic [ref=e132]: Totale kostenratio
+              - generic [ref=e133]: 
+              - text: 
+          - generic [ref=e134]:
+            - tree [ref=e137]:
+              - button "Valuta " [expanded] [ref=e138]:
+                - generic [ref=e139]: Valuta
+                - generic [ref=e140]: 
+                - text: 
+            - generic [ref=e142]:
+              - textbox "Naam, ISIN, Symbool" [ref=e143]
+              - img "Search_white" [ref=e145]
+        - generic [ref=e147]:
+          - generic [ref=e148]:
+            - generic [ref=e154]:
+              - paragraph: iShares EURO STOXX Select Dividend 30 UCITS ETF DE
+              - generic: 
+              - text: 
+            - generic [ref=e160]:
+              - paragraph: iShares STOXX Europe Select Dividend 30 (DE)
+              - generic: 
+              - text: 
+            - generic [ref=e166]:
+              - paragraph: iShares STOXX Europe 600 UCITS ETF (DE)
+              - generic: 
+              - text: 
+            - generic [ref=e172]:
+              - paragraph: iShares Core DAX UCITS ETF (DE)
+              - generic: 
+              - text: 
+            - generic [ref=e178]:
+              - paragraph: iShares eb.rexx(R) Government Germany (DE)
+              - generic: 
+              - text: 
+            - generic [ref=e184]:
+              - paragraph: iShares eb.rexx(R) Government Germany 2.5-5.5 (DE)
+              - generic: 
+              - text: 
+            - generic [ref=e190]:
+              - paragraph: iShares eb.rexx(R) Government Ger 5.5-10.5 (DE)
+              - generic: 
+              - text: 
+            - generic [ref=e196]:
+              - paragraph: iShares EURO STOXX UCITS ETF (DE)
+              - generic: 
+              - text: 
+            - generic [ref=e202]:
+              - paragraph: iShares eb.rexx(R) Government Germany 10.5+ (DE)
+              - generic: 
+              - text: 
+            - generic [ref=e208]:
+              - paragraph: iShares Dow Jones U.S. Select Dividend (DE)
+              - generic: 
+              - text: 
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+            - generic:  
+          - navigation [ref=e209]:
+            - list [ref=e210]:
+              - listitem:
+                - link "<":
+                  - /url: "#"
+                  - img "<"
+              - listitem [ref=e211]:
+                - link [ref=e212] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e213]:
+                - link [ref=e214] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e215]:
+                - link [ref=e216] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e217]:
+                - link [ref=e218] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e219]:
+                - link [ref=e220] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e221]:
+                - link ">" [ref=e222] [cursor=pointer]:
+                  - /url: "#"
+                  - img ">"
+      - generic [ref=e224]:
+        - heading "Veelgestelde vragen" [level=2] [ref=e227]
+        - generic [ref=e230]:
+          - generic [ref=e231]:
+            - heading [level=3] [ref=e234]:
+              - link "Wat is de Kernselectie? " [ref=e235] [cursor=pointer]:
+                - /url: "#cat1-faq1"
+                - text: Wat is de Kernselectie?
+                - generic: 
+                - text: 
+            - heading [level=3] [ref=e238]:
+              - link "Hoe kan ik de Kernselectie vinden op het platform? " [ref=e239] [cursor=pointer]:
+                - /url: "#cat1-faq2"
+                - text: Hoe kan ik de Kernselectie vinden op het platform?
+                - generic: 
+                - text: 
+            - heading [level=3] [ref=e242]:
+              - link "Welke kosten gelden er voor de ETF’s buiten de Kernselectie? " [ref=e243] [cursor=pointer]:
+                - /url: "#cat1-faq3"
+                - text: Welke kosten gelden er voor de ETF’s buiten de Kernselectie?
+                - generic: 
+                - text: 
+          - generic [ref=e244]:
+            - heading [level=3] [ref=e247]:
+              - link "Wat is er veranderd in de regels van de Kernselectie? " [ref=e248] [cursor=pointer]:
+                - /url: "#cat2-faq8"
+                - text: Wat is er veranderd in de regels van de Kernselectie?
+                - generic: 
+                - text: 
+            - heading [level=3] [ref=e251]:
+              - link "Betaal ik nog steeds €1 per transactie in de Kernselectie? " [ref=e252] [cursor=pointer]:
+                - /url: "#cat2-faq1"
+                - text: Betaal ik nog steeds €1 per transactie in de Kernselectie?
+                - generic: 
+                - text: 
+            - heading [level=3] [ref=e255]:
+              - link "Zijn alle ETF’s van de oude Kernselectie nog beschikbaar? " [ref=e256] [cursor=pointer]:
+                - /url: "#cat2-faq2"
+                - text: Zijn alle ETF’s van de oude Kernselectie nog beschikbaar?
+                - generic: 
+                - text: 
+      - generic [ref=e257]:
+        - generic [ref=e261]:
+          - heading "Je beleggingsreis begint hier" [level=2] [ref=e262]
+          - paragraph [ref=e263]: Open gratis een rekening en sluit je aan bij meer dan 3 miljoen beleggers op ons gebruiksvriendelijke platform.
+          - button "Start met beleggen" [ref=e265] [cursor=pointer]
+        - complementary "Partners & Providers" [ref=e266]:
+          - generic [ref=e269]:
+            - heading "Partners & Providers" [level=2] [ref=e270]
+            - generic [ref=e271]:
+              - img "CME Group logo" [ref=e273]
+              - img "Euronext logo" [ref=e275]
+              - img "Eurex logo" [ref=e277]
+              - img "Xetra logo" [ref=e279]
+              - img "Nasdaq logo" [ref=e281]
+    - region [ref=e282]:
+      - paragraph [ref=e286]: "Let op: Met beleggen kun je je inleg verliezen. Dit is geen beleggingsadvies. Houd rekening met je kennis en ervaring bij het nemen van beleggingsbeslissingen."
+    - region "Met beleggen kun je jouw inleg verliezen.":
+      - generic [ref=e287]:
+        - paragraph [ref=e288]: Met beleggen kun je jouw inleg verliezen.
+        - button [ref=e289] [cursor=pointer]:
+          - img "Close" [ref=e290]
+    - contentinfo [ref=e291]:
+      - generic [ref=e293]:
+        - generic [ref=e294]:
+          - generic [ref=e296]:
+            - link "degiro-logo" [ref=e298] [cursor=pointer]:
+              - /url: https://www.degiro.nl
+              - img "degiro-logo"
+            - generic [ref=e299]:
+              - paragraph [ref=e300]: Selecteer een land
+              - button "Vlag van NederlandNederland" [ref=e302] [cursor=pointer]:
+                - img "Vlag van Nederland"
+                - text: Nederland
+          - list [ref=e304]:
+            - listitem [ref=e305]:
+              - link "Home" [ref=e306] [cursor=pointer]:
+                - /url: https://www.degiro.nl/
+            - listitem [ref=e307]: ">"
+            - listitem [ref=e308]:
+              - link "Tarieven" [ref=e309] [cursor=pointer]:
+                - /url: tarieven
+            - listitem [ref=e310]: ">"
+            - listitem [ref=e311]: ETF Kernselectie
+          - link "Direct naar " [ref=e314] [cursor=pointer]:
+            - /url: "#collapse-footer1"
+            - text: Direct naar
+            - generic: 
+            - text: 
+          - link "Over DEGIRO " [ref=e317] [cursor=pointer]:
+            - /url: "#collapse-footer2"
+            - text: Over DEGIRO
+            - generic: 
+            - text: 
+          - link "Kennis " [ref=e320] [cursor=pointer]:
+            - /url: "#collapse-footer3"
+            - text: Kennis
+            - generic: 
+            - text: 
+          - link "Servicedesk " [ref=e323] [cursor=pointer]:
+            - /url: "#collapse-footer4"
+            - text: Servicedesk
+            - generic: 
+            - text: 
+          - link "Volg ons op " [ref=e326] [cursor=pointer]:
+            - /url: "#collapse-footer5"
+            - text: Volg ons op
+            - generic: 
+            - text: 
+        - generic [ref=e327]:
+          - generic [ref=e328]:
+            - paragraph [ref=e329]: Copyright © 2026 DEGIRO. Alle rechten voorbehouden
+            - paragraph [ref=e330]:
+              - link "Privacy & Cookies" [ref=e331] [cursor=pointer]:
+                - /url: https://www.degiro.nl/privacy-cookies
+              - link "Disclaimer" [ref=e332] [cursor=pointer]:
+                - /url: https://www.degiro.nl/disclaimer
+              - link "Sitemap" [ref=e333] [cursor=pointer]:
+                - /url: https://www.degiro.nl/sitemap
+            - generic [ref=e334]:
+              - link "Download in de App Store badge met Apple logo" [ref=e335] [cursor=pointer]:
+                - /url: https://apps.apple.com/nl/app/degiro-beleggen/id1099174456
+                - img "Download in de App Store badge met Apple logo"
+              - link "Google Play logo" [ref=e336] [cursor=pointer]:
+                - /url: https://play.google.com/store/apps/details?id=nl.degiro.trader
+                - img "Google Play logo"
+              - img "SSL secure GlobalSign logo met een hangslotje en een beveiligingsbadge." [ref=e337]
+              - link "iDEAL payment logo in grey and white." [ref=e338] [cursor=pointer]:
+                - /url: https://www.ideal.nl
+                - img "iDEAL payment logo in grey and white."
+            - generic [ref=e339]:
+              - generic [ref=e340]: Toegankelijkheidsmodus
+              - generic [ref=e341]:
+                - checkbox "Toegankelijkheidsmodus" [ref=e342]
+                - switch "Toegankelijkheidsmodus" [ref=e343]
+          - generic [ref=e344]:
+            - paragraph [ref=e345]: "We willen mensen helpen om de beste beleggers te worden die ze kunnen zijn. Op ons gebruiksvriendelijke platform vind je een universum aan mogelijkheden en keuzes. Dit neemt drempels weg zodat beleggen iets voor iedereen wordt: beginners of experts. Je krijgt toegang tot een breed scala aan producten op meer dan 45 wereldwijde beurzen, zodat je de vrijheid hebt om te beleggen zoals jij wil. In onze wereld krijg je ook waar voor je geld. Dus, zonder ook maar iets te veranderen aan de hoge kwaliteit, veiligheid en het aanbod van onze diensten, bieden we ongelooflijk lage tarieven. Door jouw beleggingsbehoeftes voorop te stellen, zijn we uitgegroeid tot één van de meest toonaangevende online brokers van Europa. Meer dan 3 miljoen klanten en meer dan 100 internationale prijzen zijn een bewijs van dit succes."
+            - paragraph [ref=e346]: "flatexDEGIRO Bank Dutch Branch, een buitenlands bijkantoor van flatexDEGIRO Bank SE | Amstelplein 1, 1096HA Amsterdam | Telefoon: +31 20 2613072 | E-mail: klanten@degiro.nl | flatexDEGIRO Bank Dutch Branch is geregistreerd onder KvK-nummer 82510245. | flatexDEGIRO Bank Dutch Branch, handelend onder de naam DEGIRO, is het Nederlandse bijkantoor van flatexDEGIRO Bank SE. flatexDEGIRO Bank SE staat primair onder toezicht van de Duitse financiële toezichthouder (BaFin). In Nederland is flatexDEGIRO Bank Dutch Branch geregistreerd bij DNB en staat zij onder toezicht van de AFM en DNB. | flatexDEGIRO Bank SE is een door de Duitse financiële toezichthouder erkende Duitse bank en is geregistreerd bij de Duitse Kamer van Koophandel onder nummer HRB 105687."
+  - iframe [ref=e347]:
+    

@@ -76,9 +76,43 @@ richting en de consistentie zijn dat niet.
 vreten transactiekosten meer dan een halve procent. Vullen op volgorde. Het aantal slots hangt van
 kapitaal af, de volgorde ligt vast — zo limiteert de huidige omvang de structuur niet.
 
-**Controleer het mandje, niet het label.** De "moat"-ETF die aanvankelijk als kwaliteitskern werd
-overwogen bleek 74 posities met Braziliaans bier, Duitse defensie en 18% technologie — prima fonds,
-verkeerde taak. Vóór elke aankoop en bij elke herweging: top-10 en sectorverdeling opvragen.
+### 1c. Gekozen instrumenten (2026-07-30) — broker: DEGIRO
+
+Alle ISIN's geverifieerd in DEGIRO's ETF-kernselectie (lijst van 1.415 fondsen), dus **€1 per order**
+op Tradegate = 0,2% op een slot van $500.
+
+| Slot | ETF | ISIN | Ticker | TER |
+|---|---|---|---|---|
+| 1 Halfgeleiders | VanEck Semiconductor UCITS | IE00BMC38736 | VVSM | 0,35% |
+| 2 Defensie | WisdomTree Europe Defence UCITS | IE0002Y8CX98 | EUDF | 0,40% |
+| 3 Software | **nog niet gekozen** — zie hieronder | — | — | — |
+| Goud | iShares Physical Gold ETC | IE00B4ND3602 | PPFB | 0,12% |
+
+**Controleer het mandje, niet het label.** Dit is deze sessie twee keer misgegaan en beide keren
+veranderde het de keuze:
+
+1. De "moat"-ETF die als kwaliteitskern werd overwogen bleek 74 posities met Braziliaans bier,
+   Duitse defensie en 18% technologie — prima fonds, verkeerde taak. Afgevallen.
+2. **De halfgeleider-ETF dekt de eigen these maar half.** Aangenomen werd ASML 11,5% + TSMC 9,9%
+   als top-2 (uit een zoekresultaat). De werkelijke holdings: Micron 14,3%, AMD 12,2%,
+   Broadcom 8,3%, Intel 8,0%, TSMC 7,5%, ASML 7,4%. De tolhuisjes zijn samen ~15%; Micron en Intel
+   samen 22% zijn juist commodity-geheugen en een worstelende fab. **Wat je koopt is sectorbeta,
+   geen moat-mand.**
+
+Toch genomen, bewust: het 18-jaars bewijs is gemeten op exact deze index (SMH), en dat bewijs staat
+los van de vraag of de tolhuisje-*verklaring* klopt. Het thema overslaan omdat het verhaal niet
+past, zou het narratief boven de data zetten. Maar de onderbouwing in `config/barbell_targets.json`
+is aangepast zodat er niets staat wat niet waar is.
+
+Defensie dekt de these wél: EUDF houdt alleen Europese primes (Thales 12,7%, BAE 11,8%,
+Rheinmetall 11,2%, Airbus, Rolls-Royce, Safran). Bewust niet VanEck DFEN — die heeft Palantir op
+8,9%, een softwarebedrijf, en is duurder (0,55%).
+
+**Slot 3 (software) staat open.** Er is geen zuiver software-infra-fonds in de kernselectie; de
+beschikbare brede IT-sector-ETF's zitten vol Apple/Microsoft/Nvidia/Broadcom en overlappen zwaar
+met slot 1. Niet urgent, want het is als laatste aan de beurt.
+
+Vóór elke aankoop en bij elke herweging: top-10 en landen-/sectorverdeling opvragen.
 
 **Geaccepteerd risico — correlatiestapeling.** BTC (20% v/h totaal) en de Thematic Exposure Sleeve
 (~8%, AI/hyperscaler) bewegen mee met hetzelfde tech-risico als halfgeleiders en software. In een
