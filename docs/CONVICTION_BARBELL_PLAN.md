@@ -34,10 +34,55 @@ Bart koos bewust méér risico (~−25% portfolio-drawdown in een zware bear gea
 
 | Positie | % van groei | % van totaal | Rol |
 |---|---|---|---|
-| **BTC** (spot UBTC / perp 1x, op HL) | 40% | 20% | Crypto-anker; historische vermogensbouwer |
-| **Aandelen** (broker: 60% Nasdaq-UCITS-ETF + 40% conviction-picks) | 30% | 15% | Groeimotor; core-satellite (zie `GROWTH_SLEEVE_STOCK_ANALYSIS.md`) |
+| **BTC** (spot UBTC, op HL) | 40% | 20% | Crypto-anker; historische vermogensbouwer |
+| **Aandelen — bottleneck-thema's** (broker, zie 1b) | 30% | 15% | Groeimotor |
 | **Goud** (broker: fysiek ETC, bv. SGLN) | 20% | 10% | Diversifier, lage correlatie |
 | **ETH** (tilt, op HL) | 10% | 5% | Hogere-beta crypto-satelliet |
+
+### 1b. Aandelen-been — selectie op tolhuisje (herzien 2026-07-30, EXP-009)
+
+**Vervangt** de oude opzet "60% Nasdaq-UCITS-ETF + 40% conviction-picks (ASML/TSMC)". Twee redenen:
+losse picks passen niet bij dit kapitaal (ASML ≈ €1.376/aandeel tegen een allocatie van ~€85, en
+brokers handelen alleen hele aandelen), én de Nasdaq-100 selecteert op *beursplein* — geen
+kwaliteitscriterium. De halfgeleider-ETF dekt de ASML/TSMC-these systematischer: die twee zijn er
+de grootste posities (11,5% en 9,9%).
+
+**Het criterium is niet "groeit dit?" maar: wie kan hier de prijs bepalen, en waarom kan niemand
+daaromheen?**
+
+| Thema | % v/h groei-been | Tolhuisje | Slot |
+|---|---|---|---|
+| Halfgeleiders | 15% | EUV-monopolie, foundry op de scherpste node, EDA-duopolie | 1 |
+| Defensie (EU) | 8% | Certificering, programma's over decennia, structureel budget | 2 |
+| Software-infrastructuur | 7% | Switching costs | 3 |
+
+**Uitgesloten:** batterij, zon, waterstof, EV, generieke "AI"-mandjes. Kapitaalintensief,
+uitwisselbaar product, geen prijszettingsmacht — het verhaal klopt, de economie niet.
+
+**Validatie** (`scripts/theme_bottleneck_backtest.py`, 2008-2026, 18,5 jaar, na TER):
+
+| Mand | CAGR | maxDD | Sharpe |
+|---|---|---|---|
+| Tolhuisje | **16,0%** | −51% | 0,68 |
+| Wereldindex (ACWI) | 7,8% | −56% | 0,39 |
+| Narratief | −5,0% | −89% | −0,14 |
+
+Doorslaggevend is niet het totaal maar de consistentie: de tolhuisje-mand verslaat de index in
+**alle drie** de deelperiodes (2008-13, 2014-19, 2020-26) en wordt niet door één naam gedragen.
+Bekende bias: tickers zijn met kennis achteraf gekozen, dus de niveaus zijn geflatteerd — de
+richting en de consistentie zijn dat niet.
+
+**Slot-regel (schaalt mee):** een thema-slot opent pas als het met ≥$500 gevuld kan worden, anders
+vreten transactiekosten meer dan een halve procent. Vullen op volgorde. Het aantal slots hangt van
+kapitaal af, de volgorde ligt vast — zo limiteert de huidige omvang de structuur niet.
+
+**Controleer het mandje, niet het label.** De "moat"-ETF die aanvankelijk als kwaliteitskern werd
+overwogen bleek 74 posities met Braziliaans bier, Duitse defensie en 18% technologie — prima fonds,
+verkeerde taak. Vóór elke aankoop en bij elke herweging: top-10 en sectorverdeling opvragen.
+
+**Geaccepteerd risico — correlatiestapeling.** BTC (20% v/h totaal) en de Thematic Exposure Sleeve
+(~8%, AI/hyperscaler) bewegen mee met hetzelfde tech-risico als halfgeleiders en software. In een
+tech-bear zakt een groot deel tegelijk. Goud (10%) en het veilige been (50%) doen het spreidingswerk.
 
 **Onderbouwing diversificatie:** cross-asset correlaties (0,40-0,56) zijn véél lager dan
 binnen-crypto (0,71-0,90). Een mandje BTC+QQQ+GLD haalt echte rebalancing-premie; een mandje

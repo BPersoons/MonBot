@@ -111,6 +111,7 @@ def main() -> None:
     targets_pct = cfg["growth_targets_pct"]
     cooldown_days = int(bands.get("cooldown_days", 7))
     min_trade = float(bands.get("min_trade_usd", 25))
+    min_slot_usd = float(cfg.get("min_slot_usd", 0) or 0)
 
     safe_usd = float(holdings.get("safe_usd", 0) or 0)
     growth = {k.upper(): float(v or 0) for k, v in holdings.get("growth_usd", {}).items()}
@@ -191,6 +192,16 @@ def main() -> None:
         trade = tgt_usd - val  # >0 = koop, <0 = verkoop
         if abs(trade) < min_trade:
             continue  # te klein om te handelen
+        # Slot-regel: een NIEUW thema pas openen als het in één keer met
+        # >= min_slot_usd gevuld kan worden. Daaronder vreten transactiekosten
+        # (EUR 1-3 per order) meer dan een halve procent van de positie. Geldt
+        # alleen bij openen (val == 0); bijkopen in een bestaande positie mag wel.
+        if val <= 0 and trade > 0 and trade < min_slot_usd:
+            actions.append(
+                f"[SLOT WACHT] {asset}: doel {_fmt(tgt_usd)} < minimum {_fmt(min_slot_usd)} - "
+                f"nog niet openen, transactiekosten wegen niet op. Vul eerst de eerdere slots.")
+            continue
+
         cd = _in_cooldown(asset, log, cooldown_days)
         kind = "KOOP" if trade > 0 else "VERKOOP"
         if cd is not None:

@@ -1,10 +1,12 @@
 {
-  "_comment": "Vul je ACTUELE waardes in USD in (broker + treasury-dashboard). Kopieer naar barbell_holdings.json en pas aan. EQUITY = ETF + conviction-picks samen; GOLD = fysiek goud-ETC.",
+  "_comment": "Vul je ACTUELE waardes in USD in (broker + treasury-dashboard). Kopieer naar barbell_holdings.json en pas aan. Sleutels moeten overeenkomen met growth_targets_pct in config/barbell_targets.json. GOLD = fysiek goud-ETC; SEMIS/DEFENSE/SOFTWARE = de thema-ETF's, zie docs/CONVICTION_BARBELL_PLAN.md 1b. Nog niet geopende thema-slots op 0 laten staan.",
   "safe_usd": 2500.00,
   "growth_usd": {
     "BTC": 1000.00,
-    "EQUITY": 750.00,
+    "ETH": 250.00,
     "GOLD": 500.00,
-    "ETH": 250.00
+    "SEMIS": 450.00,
+    "DEFENSE": 0.00,
+    "SOFTWARE": 0.00
   }
 }

@@ -1,13 +1,33 @@
 {
-  "_comment": "Conviction Barbell targets + banden. Zie docs/CONVICTION_BARBELL_PLAN.md. 50/50 sinds 2026-07-27.",
+  "_comment": "Conviction Barbell targets + banden. Zie docs/CONVICTION_BARBELL_PLAN.md. 50/50 sinds 2026-07-27; aandelen-been opgesplitst in thema-slots 2026-07-30 (EXP-009).",
   "safe_pct": 50,
   "growth_pct": 50,
+  "_growth_comment": "Percentages van het GROEI-been. Aandelen = SEMIS+DEFENSE+SOFTWARE = 30, gelijk aan het oude enkele EQUITY-slot. Losse picks (ASML/TSMC) vervallen: te duur per aandeel bij dit kapitaal en de halfgeleider-ETF dekt die these systematischer (ASML 11,5% + TSMC 9,9% als top-2).",
   "growth_targets_pct": {
     "BTC": 40,
-    "EQUITY": 30,
+    "SEMIS": 15,
+    "ETH": 10,
     "GOLD": 20,
-    "ETH": 10
+    "DEFENSE": 8,
+    "SOFTWARE": 7
   },
+  "_theme_comment": "Selectie op BOTTLENECK, niet op narratief: wie kan hier de prijs bepalen en waarom kan niemand daaromheen? Gevalideerd over 2008-2026 (scripts/theme_bottleneck_backtest.py): tolhuisje-mand CAGR 16,0% vs wereldindex 7,8% vs narratief-mand -5,0%, en de tolhuisje-mand wint in ALLE drie de deelperiodes. Narratief-thema's (zon/waterstof/batterij/EV) zijn expliciet uitgesloten: kapitaalintensief, uitwisselbaar product, geen prijszettingsmacht.",
+  "themes": {
+    "SEMIS": {
+      "bottleneck": "EUV-monopolie (ASML), foundry op de scherpste node (TSMC), EDA-duopolie",
+      "slot_order": 1
+    },
+    "DEFENSE": {
+      "bottleneck": "Certificering en programma's over decennia; structureel EU-budget",
+      "slot_order": 2
+    },
+    "SOFTWARE": {
+      "bottleneck": "Switching costs in infrastructuursoftware",
+      "slot_order": 3
+    }
+  },
+  "_slot_comment": "Een thema-slot gaat pas open als het met min_slot_usd gevuld kan worden — daaronder vreten transactiekosten (EUR 1-3/order) meer dan een halve procent. Vullen op volgorde van slot_order; het aantal slots hangt af van kapitaal, de VOLGORDE ligt vast. Zo schaalt de structuur mee zonder nu te limiteren.",
+  "min_slot_usd": 500,
   "bands": {
     "trim_mult": 1.5,
     "add_mult": 0.6,
