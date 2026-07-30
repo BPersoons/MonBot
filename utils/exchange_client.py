@@ -279,7 +279,7 @@ class HyperliquidExchange:
         return fees, funding
 
     def create_order(self, ticker, action, quantity, price=None, order_type='market',
-                      leverage=None, margin_mode=None):
+                      leverage=None, margin_mode=None, reduce_only=False):
         """
         Executes an On-Chain Order using the Signing Client.
 
@@ -288,6 +288,13 @@ class HyperliquidExchange:
         env var, cross-then-isolated fallback. Pass explicit values to pin a
         specific mode for callers that must not inherit the swarm-wide default
         (e.g. a buy-and-hold sleeve that must never be leveraged).
+
+        reduce_only: MUST be True for every closing/partial-exit order. Without it
+        a "close" order on a position the exchange doesn't actually have is just a
+        normal market order — it OPENS the opposite position. That is exactly how
+        two orphan shorts were created (2026-07-24 $2.107 notional, 2026-07-28
+        $128) while the swarm booked fictional profit on them. reduceOnly makes it
+        an exchange-level guarantee instead of a check-then-act race.
         """
         if not self.signing_client:
             self.logger.error("No Signing Client available.")
@@ -300,7 +307,7 @@ class HyperliquidExchange:
         try:
             ticker = symbol
             side = action.lower()
-            params = {}
+            params = {"reduceOnly": True} if reduce_only else {}
 
             # Set leverage — 3x default for more positions with small bankroll
             # TP/SL/PnL percentages are on notional, so they stay correct

@@ -8,6 +8,11 @@ from utils.auto_params import AutoParams
 from utils.cost_tracker import CostTracker
 from utils.shadow_comparator import ShadowComparator
 
+# Sluitingen die puur boekhouding zijn — nooit een strategie-uitkomst, dus nooit
+# input voor weight-learning of param-tuning.
+_NON_STRATEGY_CLOSE_REASONS = ("PHANTOM_NO_POSITION", "ORPHAN_CLEANUP")
+
+
 class PerformanceAuditor:
     def __init__(self, db_client=None):
         self.logger = logging.getLogger("PerformanceAuditor")
@@ -133,10 +138,15 @@ class PerformanceAuditor:
         # with the pre-redesign backlog so the losing counter-trend shorts from the
         # OLD direction logic are not learned from. Param-tuning stays gated behind
         # AUDITOR_ENABLED. See docs/DIRECTIONAL_CORE_REDESIGN.md + CLAUDE.md.
+        # Boekhoudkundige sluitingen zijn GEEN strategie-uitkomst: een spookpositie
+        # (stond in trade_log, niet op de beurs) of het opruimen van een per ongeluk
+        # geopende positie zegt niets over de kwaliteit van de analisten. Meeleren
+        # verwatert de gewichten met ruis van PnL 0.
         audited_ids = set(str(x) for x in self.load_json(self.audited_ids_file, []))
         all_closed = [
             t for t in self.load_json(self.trade_log_file, [])
             if str(t.get("status", "")).startswith("CLOSED")
+            and t.get("close_reason") not in _NON_STRATEGY_CLOSE_REASONS
         ]
         trades = [t for t in all_closed if str(t.get("id")) not in audited_ids]
         self.logger.info(
@@ -442,7 +452,8 @@ class PerformanceAuditor:
                 t for t in all_trades
                 if t.get("status", "").startswith("CLOSED")
                 and (t.get("pnl") or 0) != 0
-                and t.get("close_reason") not in ("EXTERNAL_CLOSURE", "CLOSED_LIQUIDATED")
+                and t.get("close_reason") not in
+                    ("EXTERNAL_CLOSURE", "CLOSED_LIQUIDATED") + _NON_STRATEGY_CLOSE_REASONS
             ]
 
             # Rolling windows

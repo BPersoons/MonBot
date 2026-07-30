@@ -13,6 +13,10 @@ load_dotenv()
 TRADE_LOG_FILE = "trade_log.json"
 APPROVAL_THRESHOLD = float(os.getenv("APPROVAL_THRESHOLD", "1000"))  # Default $1000
 
+# Boekhoudkundige sluiting van een positie die de beurs niet (meer) heeft. Geen
+# strategie-uitkomst, dus PnL 0 en uitgesloten van weight-learning in utils/auditor.py.
+PHANTOM_CLOSE_REASON = "PHANTOM_NO_POSITION"
+
 def _sanitize_trade(obj):
     """Recursively replace NaN/Inf with safe values so json.dump never fails."""
     if isinstance(obj, float):
@@ -484,6 +488,36 @@ class ExecutionAgent:
             self.logger.error(f"Error processing approved trade: {e}")
             return None
             
+    def _has_live_position(self, ticker: str):
+        """Heeft de beurs ECHT een open positie in dit ticker?
+
+        Tri-state, en dat is essentieel: True = ja, False = aantoonbaar niet,
+        None = onbepaald (fetch mislukt). Alleen bij een expliciete False mag een
+        trade als spookpositie worden weggeboekt; bij None gaan we ervan uit dat
+        de positie leeft, want een echte positie ten onrechte als gesloten boeken
+        laat hem onbeheerd doorlopen.
+        """
+        try:
+            positions = self.exchange.fetch_all_positions()
+        except Exception as e:
+            self.logger.warning(f"_has_live_position({ticker}): fetch failed ({e}) — onbepaald")
+            return None
+        if positions is None:
+            return None
+
+        base = str(ticker).split("/")[0].upper()
+        for p in positions:
+            size = (p.get('info') or {}).get('szi', 0) or p.get('contracts') or 0
+            try:
+                if abs(float(size)) <= 1e-9:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            sym = str(p.get('symbol') or (p.get('info') or {}).get('coin') or '')
+            if sym.split("/")[0].upper() == base:
+                return True
+        return False
+
     def close_position(self, trade_id: str, reason: str = 'CLOSE_TP'):
         """
         Executes a closing order for an active trade (TP, SL, or manual).
@@ -496,11 +530,39 @@ class ExecutionAgent:
                 if trade['id'] == trade_id and trade.get('status') in ('OPEN', 'PLACED'):
                     self.logger.info(f"Closing position {trade_id} due to {reason}")
 
-                    # Execute reversing order
+                    # Execute reversing order — reduce_only so it can NEVER open a
+                    # position when the book claims one the exchange doesn't have.
                     close_action = "SELL" if trade['action'] == "BUY" else "BUY"
-                    order = self.exchange.create_order(trade['ticker'], close_action, trade['quantity'], order_type='market')
+                    order = self.exchange.create_order(trade['ticker'], close_action, trade['quantity'],
+                                                       order_type='market', reduce_only=True)
 
                     if not order:
+                        # Spookpositie? Alleen wegboeken als de beurs EXPLICIET zegt dat
+                        # er niets staat. Bij twijfel (None = fetch mislukt) blijft de
+                        # trade OPEN — een echte positie stilzwijgend als gesloten
+                        # boeken is veel erger dan een retry.
+                        if self._has_live_position(trade['ticker']) is False:
+                            self.logger.warning(
+                                f"PHANTOM position {trade_id} ({trade['ticker']}): trade_log says OPEN "
+                                f"but the exchange has no such position. Booking it flat (PnL 0) instead of "
+                                f"retrying the close every cycle."
+                            )
+                            trade['status'] = 'CLOSED'
+                            trade['close_reason'] = PHANTOM_CLOSE_REASON
+                            trade['exit_time'] = datetime.now().isoformat()
+                            trade['exit_price'] = trade.get('entry_price') or 0.0
+                            trade['pnl'] = 0.0
+                            trade['close_pnl'] = 0.0
+                            trade['pnl_net'] = 0.0
+                            with open(TRADE_LOG_FILE, "w") as f:
+                                json.dump(trades, f, indent=2)
+                            _send_telegram(
+                                f"PHANTOM POSITION: {trade['ticker']}  [{reason}]\n"
+                                f"Stond OPEN in trade_log maar niet op de beurs — "
+                                f"weggeboekt met PnL 0, geen order geplaatst."
+                            )
+                            return True
+
                         self.logger.warning(
                             f"Close order for {trade['ticker']} ({reason}) returned None — "
                             f"position likely still open on HL. NOT marking CLOSED."
@@ -1208,7 +1270,9 @@ class ExecutionAgent:
                     except Exception:
                         pass
                     close_action = "SELL" if trade['action'] == "BUY" else "BUY"
-                    order = self.exchange.create_order(trade['ticker'], close_action, close_qty, order_type='market')
+                    # reduce_only: een partial exit mag nooit een tegenpositie openen
+                    order = self.exchange.create_order(trade['ticker'], close_action, close_qty,
+                                                       order_type='market', reduce_only=True)
                     exit_price = 0.0
                     partial_pnl = 0.0
                     if order:
