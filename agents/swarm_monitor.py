@@ -80,9 +80,16 @@ class SwarmMonitor:
     AUTO_PARAMS_FILE = "config/auto_params.json"
     ALERT_STATE_FILE = "monitor_alert_state.json"
 
-    def __init__(self, db_client=None, exchange_client=None):
+    def __init__(self, db_client=None, exchange_client=None, thematic_exchange_client=None):
         self.db = db_client
         self.exchange_client = exchange_client
+        # Only set when the Thematic Exposure Sleeve runs on its OWN segregated
+        # HL wallet (see main.py HL_THEMATIC_WALLET_ADDRESS split) — None while
+        # it still shares exchange_client, in which case Check 8 already covers it.
+        self.thematic_exchange_client = thematic_exchange_client
+        self._thematic_wallet_zero_streak = 0
+        self._thematic_wallet_empty_alert_time: float = 0
+        self._thematic_xyz_empty_alert_time: float = 0  # Check 22: xyz-dex collateral alert cooldown
         self._running = False
         self._thread: Optional[threading.Thread] = None
         # Alert deduplication: maps alert_key -> last_sent_timestamp
@@ -238,6 +245,15 @@ class SwarmMonitor:
 
         # ── Check 19: HL API wallet expiry warning ──────
         self._safe_check(self._check_api_key_expiry, now)
+
+        # ── Check 20: Thematic Exposure Sleeve wallet ───
+        self._safe_check(self._check_thematic_wallet)
+
+        # ── Check 21: directional pathology (G2, flag-only) ──
+        self._safe_check(self._check_directional_pathology, now)
+
+        # ── Check 22: Thematic sleeve xyz perp-dex collateral ──
+        self._safe_check(self._check_thematic_xyz_collateral)
 
         # Add detected_at timestamp to all findings
         now_str = now.strftime("%H:%M:%S UTC")
@@ -854,6 +870,15 @@ class SwarmMonitor:
     DROUGHT_HOURS = 72            # Alert when no entry for this long
     DROUGHT_ALERT_COOLDOWN_SEC = 24 * 3600  # Max once per day
 
+    # ── Check 21: directional pathology (G2, flag-only) ──
+    # Supervisor for the directional-core redesign (docs/DIRECTIONAL_CORE_REDESIGN.md).
+    # Flags — never blocks — structural direction scheefstand before it bleeds capital.
+    DIR_ONE_SIDED_N = 8            # last N opened trades all same direction → flag
+    DIR_MISMATCH_LOOKBACK_H = 48   # window for the regime-mismatch fraction
+    DIR_MISMATCH_MIN_TRADES = 5    # need at least this many recent trades to judge
+    DIR_MISMATCH_FRAC = 0.70       # >this share counter-trend → flag
+    DIR_ALERT_COOLDOWN_SEC = 12 * 3600  # per-signal cooldown
+
     def _check_trade_drought(self, now: datetime):
         """
         Alert when no trade has been OPENED for DROUGHT_HOURS, regardless of
@@ -898,6 +923,20 @@ class SwarmMonitor:
         if drought_h < self.DROUGHT_HOURS:
             return
 
+        # F1: als de directional trader BEWUST armed-waiting is (armed_mode aan +
+        # equity-markt niet in uptrend → tech-LONG-gate dicht), is "geen trades" het
+        # bedoelde gedrag, geen probleem. Onderdruk de drought-alert dan. Zodra equity
+        # bull wordt en het STILL niet handelt, vuurt de alert wél (terecht).
+        try:
+            with open("config/auto_params.json") as _f:
+                _armed = json.load(_f).get("armed_mode_enabled", False)
+            if _armed:
+                from core.equity_regime import is_equity_bull
+                if not is_equity_bull():
+                    return  # bewuste wacht op equity-uptrend — geen alert
+        except Exception:
+            pass
+
         alert_key = "trade_drought"
         last_sent = self._sent_alerts.get(alert_key)
         # _load_alert_state() forces persisted timestamps to AWARE utc while
@@ -916,6 +955,107 @@ class SwarmMonitor:
         )
         self._send_telegram(msg)
         logger.warning(f"[SwarmMonitor] Trade drought alert verstuurd ({drought_h:.0f}h)")
+
+    def _check_directional_pathology(self, now: datetime):
+        """Check 21 (G2, flag-only): detect structural direction scheefstand.
+
+        Two signals, both alert-only (no blocking — one gate system per dimension):
+          1. One-sidedness: the last N opened trades are ALL the same direction.
+          2. Regime mismatch: >X% of trades opened in the last H hours fight the
+             current BTC regime (e.g. shorting a confirmed bull — the 26/26 pattern
+             that lost -$33 on 2026-07-21).
+
+        This is the supervisor half of the directional-core redesign; it would have
+        flagged the 2026-07-21 short-bias after ~5 trades instead of 26.
+        See docs/DIRECTIONAL_CORE_REDESIGN.md.
+        """
+        if now.tzinfo is not None:
+            now = now.replace(tzinfo=None)
+
+        try:
+            with open("trade_log.json", "r", encoding="utf-8") as f:
+                trades = json.load(f)
+        except Exception:
+            return
+        if not isinstance(trades, list) or not trades:
+            return
+
+        # Normalize opened trades to (entry_epoch_naive, direction).
+        opened = []
+        for t in trades:
+            raw = t.get("entry_time")
+            if not raw:
+                continue
+            try:
+                ts = datetime.fromtimestamp(float(raw))
+            except (TypeError, ValueError):
+                try:
+                    ts = datetime.fromisoformat(str(raw).replace("Z", ""))
+                except (TypeError, ValueError):
+                    continue
+            ts = ts.replace(tzinfo=None)
+            act = (t.get("action") or "").upper()
+            direction = "LONG" if act == "BUY" else ("SHORT" if act == "SELL" else None)
+            if direction is None:
+                continue
+            opened.append((ts, direction, (t.get("ticker") or "")))
+        if not opened:
+            return
+        opened.sort(key=lambda x: x[0])
+
+        # Current BTC regime (written by ResearchAgent).
+        regime = "NEUTRAL"
+        try:
+            with open("market_regime.json") as f:
+                regime = (json.load(f).get("regime") or "NEUTRAL").upper()
+        except Exception:
+            pass
+        with_trend = {"TRENDING_BULL": "LONG", "TRENDING_BEAR": "SHORT"}.get(regime)
+
+        # ── Signal 1: one-sidedness of the last N opened trades ──
+        recent_n = opened[-self.DIR_ONE_SIDED_N:]
+        if len(recent_n) >= self.DIR_ONE_SIDED_N:
+            dirs = {d for _, d, _ in recent_n}
+            if len(dirs) == 1:
+                only_dir = next(iter(dirs))
+                if self._dir_alert_ok("dir_one_sided", now):
+                    ct = with_trend is not None and only_dir != with_trend
+                    self._send_telegram(
+                        f"🧭 RICHTING-EENZIJDIGHEID: laatste {self.DIR_ONE_SIDED_N} "
+                        f"trades allemaal {only_dir}."
+                        + (f"\n⚠️ Dat is TEGEN de trend in ({regime}) — zelfde patroon als "
+                           f"de -$33 short-bias van 07-21." if ct else
+                           f"\nRegime: {regime}.")
+                        + "\nSupervisor flag-only (blokkeert niet). Check de funnel-richting."
+                    )
+                    logger.warning(f"[SwarmMonitor] Directional one-sidedness: {self.DIR_ONE_SIDED_N}× {only_dir} (regime={regime})")
+
+        # ── Signal 2: counter-trend fraction over the lookback window ──
+        if with_trend is not None:
+            cutoff = now - timedelta(hours=self.DIR_MISMATCH_LOOKBACK_H)
+            window = [d for ts, d, _ in opened if ts >= cutoff]
+            if len(window) >= self.DIR_MISMATCH_MIN_TRADES:
+                counter = sum(1 for d in window if d != with_trend)
+                frac = counter / len(window)
+                if frac > self.DIR_MISMATCH_FRAC and self._dir_alert_ok("dir_regime_mismatch", now):
+                    self._send_telegram(
+                        f"🧭 RICHTING-vs-REGIME MISMATCH: {counter}/{len(window)} "
+                        f"({frac*100:.0f}%) trades in {self.DIR_MISMATCH_LOOKBACK_H}u gaan TEGEN "
+                        f"de {regime}-trend in.\n"
+                        f"De funnel opent structureel counter-trend — check de richting-gating.\n"
+                        f"Supervisor flag-only (blokkeert niet)."
+                    )
+                    logger.warning(f"[SwarmMonitor] Directional regime mismatch: {counter}/{len(window)} counter-trend in {regime}")
+
+    def _dir_alert_ok(self, key: str, now: datetime) -> bool:
+        """Cooldown gate for directional-pathology alerts (naive-UTC clock)."""
+        last_sent = self._sent_alerts.get(key)
+        if last_sent is not None and last_sent.tzinfo is not None:
+            last_sent = last_sent.replace(tzinfo=None)
+        if last_sent and (now - last_sent).total_seconds() < self.DIR_ALERT_COOLDOWN_SEC:
+            return False
+        self._sent_alerts[key] = now
+        return True
 
     def _check_threshold_deadlock(self, now: datetime):
         """
@@ -1001,6 +1141,137 @@ class SwarmMonitor:
             logger.warning("[SwarmMonitor] Wallet empty — Telegram alert verstuurd")
         except Exception as e:
             logger.error(f"_check_wallet_balance: {e}")
+
+    # ──────────────────────────────────────────
+    # Check 20: Thematic Exposure Sleeve wallet (segregated HL wallet)
+    # ──────────────────────────────────────────
+
+    THEMATIC_PEAK_FILE = "thematic_wallet_peak.json"
+    THEMATIC_DRAWDOWN_ALERT_PCT = 20.0
+
+    def _check_thematic_wallet(self):
+        """Balance + drawdown watchdog for the Thematic Exposure Sleeve's OWN
+        Hyperliquid wallet (see main.py's HL_THEMATIC_WALLET_ADDRESS split —
+        physically segregated from the main swarm wallet, so it needs its own
+        peak/drawdown tracking rather than sharing portfolio_peak.json).
+        Only runs once that wallet actually exists as its own
+        HyperliquidExchange instance; while unset, the sleeve still shares
+        self.exchange_client and Check 8 already covers it."""
+        if not self.thematic_exchange_client:
+            return
+        try:
+            balance = self.thematic_exchange_client.get_balance()
+        except Exception as e:
+            logger.error(f"_check_thematic_wallet: balance fetch failed: {e}")
+            return
+
+        # get_balance() ziet alleen de main-dex + spot; de sleeve-capital staat op de
+        # aparte "xyz" builder-perp-dex (die get_balance/fetch_balance NIET meenemen).
+        # Zonder deze correctie leest de check ~$0 → vals ~100%-drawdown-alarm elke
+        # cooldown-window (bevestigd 2026-07-24). Tel de xyz-dex-collateral erbij via
+        # een verse, ongeauthenticeerde ccxt-client (publieke info-call, alleen adres).
+        try:
+            addr = getattr(self.thematic_exchange_client, "wallet_address", None)
+            if addr:
+                import ccxt
+                _rd = getattr(self, "_xyz_read_client", None)
+                if _rd is None:
+                    _rd = ccxt.hyperliquid(); self._xyz_read_client = _rd
+                _ms = (_rd.publicPostInfo({"type": "clearinghouseState", "user": addr, "dex": "xyz"})
+                       .get("marginSummary", {}) or {})
+                balance += float(_ms.get("accountValue", 0) or 0)
+        except Exception as e:
+            logger.debug(f"_check_thematic_wallet: xyz-dex read skipped: {e}")
+
+        if balance <= 0:
+            self._thematic_wallet_zero_streak += 1
+            if self._thematic_wallet_zero_streak < self.WALLET_ZERO_STREAK_REQUIRED:
+                return
+            if time.time() - self._thematic_wallet_empty_alert_time < 3600:
+                return
+            self._thematic_wallet_empty_alert_time = time.time()
+            self._send_telegram(
+                "⚠️ THEMATIC WALLET LEEG: HL USDC balance = $0.00 — Thematic Exposure "
+                "Sleeve kan geen nieuwe posities openen totdat USDC wordt gestort."
+            )
+            logger.warning("[SwarmMonitor] Thematic wallet empty — Telegram alert verstuurd")
+            return
+        self._thematic_wallet_zero_streak = 0
+        self._thematic_wallet_empty_alert_time = 0
+
+        try:
+            with open(self.THEMATIC_PEAK_FILE) as f:
+                peak_data = json.load(f)
+        except Exception:
+            peak_data = {}
+        peak = max(float(peak_data.get("peak_equity", 0)), balance)
+        if peak != peak_data.get("peak_equity"):
+            try:
+                with open(self.THEMATIC_PEAK_FILE, "w") as f:
+                    json.dump({"peak_equity": peak, "updated_at": datetime.now(timezone.utc).isoformat()}, f)
+            except Exception as e:
+                logger.error(f"_check_thematic_wallet: peak write failed: {e}")
+
+        if peak <= 0:
+            return
+        dd = (peak - balance) / peak * 100
+        if dd < self.THEMATIC_DRAWDOWN_ALERT_PCT:
+            return
+        alert_key = "thematic_wallet_drawdown"
+        last_sent = self._sent_alerts.get(alert_key)
+        now = datetime.now(timezone.utc)
+        if last_sent and (now - last_sent).total_seconds() < DRAWDOWN_ALERT_COOLDOWN_SEC:
+            return
+        self._sent_alerts[alert_key] = now
+        self._send_telegram(
+            f"🔴 THEMATIC WALLET DRAWDOWN {dd:.1f}% (peak ${peak:.0f} -> ${balance:.0f}, "
+            f"limit {self.THEMATIC_DRAWDOWN_ALERT_PCT:.0f}%)\n"
+            "Deze sleeve valt buiten de hoofd-CircuitBreaker — overweeg handmatig "
+            "ingrijpen (t2_t4_enabled uitzetten / posities sluiten)."
+        )
+        logger.warning(f"[SwarmMonitor] Thematic wallet drawdown alert: {dd:.1f}%")
+
+    # ── Check 22: Thematic sleeve xyz perp-dex collateral ──
+    # XYZ-synthetics trade on a SEPARATE Hyperliquid builder perp-dex ("xyz") with
+    # its own collateral pool — main-dex USDC does not count as margin there. When
+    # that pool drains to ~$0, every thematic T1 order fails with "Insufficient
+    # margin" while the main wallet looks healthy, and it silently stalls (happened
+    # 2026-07-18 → 07-22, caught only by manual inspection). Check 8/20 read the
+    # main-dex balance and miss this entirely. Refilling requires the MASTER wallet
+    # key (agent/API wallets cannot transfer funds) — so this is flag-only.
+    THEMATIC_XYZ_MIN_COLLATERAL = 65.0        # one T1 tranche (per_name_budget * 0.20)
+    THEMATIC_XYZ_ALERT_COOLDOWN_SEC = 12 * 3600
+
+    def _check_thematic_xyz_collateral(self):
+        # Only relevant once the sleeve is actually live (its state file exists).
+        if not os.path.exists("thematic_exposure_positions.json"):
+            return
+        client = getattr(self.exchange_client, "signing_client", None)
+        if client is None:
+            return
+        try:
+            bal = client.fetch_balance(params={"dex": "xyz"})
+            ms = (bal.get("info", {}) or {}).get("marginSummary", {}) or {}
+            xyz_value = float(ms.get("accountValue", 0.0) or 0.0)
+        except Exception as e:
+            logger.debug(f"_check_thematic_xyz_collateral: fetch failed: {e}")
+            return
+
+        if xyz_value >= self.THEMATIC_XYZ_MIN_COLLATERAL:
+            self._thematic_xyz_empty_alert_time = 0
+            return
+        if time.time() - self._thematic_xyz_empty_alert_time < self.THEMATIC_XYZ_ALERT_COOLDOWN_SEC:
+            return
+        self._thematic_xyz_empty_alert_time = time.time()
+        self._send_telegram(
+            f"⚠️ THEMATIC XYZ-DEX ONDERGEFINANCIERD: collateral op de Hyperliquid "
+            f"'xyz' perp-dex = ${xyz_value:.2f} (< ${self.THEMATIC_XYZ_MIN_COLLATERAL:.0f} "
+            f"voor één T1). De Thematic Exposure Sleeve kan geen posities openen — "
+            f"orders falen met 'Insufficient margin' terwijl de main-dex vol staat.\n"
+            f"Fix: transfer USDC main→xyz met de MASTER-wallet (HL web-app of "
+            f"scripts/fund_xyz_dex.py met master-key). Agent-key kan dit niet."
+        )
+        logger.warning(f"[SwarmMonitor] Thematic xyz-dex ondergefinancierd: ${xyz_value:.2f}")
 
     # ──────────────────────────────────────────
     # Check 10: HL position sync / ghost-asset detector
@@ -2107,59 +2378,59 @@ class SwarmMonitor:
             self._cmd_proposals()
         elif cmd == "/status":
             self._cmd_status()
-        elif cmd == "/dipapprove" and args:
-            self._cmd_dip_approve(args[0])
-        elif cmd == "/dipedit" and len(args) >= 2:
-            self._cmd_dip_edit(args[0], args[1])
-        elif cmd == "/dipignore" and args:
-            self._cmd_dip_ignore(args[0])
-        elif cmd == "/diplist":
-            self._cmd_dip_list()
+        elif cmd == "/themeapprove" and args:
+            self._cmd_theme_approve(args[0])
+        elif cmd == "/themeedit" and len(args) >= 2:
+            self._cmd_theme_edit(args[0], args[1])
+        elif cmd == "/themeignore" and args:
+            self._cmd_theme_ignore(args[0])
+        elif cmd == "/themelist":
+            self._cmd_theme_list()
         elif cmd == "/help":
             self._cmd_help()
         else:
             self._send_telegram(f"Onbekend commando: `{cmd}`\nGebruik /help voor een overzicht.")
 
     # ──────────────────────────────────────────
-    # Thematic Dip Sleeve (EXP-008): nieuwe-ticker-classificatie goedkeuren
+    # Thematic Exposure Sleeve (EXP-008): nieuwe-ticker-classificatie goedkeuren
     # via de bestaande, altijd-actieve Telegram-poller — GEEN nieuwe getUpdates
     # consumer (die zou botsen met de bestaande stocks-poller/AutoExecutor,
     # zie EXP-008 in roadmap.json).
     # ──────────────────────────────────────────
 
-    _THEMATIC_DIP_THEMES_FILE = "config/thematic_dip_themes.json"
+    _THEMATIC_EXPOSURE_THEMES_FILE = "config/thematic_exposure_themes.json"
 
-    def _load_dip_themes(self):
-        with open(self._THEMATIC_DIP_THEMES_FILE) as f:
+    def _load_theme_registry(self):
+        with open(self._THEMATIC_EXPOSURE_THEMES_FILE) as f:
             return json.load(f)
 
-    def _cmd_dip_approve(self, ticker: str):
-        from utils.thematic_dip_lab import approve_ticker
+    def _cmd_theme_approve(self, ticker: str):
+        from utils.thematic_exposure_lab import approve_ticker
         ok, message = approve_ticker(ticker)
         self._send_telegram(f"✅ {message}" if ok else f"❌ {message}")
         if ok:
-            logger.info(f"TelegramPoll: {ticker} thematic-dip CONFIRMED via Telegram")
+            logger.info(f"TelegramPoll: {ticker} thematic-exposure CONFIRMED via Telegram")
 
-    def _cmd_dip_edit(self, ticker: str, theme_spec: str):
+    def _cmd_theme_edit(self, ticker: str, theme_spec: str):
         """theme_spec: 'semiconductors:0.6,memory_storage:0.2'"""
-        from utils.thematic_dip_lab import edit_ticker
+        from utils.thematic_exposure_lab import edit_ticker
         ok, message = edit_ticker(ticker, theme_spec)
         self._send_telegram(f"✅ {message}" if ok else f"❌ {message}")
         if ok:
-            logger.info(f"TelegramPoll: {ticker} thematic-dip edited+CONFIRMED via Telegram")
+            logger.info(f"TelegramPoll: {ticker} thematic-exposure edited+CONFIRMED via Telegram")
 
-    def _cmd_dip_ignore(self, ticker: str):
-        from utils.thematic_dip_lab import ignore_ticker
+    def _cmd_theme_ignore(self, ticker: str):
+        from utils.thematic_exposure_lab import ignore_ticker
         ok, message = ignore_ticker(ticker)
         self._send_telegram(f"🚫 {message}" if ok else f"❌ {message}")
         if ok:
-            logger.info(f"TelegramPoll: {ticker} thematic-dip IGNORED via Telegram")
+            logger.info(f"TelegramPoll: {ticker} thematic-exposure IGNORED via Telegram")
 
-    def _cmd_dip_list(self):
+    def _cmd_theme_list(self):
         try:
-            data = self._load_dip_themes()
+            data = self._load_theme_registry()
         except Exception as e:
-            self._send_telegram(f"❌ Kan {self._THEMATIC_DIP_THEMES_FILE} niet laden: {e}")
+            self._send_telegram(f"❌ Kan {self._THEMATIC_EXPOSURE_THEMES_FILE} niet laden: {e}")
             return
         pending = [
             (t, e) for t, e in data.get("tickers", {}).items()
@@ -2168,13 +2439,13 @@ class SwarmMonitor:
         if not pending:
             self._send_telegram("📋 Geen tickers wachten op classificatie-review.")
             return
-        lines = ["📋 *Thematic Dip — wacht op review*"]
+        lines = ["📋 *Thematic Exposure Sleeve — wacht op review*"]
         for ticker, entry in pending[:20]:
             if entry.get("themes"):
                 themes_str = ", ".join(f"{k} ({v:.2f})" for k, v in entry["themes"].items())
                 lines.append(f"  `{ticker}`: {themes_str}")
             else:
-                lines.append(f"  `{ticker}`: geen voorstel — gebruik /dipedit")
+                lines.append(f"  `{ticker}`: geen voorstel — gebruik /themeedit")
         self._send_telegram("\n".join(lines))
 
     def _cmd_approve(self, proposal_id: str):
@@ -2272,11 +2543,11 @@ class SwarmMonitor:
             "/approve `<ID>` — keur een PENDING voorstel goed\n"
             "/reject `<ID>` — wijs een PENDING/APPROVED voorstel af\n"
             "/status — stuur een health snapshot\n\n"
-            "*Thematic Dip Sleeve*\n"
-            "/diplist — tickers die wachten op classificatie-review\n"
-            "/dipapprove `<ticker>` — accepteer het voorgestelde thema\n"
-            "/dipedit `<ticker> thema:gewicht[,thema:gewicht]` — corrigeer + accepteer\n"
-            "/dipignore `<ticker>` — sluit ticker uit van scoring/executie\n\n"
+            "*Thematic Exposure Sleeve*\n"
+            "/themelist — tickers die wachten op classificatie-review\n"
+            "/themeapprove `<ticker>` — accepteer het voorgestelde thema\n"
+            "/themeedit `<ticker> thema:gewicht[,thema:gewicht]` — corrigeer + accepteer\n"
+            "/themeignore `<ticker>` — sluit ticker uit van scoring/executie\n\n"
             "/help — dit menu"
         )
 

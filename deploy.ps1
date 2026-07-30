@@ -112,20 +112,36 @@ if (-not $remoteHome) {
     exit 1
 }
 
+# Normalize deploy_update.sh to LF before upload. Previously CRLF was
+# stripped remotely via `sed -i "s/\r$//"` through `gcloud compute ssh
+# --command` — that string crosses four quoting layers (PowerShell -> gcloud
+# -> Windows' plink.exe -> remote shell) and silently failed to strip the CR
+# on 2026-07-18 (deploy_update.sh still had a \r shebang afterwards and
+# crashed with "bad interpreter: /bin/bash^M"), even though the same command
+# had worked before. Fixing the line endings locally removes that fragile
+# chain from the critical path entirely — scp then uploads an already-clean
+# file, and the remote sed (kept below) is just cheap defense-in-depth.
+$tmpDir = Join-Path $env:TEMP "agent_trader_deploy_$([guid]::NewGuid())"
+New-Item -ItemType Directory -Path $tmpDir | Out-Null
+$lfScriptPath = Join-Path $tmpDir "deploy_update.sh"
+$deployScriptContent = [System.IO.File]::ReadAllText("$PWD\scripts\deploy_update.sh") -replace "`r`n", "`n"
+[System.IO.File]::WriteAllText($lfScriptPath, $deployScriptContent)
+
 # Quoted paths
-# We copy deploy_update.sh as well
-gcloud compute scp --zone=$ZONE docker-compose.prod.yml .env.adk dashboard.json trade_log.json active_assets.json scripts\deploy_update.sh "${VM_NAME}:${remoteHome}/" --quiet
+# We copy deploy_update.sh as well (LF-normalized temp copy, see above)
+gcloud compute scp --zone=$ZONE docker-compose.prod.yml .env.adk dashboard.json trade_log.json active_assets.json $lfScriptPath "${VM_NAME}:${remoteHome}/" --quiet
 if ($LASTEXITCODE -ne 0) {
     Write-Error "❌ SCP to VM failed (exit $LASTEXITCODE) — deploy_update.sh may be stale on the VM. Aborting rather than risk running an old script against the new image."
     exit 1
 }
+Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
 
 # 7. Start Services
 Write-Host "🚀 Starting Swarm Containers..." -ForegroundColor Yellow
 
-# Execute the uploaded script. `sed -i 's/\r$//'` strips any CRLF line endings
-# that Windows git/scp can introduce (hit 2026-07-16: broke the shebang with
-# "bad interpreter: /bin/bash^M").
+# Execute the uploaded script. The remote `sed -i 's/\r$//'` is now just a
+# defensive no-op (the uploaded file is already LF) — kept in case anything
+# other than this script's scp step ever lands a CRLF copy on the VM.
 gcloud compute ssh $VM_NAME --zone=$ZONE --command 'sed -i "s/\r$//" deploy_update.sh && chmod +x deploy_update.sh && ./deploy_update.sh' --quiet
 if ($LASTEXITCODE -ne 0) {
     Write-Error "❌ deploy_update.sh failed on the VM (exit $LASTEXITCODE). Container may be down — check manually: gcloud compute ssh $VM_NAME --zone=$ZONE --command 'sudo docker ps -a'"

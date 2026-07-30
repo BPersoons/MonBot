@@ -44,11 +44,11 @@ sudo gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet 2>/dev/nul
 # replacement ready, so the (container-only) preserve step below had nothing
 # to recover from and ~15 state files got silently touch-emptied. With this
 # backup in place, the touch-loop in step 5 restores from here instead.
-STATE_FILES="shadow_book.json shadow_report.json shadow_basis_state.json shadow_basis_log.json shadow_basis_report.json shadow_xyz_funding_state.json shadow_xyz_funding_log.json shadow_xyz_funding_report.json shadow_xyz_gap_state.json shadow_xyz_gap_log.json shadow_xyz_gap_report.json shadow_xyz_listings_state.json shadow_xyz_listings_log.json shadow_xyz_listings_report.json ticker_state.json decision_history.json treasury_harvest.json treasury_proposals.json audited_trades.json portfolio_peak.json cost_log.json polymarket_shadow_log.json config/treasury_allocation.json config/sleeves.json thematic_dip_state.json thematic_dip_positions.json thematic_dip_report.json"
+STATE_FILES="shadow_book.json shadow_report.json shadow_basis_state.json shadow_basis_log.json shadow_basis_report.json shadow_xyz_funding_state.json shadow_xyz_funding_log.json shadow_xyz_funding_report.json shadow_xyz_gap_state.json shadow_xyz_gap_log.json shadow_xyz_gap_report.json shadow_xyz_listings_state.json shadow_xyz_listings_log.json shadow_xyz_listings_report.json ticker_state.json decision_history.json treasury_harvest.json treasury_proposals.json audited_trades.json portfolio_peak.json cost_log.json polymarket_shadow_log.json config/treasury_allocation.json config/sleeves.json thematic_exposure_state.json thematic_exposure_positions.json thematic_exposure_report.json thematic_wallet_peak.json positions_status.json conviction_core_state.json"
 sudo mkdir -p config
 BACKUP_DIR="state_backups/$(date -u +%Y%m%d_%H%M%S)"
 backed_up=0
-for f in $STATE_FILES config/auto_params.json config/thematic_dip_themes.json dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
+for f in $STATE_FILES config/auto_params.json config/thematic_exposure_themes.json config/conviction_core.json config/barbell_targets.json dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
     if [ -s "$f" ]; then  # -s: exists AND non-empty — never back up an already-empty file
         sudo mkdir -p "$BACKUP_DIR/$(dirname "$f")" 2>/dev/null || true
         if sudo cp "$f" "$BACKUP_DIR/$f" 2>/dev/null; then
@@ -191,23 +191,36 @@ if [ ! -f "config/auto_params.json" ]; then
 }
 EOF
 fi
-# Initialise config/thematic_dip_themes.json from the freshly-pulled image if
+# Initialise config/thematic_exposure_themes.json from the freshly-pulled image if
 # missing on host (EXP-008). Unlike the plain STATE_FILES above, this file
 # ships pre-seeded (5 themes + 19 CONFIRMED tickers) — touching it empty like
 # a runtime state file would silently wipe that seed on the very first deploy
 # after this mount was added, so it's extracted from the image instead.
-if [ ! -f "config/thematic_dip_themes.json" ]; then
-    echo "Seeding config/thematic_dip_themes.json from image..."
+if [ ! -f "config/thematic_exposure_themes.json" ]; then
+    echo "Seeding config/thematic_exposure_themes.json from image..."
     sudo docker run --rm europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest \
-        cat /app/config/thematic_dip_themes.json > config/thematic_dip_themes.json 2>/dev/null \
-        || echo '{"themes":{},"tickers":{},"pending":{}}' > config/thematic_dip_themes.json
+        cat /app/config/thematic_exposure_themes.json > config/thematic_exposure_themes.json 2>/dev/null \
+        || echo '{"themes":{},"tickers":{},"pending":{}}' > config/thematic_exposure_themes.json
 fi
+# Conviction Barbell configs (2026-07-28): same reasoning as the themes file above —
+# these carry real settings (target_usd, enabled, band-parameters), NOT runtime state,
+# so they must never be touch-emptied. Seed from the image when the host copy is
+# missing; once present, the host copy wins (that's where target_usd/enabled get
+# flipped without a rebuild).
+for cfg in conviction_core barbell_targets; do
+    if [ ! -f "config/${cfg}.json" ]; then
+        echo "Seeding config/${cfg}.json from image..."
+        sudo docker run --rm europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest \
+            cat "/app/config/${cfg}.json" > "config/${cfg}.json" 2>/dev/null \
+            || echo '{}' > "config/${cfg}.json"
+    fi
+done
 # Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs.
 # Use sudo: config/auto_params.json is written by the container (owned by UID 1000), so a
 # non-sudo chmod fails with "Operation not permitted". Under `set -e` that aborted the whole
 # deploy AFTER the old container was stopped but BEFORE `up`, leaving the swarm down. Keep
 # this non-fatal so a single unchmod-able file can never take production offline.
-sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json config/thematic_dip_themes.json 2>/dev/null || true
+sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json config/thematic_exposure_themes.json config/conviction_core.json config/barbell_targets.json 2>/dev/null || true
 sudo chmod 666 $STATE_FILES 2>/dev/null || true
 sudo chmod 777 logs data config
 

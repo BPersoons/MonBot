@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -127,6 +128,315 @@ class TreasuryAgent:
             logger.error(f"HL snapshot failed: {e}")
             return {"error": str(e), "balance": 0, "free_margin": 0, "idle_pct": 0}
 
+    def _get_sleeve_allocation(self) -> dict:
+        """Read-only saldo van de Thematic Exposure Sleeve's APARTE wallet (0xBd6c).
+        Valt buiten total_portfolio (fysiek gescheiden wallet, telt niet mee in de
+        trade/yield-split) maar wordt apart gerapporteerd voor de meta-allocator
+        (G2 FUND_SLEEVE) + monitoring. Gebruikt publieke HL info-calls: alleen het
+        adres nodig, geen key/auth."""
+        try:
+            from utils.gcp_secrets import get_secret
+            addr = get_secret("HL_THEMATIC_WALLET_ADDRESS")
+            if not addr:
+                return {}
+            # Verse, ongeauthenticeerde ccxt-client: publieke info-calls hebben geen
+            # key nodig, en de main-wallet's signing_client geeft voor de xyz
+            # builder-dex ten onrechte $0 terug (state-interferentie). Gecachet.
+            client = getattr(self, "_sleeve_read_client", None)
+            if client is None:
+                import ccxt
+                client = ccxt.hyperliquid()
+                self._sleeve_read_client = client
+
+            spot = 0.0
+            s = client.publicPostInfo({"type": "spotClearinghouseState", "user": addr})
+            for b in s.get("balances", []) or []:
+                if b.get("coin") == "USDC":
+                    spot = float(b.get("total", 0) or 0)
+
+            def _dex(dex: str) -> tuple[float, float]:
+                body = {"type": "clearinghouseState", "user": addr}
+                if dex:
+                    body["dex"] = dex
+                r = client.publicPostInfo(body)
+                ms = r.get("marginSummary", {}) or {}
+                return (float(ms.get("accountValue", 0) or 0), float(r.get("withdrawable", 0) or 0))
+
+            main_perp, _ = _dex("")
+            xyz, xyz_withdrawable = _dex("xyz")
+            return {
+                "wallet":           addr,
+                "spot_usdc":        round(spot, 2),
+                "main_perp_usd":    round(main_perp, 2),
+                "xyz_dex_usd":      round(xyz, 2),
+                # withdrawable = idle collateral (niet vastgezet onder open posities);
+                # G3 pull-back trekt alleen dit + spot terug, nooit positie-marge.
+                "xyz_withdrawable": round(xyz_withdrawable, 2),
+                "withdrawable_total": round(spot + xyz_withdrawable, 2),
+                "total":            round(spot + main_perp + xyz, 2),
+            }
+        except Exception as e:
+            logger.warning(f"Sleeve allocation read failed: {e}")
+            return {}
+
+    # ── Thematic Exposure Sleeve funding (G2 meta-allocator) ──────────────────
+    def _master_signing_client(self):
+        """ccxt-client met de MASTER-key (HL_VAULT_PRIVATE_KEY → 0x92D4) — nodig voor
+        user-signed sendAsset. De default exchange_client tekent met de AGENT-key
+        (0xe18f), die HL geen fondsen laat verplaatsen. Gecachet."""
+        client = getattr(self, "_master_client", None)
+        if client is not None:
+            return client
+        from utils.gcp_secrets import get_secret
+        from utils.exchange_client import HyperliquidExchange
+        addr = get_secret("HL_VAULT_ADDRESS")
+        key = get_secret("HL_VAULT_PRIVATE_KEY")
+        if not (addr and key):
+            return None
+        ex = HyperliquidExchange(testnet=False, wallet_address=addr, private_key=key)
+        self._master_client = ex.signing_client
+        return self._master_client
+
+    @staticmethod
+    def _send_asset(client, dest: str, amount: float, src_dex: str, dst_dex: str) -> bool:
+        """Generieke HL sendAsset (HIP-3), zelf-gesigned met de mainnet EIP-712 domain
+        (ccxt's helper hardcodet de testnet-chainId → HL weigert). `client` moet de
+        eigenaar-key van het bron-account houden (self-custody of master).
+        Cross-account MOET via spot (`src_dex="spot"`); within-account kan tussen
+        dexes (bv. 'xyz'→'spot'). Returns True bij status ok."""
+        token = None
+        meta = client.publicPostInfo({"type": "spotMeta"})
+        for t in meta.get("tokens", []) or []:
+            if (t.get("name") or "").upper() == "USDC":
+                token = f"USDC:{t.get('tokenId')}"
+                break
+        if not token:
+            raise RuntimeError("USDC token-id niet gevonden")
+        nonce = client.milliseconds()
+        str_amt = client.number_to_string(amount)
+        message = {
+            "hyperliquidChain": "Mainnet", "destination": dest,
+            "sourceDex": src_dex, "destinationDex": dst_dex, "token": token,
+            "amount": str_amt, "fromSubAccount": "", "nonce": nonce,
+        }
+        types = {"HyperliquidTransaction:SendAsset": [
+            {"name": "hyperliquidChain", "type": "string"}, {"name": "destination", "type": "string"},
+            {"name": "sourceDex", "type": "string"}, {"name": "destinationDex", "type": "string"},
+            {"name": "token", "type": "string"}, {"name": "amount", "type": "string"},
+            {"name": "fromSubAccount", "type": "string"}, {"name": "nonce", "type": "uint64"}]}
+        domain = {"chainId": 42161, "name": "HyperliquidSignTransaction",
+                  "verifyingContract": "0x0000000000000000000000000000000000000000", "version": "1"}
+        sig = client.sign_message(client.eth_encode_structured_data(domain, types, message), client.privateKey)
+        req = {"action": {"type": "sendAsset", "signatureChainId": "0xa4b1",
+                          "hyperliquidChain": "Mainnet", "destination": dest,
+                          "sourceDex": src_dex, "destinationDex": dst_dex, "token": token,
+                          "amount": str_amt, "fromSubAccount": "", "nonce": nonce},
+               "nonce": nonce, "signature": sig}
+        resp = client.private_post_exchange(req)
+        return isinstance(resp, dict) and resp.get("status") == "ok"
+
+    def _master_send_usdc(self, dest: str, amount: float) -> bool:
+        """FUND_SLEEVE: master(0x92D4) spot → sleeve spot (cross-account, through spot)."""
+        client = self._master_signing_client()
+        if client is None:
+            raise RuntimeError("geen master signing client (HL_VAULT_* niet gezet)")
+        return self._send_asset(client, dest, amount, "spot", "spot")
+
+    def _sleeve_signing_client(self):
+        """ccxt-client met de SLEEVE-key (HL_THEMATIC_PRIVATE_KEY → 0xBd6c, self-custody)
+        — nodig om G3 pull-backs (sleeve → master) te tekenen. Gecachet."""
+        client = getattr(self, "_sleeve_client", None)
+        if client is not None:
+            return client
+        from utils.gcp_secrets import get_secret
+        from utils.exchange_client import HyperliquidExchange
+        addr = get_secret("HL_THEMATIC_WALLET_ADDRESS")
+        key = get_secret("HL_THEMATIC_PRIVATE_KEY")
+        if not (addr and key):
+            return None
+        ex = HyperliquidExchange(testnet=False, wallet_address=addr, private_key=key)
+        self._sleeve_client = ex.signing_client
+        return self._sleeve_client
+
+    def _sleeve_send_to_master(self, amount: float) -> bool:
+        """G3 pull-back: verplaats `amount` van de sleeve terug naar de master.
+        Twee hops met de SLEEVE-key: (1) xyz→spot binnen de sleeve (indien spot te
+        laag), (2) sleeve spot → master spot (cross-account, through spot)."""
+        from utils.gcp_secrets import get_secret
+        client = self._sleeve_signing_client()
+        master = get_secret("HL_VAULT_ADDRESS")
+        sleeve = get_secret("HL_THEMATIC_WALLET_ADDRESS")
+        if client is None or not master or not sleeve:
+            raise RuntimeError("sleeve signing client / adressen ontbreken")
+
+        # Huidige sleeve-spot bepalen; vul aan vanuit xyz als het tekort schiet.
+        spot = 0.0
+        s = client.publicPostInfo({"type": "spotClearinghouseState", "user": sleeve})
+        for b in s.get("balances", []) or []:
+            if b.get("coin") == "USDC":
+                spot = float(b.get("total", 0) or 0)
+        if spot < amount:
+            need = round(amount - spot + 0.01, 2)
+            if not self._send_asset(client, sleeve, need, "xyz", "spot"):
+                raise RuntimeError("xyz→spot hop mislukt")
+            time.sleep(2)
+        return self._send_asset(client, master, amount, "spot", "spot")
+
+    def _check_sleeve_funding(self, sleeve_alloc: dict, grand_total: float,
+                              hl: dict, all_proposals: list) -> tuple[list, list]:
+        """Genereer een FUND_SLEEVE-proposal als de sleeve onder de trigger zakt.
+        Returns (all_proposals, notif_texts) — caller stuurt Telegram NA _save_proposals."""
+        notifs: list[str] = []
+        cfg = self._load_allocation_config()
+        if not cfg.get("sleeve_funding_enabled", True) or not sleeve_alloc:
+            return all_proposals, notifs
+
+        target = round(min(cfg.get("sleeve_cap_usd", 500),
+                           grand_total * cfg.get("sleeve_target_pct", 10) / 100.0), 2)
+        current = round(float(sleeve_alloc.get("total", 0.0)), 2)
+        trigger = target * cfg.get("sleeve_trigger_frac", 0.60)
+        if target <= 0 or current >= trigger:
+            return all_proposals, notifs
+
+        # Geen stapeling: één FUND_SLEEVE tegelijk.
+        if any(p.get("type") == "FUND_SLEEVE" and p.get("status") in {"PENDING", "APPROVED"}
+               for p in all_proposals):
+            return all_proposals, notifs
+        # Cooldown t.o.v. de laatste geslaagde top-up.
+        cooldown_s = cfg.get("sleeve_cooldown_h", 24) * 3600
+        last_done = max([self._parse_ts(p.get("created_at", "")) for p in all_proposals
+                         if p.get("type") == "FUND_SLEEVE" and p.get("status") == "DEPLOYED"], default=0)
+        if last_done and (time.time() - last_done) < cooldown_s:
+            return all_proposals, notifs
+
+        # Bron-guard: HL-main free margin mag nooit onder de buffer zakken.
+        buffer = cfg.get("min_hl_buffer_usd", 200)
+        available = max(0.0, hl.get("free_margin", 0.0) - buffer)
+        topup = round(min(target - current, cfg.get("sleeve_topup_cap_usd", 150), available), 2)
+        if topup < 10:  # onder HL min-notional / niet de moeite
+            return all_proposals, notifs
+
+        first_done = cfg.get("sleeve_first_topup_approved", False)
+        status = "APPROVED" if first_done else "PENDING"
+        pid = f"TRSL_{int(time.time())}"
+        all_proposals.append({
+            "id": pid, "type": "FUND_SLEEVE", "status": status,
+            "amount_usd": topup, "destination": sleeve_alloc.get("wallet"),
+            "sleeve_target_usd": target, "sleeve_current_usd": current,
+            "created_at": datetime.utcnow().isoformat(),
+            "reason": f"sleeve ${current:.0f} < trigger ${trigger:.0f} (doel ${target:.0f})",
+        })
+        if status == "PENDING":
+            notifs.append(
+                f"🟡 *FUND_SLEEVE voorstel* `{pid}`\n"
+                f"Thematic sleeve ${current:.0f} → doel ${target:.0f}. Top-up ${topup:.0f} "
+                f"van HL-main naar de sleeve-wallet.\n"
+                f"Eerste funding vereist goedkeuring: `/approve {pid}` of `/reject {pid}`.")
+        else:
+            notifs.append(
+                f"🟢 *FUND_SLEEVE (auto)* `{pid}`\nTop-up ${topup:.0f} → thematic sleeve "
+                f"(${current:.0f}→~${current + topup:.0f}, doel ${target:.0f}).")
+        return all_proposals, notifs
+
+    def _execute_fund_sleeve(self, all_proposals: list) -> list:
+        """Voer APPROVED FUND_SLEEVE-proposals uit: sendAsset master→sleeve. De
+        sleeve's eigen G0-sweep verplaatst het daarna spot→xyz."""
+        for i, p in enumerate(all_proposals):
+            if p.get("type") != "FUND_SLEEVE" or p.get("status") != "APPROVED":
+                continue
+            amt = round(float(p.get("amount_usd", 0) or 0), 2)
+            dest = p.get("destination")
+            if amt < 10 or not dest:
+                p["status"] = "FAILED"; p["error"] = "ongeldig bedrag/bestemming"
+                continue
+            try:
+                ok = self._master_send_usdc(dest, amt)
+            except Exception as e:
+                p["status"] = "FAILED"; p["error"] = str(e)[:200]
+                self._send_telegram(f"🔴 FUND_SLEEVE `{p.get('id')}` mislukt: {e}")
+                continue
+            if ok:
+                p["status"] = "DEPLOYED"; p["deployed_at"] = datetime.utcnow().isoformat()
+                self._set_alloc_flag("sleeve_first_topup_approved", True)  # volgende top-ups auto
+                self._send_telegram(
+                    f"✅ FUND_SLEEVE `{p.get('id')}`: ${amt:.0f} → thematic sleeve. "
+                    f"Sweep naar de xyz-dex volgt automatisch in de sleeve-cyclus.")
+            else:
+                p["status"] = "FAILED"; p["error"] = "sendAsset gaf geen ok"
+        return all_proposals
+
+    def _check_sleeve_rebalance(self, sleeve_alloc: dict, grand_total: float,
+                                all_proposals: list) -> tuple[list, list]:
+        """G3: trek OVERSCHOT uit de sleeve terug naar de main-pool wanneer de sleeve
+        boven z'n band uitkomt (winst of krimpend portfolio) of boven de harde cap.
+        Trekt alleen IDLE kapitaal terug (withdrawable + spot), nooit positie-marge.
+        Auto (de-risking richting) maar met Telegram-notificatie. Returns (props, notifs)."""
+        notifs: list[str] = []
+        cfg = self._load_allocation_config()
+        if not cfg.get("sleeve_rebalance_enabled", True) or not sleeve_alloc:
+            return all_proposals, notifs
+
+        target = round(min(cfg.get("sleeve_cap_usd", 500),
+                           grand_total * cfg.get("sleeve_target_pct", 10) / 100.0), 2)
+        current = round(float(sleeve_alloc.get("total", 0.0)), 2)
+        cap = cfg.get("sleeve_cap_usd", 500)
+        upper = target * cfg.get("sleeve_rebalance_frac", 1.40)
+        if current <= upper and current <= cap:
+            return all_proposals, notifs  # binnen band
+
+        # Geen stapeling / niet tegelijk met een funding-actie.
+        if any(p.get("type") in {"SLEEVE_REBALANCE", "FUND_SLEEVE"} and p.get("status") in {"PENDING", "APPROVED"}
+               for p in all_proposals):
+            return all_proposals, notifs
+        cooldown_s = cfg.get("sleeve_cooldown_h", 24) * 3600
+        last_done = max([self._parse_ts(p.get("created_at", "")) for p in all_proposals
+                         if p.get("type") == "SLEEVE_REBALANCE" and p.get("status") == "DEPLOYED"], default=0)
+        if last_done and (time.time() - last_done) < cooldown_s:
+            return all_proposals, notifs
+
+        # Trek terug tot target, maar alleen wat idle/withdrawable is.
+        excess = current - target
+        idle = float(sleeve_alloc.get("withdrawable_total", 0.0))
+        pull = round(min(excess, idle), 2)
+        if pull < 10:  # niet de moeite / kapitaal zit vast onder posities
+            return all_proposals, notifs
+
+        pid = f"TRSR_{int(time.time())}"
+        all_proposals.append({
+            "id": pid, "type": "SLEEVE_REBALANCE", "status": "APPROVED",
+            "amount_usd": pull, "sleeve_target_usd": target, "sleeve_current_usd": current,
+            "created_at": datetime.utcnow().isoformat(),
+            "reason": f"sleeve ${current:.0f} > band ${max(upper, cap):.0f} (doel ${target:.0f}) — trek ${pull:.0f} terug",
+        })
+        notifs.append(
+            f"🔵 *SLEEVE_REBALANCE (auto)* `{pid}`\nThematic sleeve ${current:.0f} boven band "
+            f"(doel ${target:.0f}). Trek ${pull:.0f} idle-kapitaal terug naar de main-pool.")
+        return all_proposals, notifs
+
+    def _execute_sleeve_rebalance(self, all_proposals: list) -> list:
+        """Voer APPROVED SLEEVE_REBALANCE uit: sleeve → master (xyz→spot→master)."""
+        for i, p in enumerate(all_proposals):
+            if p.get("type") != "SLEEVE_REBALANCE" or p.get("status") != "APPROVED":
+                continue
+            amt = round(float(p.get("amount_usd", 0) or 0), 2)
+            if amt < 10:
+                p["status"] = "FAILED"; p["error"] = "ongeldig bedrag"
+                continue
+            try:
+                ok = self._sleeve_send_to_master(amt)
+            except Exception as e:
+                p["status"] = "FAILED"; p["error"] = str(e)[:200]
+                self._send_telegram(f"🔴 SLEEVE_REBALANCE `{p.get('id')}` mislukt: {e}")
+                continue
+            if ok:
+                p["status"] = "DEPLOYED"; p["deployed_at"] = datetime.utcnow().isoformat()
+                self._send_telegram(
+                    f"✅ SLEEVE_REBALANCE `{p.get('id')}`: ${amt:.0f} teruggetrokken uit de "
+                    f"thematic sleeve naar de main-pool.")
+            else:
+                p["status"] = "FAILED"; p["error"] = "sendAsset gaf geen ok"
+        return all_proposals
+
     # ── Protocol config ───────────────────────────────────────────────────────
 
     def _load_protocol_config(self) -> list[dict]:
@@ -158,6 +468,16 @@ class TreasuryAgent:
             "perf_high_wr_boost_pp":  10,
             "perf_low_wr_threshold":  30,
             "perf_low_wr_reduce_pp":  10,
+            # ── Thematic Exposure Sleeve funding (G2 meta-allocator) ──
+            "sleeve_funding_enabled":     True,
+            "sleeve_target_pct":          10,     # % van grand_total (incl. sleeve)
+            "sleeve_cap_usd":            500,      # harde $-cap, ongeacht %
+            "sleeve_trigger_frac":       0.60,     # bijvullen als sleeve < frac*target
+            "sleeve_topup_cap_usd":      150,      # max per top-up
+            "sleeve_cooldown_h":          24,      # min uren tussen top-ups
+            "sleeve_first_topup_approved": False,  # 1e top-up vereist Telegram-approval; daarna auto
+            "sleeve_rebalance_enabled":   True,    # G3: overschot terugtrekken naar main
+            "sleeve_rebalance_frac":      1.40,    # pull-back als sleeve > frac*target (symmetrisch met trigger 0.60)
         }
         try:
             with open("config/treasury_allocation.json") as f:
@@ -166,8 +486,37 @@ class TreasuryAgent:
             pass
         return defaults
 
+    def _set_alloc_flag(self, key: str, value) -> None:
+        """Persisteer één sleutel in config/treasury_allocation.json (volume-mounted).
+        In-place write (geen rename) — zie de bind-mount-pitfall in CLAUDE.md."""
+        try:
+            try:
+                with open("config/treasury_allocation.json") as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+            data[key] = value
+            with open("config/treasury_allocation.json", "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.error(f"_set_alloc_flag({key}) failed: {e}")
+
+    # Below this many closed trades, WR swings too hard per single close to
+    # trust for a capital-allocation decision (e.g. at n=8, one trade closing
+    # either way moves WR by 12.5pp — enough to cross the 45%/30% thresholds
+    # below and flip effective_pct). Discovered 2026-07-19: trade_log.json's
+    # 436->6 data loss (2026-07-17, see CLAUDE.md bind-mount pitfall) left
+    # only 6-8 usable closed trades, and _compute_target_allocation's WR
+    # boost/reduction was flipping on nearly every trade close — HL<->Aave
+    # rebalances firing minutes apart for the same money, pure gas/friction
+    # waste. Old floor was 5, which didn't fix this since the incident-thinned
+    # log was almost always right at 5-8. 20 is still below the lookback=30
+    # target but requires enough fresh post-incident trades to mean something.
+    _MIN_WR_SAMPLE = 20
+
     def _get_recent_wr(self, lookback: int = 30) -> float | None:
-        """Win rate of last N closed trades. Returns None if insufficient data."""
+        """Win rate of last N closed trades. Returns None if insufficient data
+        (see _MIN_WR_SAMPLE) — callers must treat None as "don't adapt", not 0."""
         try:
             with open("trade_log.json") as f:
                 raw = json.load(f)
@@ -180,7 +529,7 @@ class TreasuryAgent:
             ]
             closed.sort(key=lambda t: t.get("exit_time") or t.get("updated_at") or "")
             recent = closed[-lookback:]
-            if len(recent) < 5:
+            if len(recent) < self._MIN_WR_SAMPLE:
                 return None
             wins = sum(1 for t in recent if (t.get("pnl") or 0) > 0)
             return wins / len(recent) * 100
@@ -679,6 +1028,41 @@ class TreasuryAgent:
         )
         return all_proposals
 
+    def _conviction_reserved_usd(self) -> float:
+        """USD op HL die geoormerkt is voor de Conviction Core, maar nog niet ingezet.
+
+        De barbell (docs/CONVICTION_BARBELL_PLAN.md) parkeert het groei-been als idle
+        spot-USDC op de master-wallet terwijl de wekelijkse DCA loopt. Dat geld is GEEN
+        trading-marge: wegsweepen naar yield vecht met de DCA om dezelfde dollars, en
+        terughalen uit Aave vergt een handmatige bridge-stap. Zonder deze uitzondering
+        hebben twee allocators tegengestelde instructies over dezelfde wallet.
+
+        Retourneert target_usd minus wat de sleeve al aanhoudt (UBTC/UETH), dus het
+        bedrag krimpt vanzelf naar 0 naarmate de DCA vordert.
+        """
+        try:
+            with open("config/conviction_core.json") as f:
+                cfg = json.load(f)
+        except Exception:
+            return 0.0
+
+        target = float(cfg.get("target_usd", 0) or 0)
+        if target <= 0:
+            return 0.0
+
+        deployed = 0.0
+        try:
+            holdings = self.exchange_client.get_spot_holdings()
+            for asset, coin in (("BTC", "UBTC"), ("ETH", "UETH")):
+                qty = float(holdings.get(coin, 0.0) or 0.0)
+                if qty > 0:
+                    deployed += qty * float(self.exchange_client.get_spot_price(asset) or 0.0)
+        except Exception as e:
+            # Fail-safe: bij twijfel het VOLLEDIGE target reserveren (niet sweepen).
+            logger.debug(f"conviction reserve: holdings onleesbaar ({e}) — volledig target gereserveerd")
+
+        return round(max(0.0, target - deployed), 2)
+
     # ── HL excess → yield ─────────────────────────────────────────────────────
 
     def _check_hl_excess(self, hl: dict, all_proposals: list, opportunities: list) -> list:
@@ -719,6 +1103,18 @@ class TreasuryAgent:
             return all_proposals
 
         excess = round(hl_balance - target_trade, 2)
+
+        # Nooit het groei-been van de barbell wegsweepen (zie _conviction_reserved_usd)
+        reserved = self._conviction_reserved_usd()
+        if reserved > 0:
+            excess = round(excess - reserved, 2)
+            if excess <= 0:
+                logger.debug(
+                    f"TreasuryAgent: HL-overschot volledig geoormerkt voor Conviction Core "
+                    f"(${reserved:.0f}) — geen sweep"
+                )
+                return all_proposals
+
         # Never touch margin in use — cap at 90% of free margin
         safe_withdraw = round(min(excess, free_margin * 0.9), 2)
         if safe_withdraw < _HL_EXCESS_MIN_USD:
@@ -1551,6 +1947,10 @@ class TreasuryAgent:
             "REBALANCING", "MONITORING", "BRIDGE_BACK_NEEDED", "BRIDGING_TO_HL",
             "SWITCHING",
         }
+        # Execute any FUND_SLEEVE approved via /approve, and auto SLEEVE_REBALANCE
+        # pull-backs, within 5 cycles.
+        all_proposals = self._execute_fund_sleeve(all_proposals)
+        all_proposals = self._execute_sleeve_rebalance(all_proposals)
         has_active = any(p.get("status") in active for p in all_proposals)
         if has_active:
             all_proposals = self.execute_approved_proposals(all_proposals)
@@ -1582,6 +1982,11 @@ class TreasuryAgent:
         aave_balance  = yield_balances.get("aave-v3-arbitrum-usdc", 0.0)  # kept for proposal generation compat
         total_portfolio = round(hl.get("balance", 0) + total_yield + treasury_usdc, 2)
         allocation = self._compute_target_allocation(total_portfolio) if total_portfolio > 0 else {}
+
+        # Thematic Exposure Sleeve (aparte wallet) — read-only, telt NIET mee in de
+        # trade/yield-split (total_portfolio), wel apart voor de meta-allocator (G2).
+        sleeve_allocation = self._get_sleeve_allocation()
+        grand_total = round(total_portfolio + sleeve_allocation.get("total", 0.0), 2)
 
         # Generate proposals only if none are already in-flight (avoid duplicates).
         # Also block when a YIELD_SWITCH is SWITCHING: the USDC in the treasury wallet
@@ -1619,6 +2024,17 @@ class TreasuryAgent:
         self._check_funding_harvest()
         self._monitor_funding_harvest()
 
+        # Meta-allocator: fund the thematic sleeve when below target (G2), or pull
+        # excess idle capital back to the main pool when above band (G3). Mutually
+        # exclusive per run (sleeve can't be both below trigger and above band).
+        all_proposals, _sleeve_notifs = self._check_sleeve_funding(
+            sleeve_allocation, grand_total, hl, all_proposals)
+        all_proposals = self._execute_fund_sleeve(all_proposals)
+        all_proposals, _rebal_notifs = self._check_sleeve_rebalance(
+            sleeve_allocation, grand_total, all_proposals)
+        all_proposals = self._execute_sleeve_rebalance(all_proposals)
+        _sleeve_notifs = _sleeve_notifs + _rebal_notifs
+
         # Advance state machine for any approved/in-progress proposals
         all_proposals = self.execute_approved_proposals(all_proposals)
         self._save_proposals(all_proposals)
@@ -1630,6 +2046,8 @@ class TreasuryAgent:
             "total_yield":          round(total_yield, 2),
             "treasury_wallet_usdc": round(treasury_usdc, 2),
             "total_portfolio":      total_portfolio,
+            "sleeve_allocation":    sleeve_allocation,
+            "grand_total_portfolio": grand_total,
             "allocation":           allocation,
             "opportunities":        opportunities,
             "proposals":            all_proposals,
@@ -1648,6 +2066,8 @@ class TreasuryAgent:
         for msg in _switch_notifs:
             self._send_telegram(msg)
         for msg in _diversify_notifs:
+            self._send_telegram(msg)
+        for msg in _sleeve_notifs:
             self._send_telegram(msg)
 
         # Telegram for genuinely new proposals

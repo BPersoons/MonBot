@@ -1,0 +1,10 @@
+{
+  "_comment": "Vul je ACTUELE waardes in USD in (broker + treasury-dashboard). Kopieer naar barbell_holdings.json en pas aan. EQUITY = ETF + conviction-picks samen; GOLD = fysiek goud-ETC.",
+  "safe_usd": 2500.00,
+  "growth_usd": {
+    "BTC": 1000.00,
+    "EQUITY": 750.00,
+    "GOLD": 500.00,
+    "ETH": 250.00
+  }
+}

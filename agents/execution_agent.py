@@ -146,8 +146,8 @@ class ExecutionAgent:
             for t in trades:
                 if t.get("status") not in ("OPEN", "PLACED"):
                     continue
-                if t.get("harvest") or t.get("thematic_dip"):
-                    continue  # Treasury harvest / Thematic Dip Sleeve positions: managed elsewhere
+                if t.get("harvest") or t.get("thematic_exposure"):
+                    continue  # Treasury harvest / Thematic Exposure Sleeve positions: managed elsewhere
                 if t.get("take_profit") and t.get("stop_loss"):
                     continue  # Already has levels
                 ep = t.get("entry_price", 0.0)
@@ -267,8 +267,8 @@ class ExecutionAgent:
         for t in trades:
             if t.get("status") not in ("OPEN", "PLACED"):
                 continue
-            if t.get("harvest") or t.get("thematic_dip"):
-                continue  # Treasury harvest / Thematic Dip Sleeve positions: managed elsewhere
+            if t.get("harvest") or t.get("thematic_exposure"):
+                continue  # Treasury harvest / Thematic Exposure Sleeve positions: managed elsewhere
             _base = (t.get("ticker") or "").split("/")[0].upper()
             if _base in hl_bases_live:
                 continue
@@ -759,6 +759,16 @@ class ExecutionAgent:
                  
         return {'passed': True, 'reason': f"Auditor Passed (Vs L1 Book). Spread Impact: {delta_pct*100:.3f}%"}
 
+    @staticmethod
+    def _directional_cap_usd() -> float:
+        """F1 G2a: max totale open directional-exposure in USD. 0 = geen cap.
+        Config-gedreven (config/auto_params.json), tunebaar zonder redeploy."""
+        try:
+            with open("config/auto_params.json") as f:
+                return float(json.load(f).get("directional_exposure_cap_usd", 0.0) or 0.0)
+        except Exception:
+            return 0.0
+
     def execute_order(self, trade_proposal):
         """
         Executes an order based on the APPROVED proposal.
@@ -811,6 +821,29 @@ class ExecutionAgent:
                         return None
         except Exception:
             pass  # fail-open — don't block trades due to file read error
+
+        # Directional capital cap (F1 G2a, 2026-07-23): bound total open directional
+        # exposure to a small amount (~$200-300) — the tech-LONG edge is real but
+        # modest/lumpy, so we cap downside. Excludes the thematic sleeve (own wallet)
+        # and treasury harvest (separate strategies). Blocks new entries once the cap
+        # is reached; combined with small sizing this bounds risk to ~cap + one position.
+        try:
+            cap = self._directional_cap_usd()
+            if cap > 0:
+                with open(TRADE_LOG_FILE, "r") as f:
+                    _open = [t for t in json.load(f)
+                             if t.get('status') in ('OPEN', 'PLACED')
+                             and not t.get('thematic_exposure') and not t.get('harvest')]
+                cur_notional = sum(
+                    float(t.get('entry_price', 0) or 0) * float(t.get('quantity', 0) or 0)
+                    for t in _open)
+                if cur_notional >= cap:
+                    self.logger.warning(
+                        f"BLOCKED {ticker}: directional exposure cap ${cap:.0f} reached "
+                        f"(open directional ${cur_notional:.0f}).")
+                    return None
+        except Exception as _cap_err:
+            self.logger.debug(f"directional cap check skipped: {_cap_err}")  # fail-open
 
         # Spot order guard: only allow perpetual swaps, block spot markets
         # _normalize_symbol prefers perps (:USDC) over spot, so use it for the check

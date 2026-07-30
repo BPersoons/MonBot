@@ -36,6 +36,43 @@ def _get_shared_exchange():
     return _EXCHANGE
 
 
+def get_ohlcv_df(symbol, timeframe='1h', limit=600):
+    """Module-level cached OHLCV fetch for non-TA callers (e.g. the directional
+    rule-direction source in ProjectLead). Reuses the shared exchange + TTL cache
+    so it does not add a second network round-trip per candidate within the TTL.
+
+    Returns a DataFrame with columns [timestamp, open, high, low, close, volume],
+    or None on hard failure (serves stale cache if present).
+    """
+    sym = symbol.replace('/USDT', '/USDC')
+    if ':' not in sym:
+        sym = f"{sym}:USDC"
+    cache_key = (sym, timeframe, limit)
+    ttl = _OHLCV_TTL.get(timeframe, 300)
+    now = time.time()
+    with _OHLCV_CACHE_LOCK:
+        hit = _OHLCV_CACHE.get(cache_key)
+        if hit and (now - hit[0]) < ttl:
+            return hit[1].copy()
+    for attempt in range(3):
+        try:
+            exchange = _get_shared_exchange()
+            with _FETCH_LOCK:
+                ohlcv = exchange.fetch_ohlcv(sym, timeframe=timeframe, limit=limit)
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+            with _OHLCV_CACHE_LOCK:
+                _OHLCV_CACHE[cache_key] = (now, df)
+            return df
+        except ccxt.RateLimitExceeded:
+            time.sleep(2 * (attempt + 1))
+        except Exception:
+            break
+    with _OHLCV_CACHE_LOCK:
+        hit = _OHLCV_CACHE.get(cache_key)
+    return hit[1].copy() if hit else None
+
+
 class TechnicalAnalyst:
     """
     Technical Analyst Agent — Multi-Timeframe, Multi-Indicator scoring.

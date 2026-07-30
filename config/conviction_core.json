@@ -1,0 +1,16 @@
+{
+  "_comment": "Conviction Core crypto-sleeve (BTC/ETH spot, buy-and-hold) op HL hoofdwallet 0x92D4. Zie docs/CONVICTION_BARBELL_PLAN.md.",
+  "_funding_comment": "target_usd=650 = wat er NU aan vrij spot-USDC staat ($803) minus de trading-reserve ($150). Het barbell-target voor het crypto-been is $766 (25% v/h totaal); de resterende ~$116 vergt een handmatige Aave->HL bridge (het veilige been staat ~$460 boven target).",
+  "enabled": false,
+  "target_usd": 650,
+  "split_pct": {"BTC": 80, "ETH": 20},
+  "bands": {
+    "rebalance_drift_pp": 8,
+    "min_trade_usd": 11,
+    "cooldown_days": 7
+  },
+  "dca": {
+    "max_deploy_per_run_usd": 82
+  },
+  "reserve_spot_usdc": 150
+}

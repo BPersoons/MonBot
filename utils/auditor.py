@@ -124,53 +124,38 @@ class PerformanceAuditor:
         """
         self.logger.info("Running Audit Cycle...")
 
-        # Try to fetch trades from Supabase first
-        audited_ids = set(self.load_json(self.audited_ids_file, []))
-        if self.db.is_available():
-            fetched = self.db.get_closed_trades(audited=False, limit=100)
-            trades = [t for t in fetched if t.get("id") not in audited_ids]
-            self.logger.info(
-                f"Fetched {len(fetched)} closed trades from Supabase "
-                f"({len(trades)} not yet audited)"
-            )
-            use_database = True
-        else:
-            # Fallback to JSON
-            self.logger.warning("Database unavailable - using trade_log.json")
-            trades = self.load_json(self.trade_log_file, [])
-            use_database = False
-
-        dirty_trades = False
+        # Learning source (2026-07-21 fix): the auditor now learns from the
+        # OPERATIONAL source of truth — trade_log.json — NOT the Supabase mirror,
+        # which silently stopped syncing in March 2026. Because Supabase was still
+        # "available" (just stale), the old code read its 27 frozen March trades,
+        # found them all audited, and did nothing — weight-learning had been dead
+        # for ~4 months. Dedup is via the audited_ids ledger (id as string), seeded
+        # with the pre-redesign backlog so the losing counter-trend shorts from the
+        # OLD direction logic are not learned from. Param-tuning stays gated behind
+        # AUDITOR_ENABLED. See docs/DIRECTIONAL_CORE_REDESIGN.md + CLAUDE.md.
+        audited_ids = set(str(x) for x in self.load_json(self.audited_ids_file, []))
+        all_closed = [
+            t for t in self.load_json(self.trade_log_file, [])
+            if str(t.get("status", "")).startswith("CLOSED")
+        ]
+        trades = [t for t in all_closed if str(t.get("id")) not in audited_ids]
+        self.logger.info(
+            f"Auditor: {len(all_closed)} closed trades in trade_log, "
+            f"{len(trades)} not yet audited"
+        )
 
         if trades:
             # 1. Weight Updates
             for trade in trades:
-                if use_database:
-                    if trade.get("status") == "CLOSED":
-                        self._audit_trade(trade, use_database)
-                        # Mark processed regardless of outcome — a trade without
-                        # analyst signals will never grow them, so re-queueing it
-                        # next cycle only repeats the skip.
-                        if trade.get("id") is not None:
-                            audited_ids.add(trade.get("id"))
-                else:
-                    if trade.get("status") == "CLOSED" and not trade.get("audited", False):
-                        self._audit_trade(trade, use_database)
-                        trade["audited"] = True
-                        dirty_trades = True
+                self._audit_trade(trade, use_database=False)
+                if trade.get("id") is not None:
+                    audited_ids.add(str(trade.get("id")))
+            # Bounded ledger: keep the most recent 5000 IDs (sorted as strings
+            # so mixed int/str IDs don't crash the sort).
+            self.save_json(self.audited_ids_file, sorted(audited_ids, key=str)[-5000:])
 
-            if use_database and audited_ids:
-                # Bounded ledger: keep the most recent 5000 IDs (sorted as strings
-                # so mixed int/str IDs from import scripts don't crash the sort).
-                self.save_json(
-                    self.audited_ids_file,
-                    sorted(audited_ids, key=str)[-5000:],
-                )
-            if not use_database and dirty_trades:
-                self.save_json(self.trade_log_file, trades)
-
-            # 2. Asset Off-boarding
-            self.check_asset_performance(trades)
+            # 2. Asset Off-boarding — uses the full closed history for per-asset stats
+            self.check_asset_performance(all_closed)
         else:
             self.logger.info("No trades to audit — skipping weight updates")
 

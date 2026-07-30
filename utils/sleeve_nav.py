@@ -29,7 +29,7 @@ logger = logging.getLogger("SleeveNAV")
 CONFIG_FILE = "config/sleeves.json"
 STATE_FILE = "data/sleeve_nav.json"
 TREASURY_STATE_FILE = "treasury_state.json"
-THEMATIC_DIP_FILE = "thematic_dip_positions.json"
+THEMATIC_EXPOSURE_FILE = "thematic_exposure_positions.json"
 STALE_HOURS = 3.0          # treasury_state ouder dan dit → snapshot uitstellen
 MAX_HISTORY = 400          # ~13 maanden dagelijkse entries
 FALLBACK_EURUSD = 1.08     # alleen gebruikt als er nog nooit een rate gefetcht is
@@ -123,26 +123,46 @@ class SleeveNAV:
             if dotted not in src_map:
                 add(dotted, self.config.get("default_yield_sleeve", "yield_core"))
 
-        # Thematic Dip sleeve (EXP-008): dit kapitaal zit op dezelfde HL-rekening
-        # als 'swarm' en is dus al één keer meegeteld in de venue-total via
-        # hl_snapshot.balance -> "hyperliquid". Alleen de SLEEVE-labeling wordt
-        # hier gecorrigeerd (van 'swarm' naar 'thematic_dip'); venues blijft
-        # ongewijzigd om dubbeltelling van de venue-cap-check te voorkomen.
-        thematic_dip_usd = self._thematic_dip_value()
-        if thematic_dip_usd > 0:
-            sleeves["thematic_dip"] = sleeves.get("thematic_dip", 0.0) + thematic_dip_usd
-            sleeves["swarm"] = max(0.0, sleeves.get("swarm", 0.0) - thematic_dip_usd)
+        # Thematic Exposure sleeve (EXP-008): SLEEVE-labeling for its capital.
+        # Since 2026-07-18 the sleeve can run on its OWN Hyperliquid wallet
+        # (HL_THEMATIC_WALLET_ADDRESS, see main.py's split). In that case this
+        # capital was NEVER counted via hl_snapshot.balance -> "hyperliquid"
+        # (that source only reflects the main swarm wallet) — it gets its own
+        # sleeve AND its own venue, no correction needed. While that secret is
+        # still unset (pre-split, or before Bart funds/wires the new wallet),
+        # the sleeve shares the swarm's HL account, so the original
+        # double-count correction still applies: relabel the capital from
+        # 'swarm' to 'thematic_exposure' without adding a new venue line
+        # (it's already counted once under "hyperliquid").
+        thematic_exposure_usd = self._thematic_exposure_value()
+        if thematic_exposure_usd > 0:
+            sleeves["thematic_exposure"] = sleeves.get("thematic_exposure", 0.0) + thematic_exposure_usd
+            if self._thematic_wallet_is_segregated():
+                venues["hyperliquid_thematic"] = venues.get("hyperliquid_thematic", 0.0) + thematic_exposure_usd
+            else:
+                sleeves["swarm"] = max(0.0, sleeves.get("swarm", 0.0) - thematic_exposure_usd)
 
         return sleeves, venues
 
     @staticmethod
-    def _thematic_dip_value() -> float:
-        """NAV van de thematic_dip-sleeve: vrij budget (cash) + huidige
-        marktwaarde van open posities, uit thematic_dip_positions.json (door
-        ThematicDipLab bijgehouden). Bestand ontbreekt/leeg -> 0.0 (sleeve
+    def _thematic_wallet_is_segregated() -> bool:
+        """True once the Thematic Exposure Sleeve has its own HL wallet
+        (HL_THEMATIC_WALLET_ADDRESS secret populated — see main.py's split,
+        2026-07-18) instead of sharing the main swarm account."""
+        try:
+            from utils.gcp_secrets import get_secret
+            return bool(get_secret("HL_THEMATIC_WALLET_ADDRESS"))
+        except Exception:
+            return False
+
+    @staticmethod
+    def _thematic_exposure_value() -> float:
+        """NAV van de thematic_exposure-sleeve: vrij budget (cash) + huidige
+        marktwaarde van open posities, uit thematic_exposure_positions.json (door
+        ThematicExposureLab bijgehouden). Bestand ontbreekt/leeg -> 0.0 (sleeve
         bestaat dan simpelweg nog niet, geen fout)."""
         try:
-            with open(THEMATIC_DIP_FILE) as f:
+            with open(THEMATIC_EXPOSURE_FILE) as f:
                 data = json.load(f)
         except Exception:
             return 0.0
@@ -155,7 +175,7 @@ class SleeveNAV:
             )
             return max(0.0, cash + positions_value)
         except Exception as e:
-            logger.warning(f"thematic_dip_positions.json niet leesbaar: {e}")
+            logger.warning(f"thematic_exposure_positions.json niet leesbaar: {e}")
             return 0.0
 
     _FX_SOURCES = (

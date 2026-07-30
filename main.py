@@ -278,18 +278,35 @@ def main():
         logger.error(f"   ⚠️ ShadowXyzLab FAILED (non-critical): {e}")
         shadow_xyz_lab = None
 
-    # --- ThematicDipLab (EXP-008: Thematic Dip Sleeve, crash-scanner + T1 live) ---
-    thematic_dip_lab = None
+    # --- ThematicExposureLab (EXP-008: Thematic Exposure Sleeve, crash-scanner + T1 live) ---
+    # Runs on its OWN Hyperliquid wallet (HL_THEMATIC_WALLET_ADDRESS/HL_THEMATIC_PRIVATE_KEY)
+    # so this sleeve's capital/positions are physically segregated from the main
+    # swarm account — not just logically separated via sleeve_nav's bookkeeping.
+    # Falls back to the shared main-swarm exchange (pre-split behavior) if those
+    # secrets aren't populated yet, so this stays deployable before Bart funds
+    # and wires the new wallet.
+    thematic_exposure_lab = None
+    thematic_wallet_exchange = None  # only set when a genuinely segregated wallet is live — used below to give SwarmMonitor its own check
     try:
-        logger.info("   → Initializing ThematicDipLab...")
-        from utils.thematic_dip_lab import ThematicDipLab
-        thematic_dip_lab = ThematicDipLab(
-            exchange_client=project_lead.execution_agent.exchange if project_lead and hasattr(project_lead, 'execution_agent') else None,
-        )
-        logger.info("   ✅ ThematicDipLab initialized successfully")
+        logger.info("   → Initializing ThematicExposureLab...")
+        from utils.thematic_exposure_lab import ThematicExposureLab
+        from utils.gcp_secrets import get_secret
+        thematic_wallet = get_secret("HL_THEMATIC_WALLET_ADDRESS")
+        thematic_key = get_secret("HL_THEMATIC_PRIVATE_KEY")
+        if thematic_wallet and thematic_key:
+            from utils.exchange_client import HyperliquidExchange
+            thematic_wallet_exchange = HyperliquidExchange(
+                testnet=False, wallet_address=thematic_wallet, private_key=thematic_key,
+            )
+            logger.info(f"   → Thematic Exposure Sleeve on segregated wallet {thematic_wallet}")
+        else:
+            logger.warning("   → HL_THEMATIC_WALLET_ADDRESS/HL_THEMATIC_PRIVATE_KEY not set — Thematic Exposure Sleeve still sharing the main swarm wallet")
+        thematic_exchange = thematic_wallet_exchange or (project_lead.execution_agent.exchange if project_lead and hasattr(project_lead, 'execution_agent') else None)
+        thematic_exposure_lab = ThematicExposureLab(exchange_client=thematic_exchange)
+        logger.info("   ✅ ThematicExposureLab initialized successfully")
     except Exception as e:
-        logger.error(f"   ⚠️ ThematicDipLab FAILED (non-critical): {e}")
-        thematic_dip_lab = None
+        logger.error(f"   ⚠️ ThematicExposureLab FAILED (non-critical): {e}")
+        thematic_exposure_lab = None
 
     logger.info("=" * 60)
     logger.info("🎉 All critical agents initialized successfully!")
@@ -321,6 +338,7 @@ def main():
         swarm_monitor = SwarmMonitor(
             db_client=global_db_client,
             exchange_client=project_lead.execution_agent.exchange if project_lead and hasattr(project_lead, 'execution_agent') else None,
+            thematic_exchange_client=thematic_wallet_exchange,
         )
         swarm_monitor.start()
         logger.info("   ✅ SwarmMonitor watchdog started (checks every 5 min)")
@@ -365,7 +383,15 @@ def main():
         cycle_count += 1
         cycle_start = time.time()
         logger.info(f"\n--- Starting Trading Cycle #{cycle_count} ---")
-        
+
+        # Equity-regime refresh (F1): tech-stock LONG-gate = XYZ100 > EMA200.
+        # TTL-cached (15min), fail-safe — writes equity_regime.json for the funnel.
+        try:
+            from core.equity_regime import refresh_equity_regime
+            refresh_equity_regime()
+        except Exception as _eq_err:
+            logger.debug(f"equity-regime refresh skipped: {_eq_err}")
+
         # REPORT START OF CYCLE (Immediate Feedback)
         if health_manager:
             latest_logs = get_logs()
@@ -405,6 +431,42 @@ def main():
             except Exception as e:
                 logger.error(f"⚠️ ShadowBook resolve failed: {e}")
 
+        # 0a2a2. Directional re-validatie (F1 G2c): checkt dagelijks (self-throttled
+        # via ran_at_epoch) of de equity-gated tech-LONG edge nog intact is op trailing
+        # 90d. De-riskt autonoom (pauzeert) alleen als revalidation_autopause_enabled=True;
+        # anders observeert + alarmeert. Elke ~60 cycli aangeroepen (24u-throttle binnen).
+        if cycle_count % 60 == 30:
+            try:
+                from utils.directional_revalidation import run_revalidation
+                run_revalidation()
+            except Exception as e:
+                logger.debug(f"directional revalidation skipped: {e}")
+
+        # Sleeve re-validatie (dagelijks, self-throttled): bewaakt de dip-buy-edge
+        # op trailing data, de-riskt autonoom bij verval (achter autopause-flag).
+        if cycle_count % 60 == 45:
+            try:
+                from utils.sleeve_revalidation import run_sleeve_revalidation
+                run_sleeve_revalidation()
+            except Exception as e:
+                logger.debug(f"sleeve revalidation skipped: {e}")
+
+        # ConvictionCore (Conviction Barbell, groei-been crypto): buy-and-hold
+        # BTC/ETH SPOT op de master-wallet. Geen perps, geen hefboom. De wekelijkse
+        # DCA-cadans komt uit de 7-daagse per-asset cooldown IN de module zelf —
+        # dit uurlijkse tikje is alleen de trigger. enabled=false => DRY-RUN.
+        if cycle_count % 60 == 50:
+            try:
+                from utils.conviction_core import ConvictionCore
+                ConvictionCore(
+                    exchange_client=(
+                        project_lead.execution_agent.exchange
+                        if project_lead and hasattr(project_lead, 'execution_agent') else None
+                    )
+                ).run()
+            except Exception as e:
+                logger.error(f"⚠️ ConvictionCore failed: {e}")
+
         # 0a2b. ShadowXyzLab (Masterplan Fase 3, EXP-007): weekend-funding
         # recorder — public HL data only, zero capital/orders. Mostly a no-op
         # outside the Fri-evening baseline capture and the weekend window.
@@ -414,16 +476,16 @@ def main():
             except Exception as e:
                 logger.error(f"⚠️ ShadowXyzLab failed: {e}")
 
-        # 0a2c. ThematicDipLab (EXP-008): crash-scanner over het XYZ-universum +
+        # 0a2c. ThematicExposureLab (EXP-008): crash-scanner over het XYZ-universum +
         # T1-executie op bevestigde, sectorbrede pullbacks. Zelfde offset als
         # ShadowXyzLab (beide zijn publieke xyz-dex-data, aparte try/except).
         # LET OP: dit plaatst ECHTE orders (klein budget, 1x isolated) — geen
         # virtuele/shadow-module zoals de andere modules in dit blok.
-        if thematic_dip_lab is not None and cycle_count % 5 == 1:
+        if thematic_exposure_lab is not None and cycle_count % 5 == 1:
             try:
-                thematic_dip_lab.run_cycle()
+                thematic_exposure_lab.run_cycle()
             except Exception as e:
-                logger.error(f"⚠️ ThematicDipLab failed: {e}")
+                logger.error(f"⚠️ ThematicExposureLab failed: {e}")
 
         # 0a3. SleeveNAV (Masterplan F0): max één snapshot per UTC-dag; goedkope
         # no-op check op andere cycli. Offset 3 zodat treasury (0), shadow (2)
@@ -445,11 +507,11 @@ def main():
                             _nav_report += "\n" + shadow_xyz_lab.daily_status_text()
                         except Exception as e:
                             logger.debug(f"ShadowXyzLab daily_status_text failed: {e}")
-                    if thematic_dip_lab is not None:
+                    if thematic_exposure_lab is not None:
                         try:
-                            _nav_report += "\n" + thematic_dip_lab.daily_status_text()
+                            _nav_report += "\n" + thematic_exposure_lab.daily_status_text()
                         except Exception as e:
-                            logger.debug(f"ThematicDipLab daily_status_text failed: {e}")
+                            logger.debug(f"ThematicExposureLab daily_status_text failed: {e}")
                     sleeve_nav.send_telegram(_nav_report)
             except Exception as e:
                 logger.error(f"⚠️ SleeveNAV failed: {e}")

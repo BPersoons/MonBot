@@ -131,8 +131,14 @@ def check_generate_proposals_logic(r: _Result):
         "tvl_usd": 100_000_000, "pool_id": "arb-usdc", "automated": True, "protocol_config": mock_cfg,
     }]
 
-    # Case A: HL underfunded + $2500 treasury USDC → split between HL top-up and yield
-    proposals = agent.generate_proposals(hl, opps, treasury_usdc=2500.0, aave_balance=200.0)
+    # Case A: HL underfunded + $2500 treasury USDC → split between HL top-up and yield.
+    # Gebruikt bewust een LAGERE HL-stand dan de gedeelde `hl` hierboven: sinds de
+    # Conviction Barbell (2026-07-28) is het HL-target ~$150 i.p.v. ~30% van de
+    # portefeuille, dus $300 ligt bóven target en "alles naar yield" zou dan juist
+    # correct zijn. Deze check moet de split-logica testen, niet een specifiek
+    # allocatiepercentage.
+    hl_low = {"balance": 50.0, "free_margin": 45.0, "deployed_margin": 5.0, "idle_pct": 90.0}
+    proposals = agent.generate_proposals(hl_low, opps, treasury_usdc=2500.0, aave_balance=200.0)
     if not proposals:
         r.fail("generate_proposals: returned [] with $2500 treasury USDC")
         return

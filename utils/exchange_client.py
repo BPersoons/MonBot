@@ -1,6 +1,7 @@
 import ccxt
 import os
 import logging
+import threading
 from dotenv import load_dotenv
 import time
 import json
@@ -38,10 +39,19 @@ class HyperliquidExchange:
     Uses Private Key for signing orders (On-Chain).
     Separates 'Signing Wallet' from 'View-Only' logic.
     """
-    def __init__(self, testnet=True):
+    def __init__(self, testnet=True, wallet_address=None, private_key=None, vault_address=None):
+        """
+        wallet_address/private_key/vault_address: pass explicitly to run this
+        instance against a DIFFERENT Hyperliquid account than the main swarm
+        wallet (e.g. a sleeve with its own segregated wallet) — bypasses
+        _get_hl_credentials()'s default HL_WALLET_ADDRESS/HL_PRIVATE_KEY/
+        HL_VAULT_ADDRESS lookup entirely. Leave all three None for the
+        original single-account behavior.
+        """
         self.logger = logging.getLogger("HyperliquidExchange")
         self.testnet = testnet
         self.exchange_id = 'hyperliquid'
+        self._explicit_credentials = wallet_address and private_key
         
         # 1. View-Only Client (Public Data)
         try:
@@ -59,10 +69,22 @@ class HyperliquidExchange:
             self.logger.error(f"Failed to initialize Public Client: {e}")
             self.public_client = None
             self.markets = {}
+        self._last_markets_reload = 0.0
+        # SwarmMonitor runs its checks (balance/positions/etc.) in a separate daemon
+        # thread against this SAME HyperliquidExchange instance, concurrently with the
+        # main loop — same "shared ccxt client" thread-safety concern that made
+        # agents/technical_analyst.py's _get_shared_exchange() add a _FETCH_LOCK.
+        # Guards reload-on-miss so two threads can't race a concurrent
+        # load_markets(reload=True) into a corrupted/partial self.markets.
+        self._markets_reload_lock = threading.Lock()
 
-        # 2. Signing Client (Execution) - Use GCP Secrets
+        # 2. Signing Client (Execution) - Use GCP Secrets, unless explicit
+        # credentials were passed in for a segregated-wallet instance.
         self.signing_client = None
-        self.wallet_address, private_key, vault_address = _get_hl_credentials()
+        if self._explicit_credentials:
+            self.wallet_address = wallet_address
+        else:
+            self.wallet_address, private_key, vault_address = _get_hl_credentials()
 
         if private_key and self.wallet_address:
             try:
@@ -89,15 +111,11 @@ class HyperliquidExchange:
         else:
             self.logger.warning("HL_PRIVATE_KEY or HL_WALLET_ADDRESS missing. Execution will fail.")
 
-    def _normalize_symbol(self, ticker):
-        """
-        Normalize a ticker symbol for Hyperliquid CCXT.
-        Hyperliquid perps use the format BASE/USDC:USDC (e.g. SOL/USDC:USDC).
-        Always prefers perpetual (swap) over spot when both exist.
-        Returns None if the symbol cannot be found in the loaded markets.
-        """
-        if not self.markets:
-            return ticker
+    _MARKETS_RELOAD_COOLDOWN_S = 300  # rate-limit reload-on-miss so a batch of misses in one cycle can't storm the API
+
+    def _lookup_symbol(self, ticker):
+        """Pure dict lookup against self.markets — no I/O. Returns the resolved
+        symbol or None."""
         # Replace USDT with USDC first
         if "/USDT" in ticker:
             ticker = ticker.replace("/USDT", "/USDC")
@@ -112,6 +130,62 @@ class HyperliquidExchange:
         base = ticker.split("/")[0]
         if base in self.markets:
             return base
+        return None
+
+    def _maybe_reload_markets(self) -> bool:
+        """Best-effort, rate-limited reload triggered by a symbol lookup miss.
+        2026-07-17: a subset of XYZ equity tickers (e.g. XYZ-NVDA/MSFT/BABA/CRWV)
+        intermittently resolved as "not listed" on this long-lived instance's
+        self.markets, silently blocking the Thematic Exposure sleeve's entries/
+        exits with no error anywhere — even immediately after a call to
+        load_markets(reload=True) that reported the full 761-symbol count. A
+        brand-new, unshared HyperliquidExchange resolved the same tickers
+        reliably every time in isolated testing. Root cause NOT confirmed:
+        SwarmMonitor's watchdog thread calls methods on this SAME instance's
+        public_client concurrently with the main loop (same class of concern
+        _get_shared_exchange's _FETCH_LOCK exists for in technical_analyst.py),
+        so the lock below at least serializes our own reloads — but testing
+        after adding it still showed the same misses, so an unsynchronized race
+        in this code is not the (or not the only) explanation. Keep the lock as
+        cheap insurance; if this recurs, compare raw ccxt fetch_markets() output
+        between a failing and a fresh instance to find the actual divergence
+        before adding more retry logic. Cooldown avoids a reload-per-miss storm
+        regardless — reload is a full markets fetch (~11.6s)."""
+        now = time.time()
+        if now - self._last_markets_reload < self._MARKETS_RELOAD_COOLDOWN_S:
+            return False
+        with self._markets_reload_lock:
+            # Re-check inside the lock: another thread may have just reloaded
+            # while we were waiting to acquire it.
+            now = time.time()
+            if now - self._last_markets_reload < self._MARKETS_RELOAD_COOLDOWN_S:
+                return False
+            self._last_markets_reload = now
+            try:
+                self.markets = self.public_client.load_markets(reload=True)
+                self.logger.info(f"HyperliquidExchange: reloaded markets after a lookup miss ({len(self.markets)} symbols)")
+                return True
+            except Exception as e:
+                self.logger.warning(f"HyperliquidExchange: markets reload failed: {e}")
+                return False
+
+    def _normalize_symbol(self, ticker):
+        """
+        Normalize a ticker symbol for Hyperliquid CCXT.
+        Hyperliquid perps use the format BASE/USDC:USDC (e.g. SOL/USDC:USDC).
+        Always prefers perpetual (swap) over spot when both exist.
+        Returns None if the symbol cannot be found in the loaded markets (after
+        one rate-limited reload attempt — see _maybe_reload_markets).
+        """
+        if not self.markets:
+            return ticker
+        found = self._lookup_symbol(ticker)
+        if found:
+            return found
+        if self._maybe_reload_markets():
+            found = self._lookup_symbol(ticker)
+            if found:
+                return found
         # Symbol does not exist on this exchange
         return None
 
@@ -319,6 +393,94 @@ class HyperliquidExchange:
             return self.markets.get(symbol, {}).get('limits', {}).get('cost', {}).get('min', 10.0) or 10.0
         except Exception:
             return 10.0
+
+    # ---------- SPOT (buy-and-hold conviction sleeve: UBTC/UETH via HL spot) ----------
+    def _spot_symbol(self, base):
+        """Map a base coin to its HL spot ccxt symbol, e.g. 'BTC' -> 'BTC/USDC'.
+        NB: spot has NO ':USDC' suffix (that's the perp). Returns None if unlisted."""
+        sym = f"{base.upper()}/USDC"
+        return sym if sym in self.markets else None
+
+    def get_spot_price(self, base):
+        """Last spot price for a base coin (e.g. 'BTC'). 0.0 on failure."""
+        sym = self._spot_symbol(base)
+        if not sym:
+            return 0.0
+        try:
+            t = self.public_client.fetch_ticker(sym)
+            return float(t.get("last") or 0.0)
+        except Exception as e:
+            self.logger.debug(f"get_spot_price({base}) failed: {e}")
+            return 0.0
+
+    def get_spot_holdings(self, user_addr=None):
+        """All spot token balances for the account, as {coin: total_units}.
+        Reads spotClearinghouseState directly (CCXT ignores the 'user' param and
+        would query the API wallet, not the vault)."""
+        user_addr = user_addr or getattr(self, "vault_address", None) or self.wallet_address
+        out = {}
+        if not user_addr:
+            return out
+        try:
+            import urllib.request, json as _json
+            payload = _json.dumps({"type": "spotClearinghouseState", "user": user_addr}).encode()
+            req = urllib.request.Request(
+                "https://api.hyperliquid.xyz/info", data=payload,
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                data = _json.loads(r.read())
+            for entry in data.get("balances", []):
+                coin = entry.get("coin")
+                if coin:
+                    out[coin] = float(entry.get("total", 0.0) or 0.0)
+        except Exception as e:
+            self.logger.error(f"get_spot_holdings failed: {e}")
+        return out
+
+    def get_spot_meta(self, base):
+        """(min_cost_usd, amount_precision) for a spot market. Defaults ($10, 0.0)."""
+        sym = self._spot_symbol(base)
+        if not sym:
+            return 10.0, 0.0
+        m = self.markets.get(sym, {})
+        min_cost = (m.get("limits", {}).get("cost", {}) or {}).get("min", 10.0) or 10.0
+        prec = (m.get("precision", {}) or {}).get("amount", 0.0) or 0.0
+        return float(min_cost), float(prec)
+
+    def create_spot_order(self, base, action, quantity, price=None):
+        """Place a SPOT market order on HL for a base coin (e.g. 'BTC' -> 'BTC/USDC').
+
+        Spot has NO leverage — this deliberately does NOT touch set_leverage (unlike
+        create_order() for perps). Used by the buy-and-hold conviction sleeve. Buys
+        spend spot USDC; sells return spot USDC. Returns the order dict or None.
+        """
+        if not self.signing_client:
+            self.logger.error("No Signing Client available (spot order).")
+            return None
+        sym = self._spot_symbol(base)
+        if not sym:
+            self.logger.error(f"Spot market for {base} not listed on Hyperliquid.")
+            return None
+        try:
+            side = action.lower()
+            if price is None:
+                price = self.get_spot_price(base)
+            if not price:
+                self.logger.error(f"create_spot_order: no price for {sym}.")
+                return None
+            order = self.signing_client.create_order(sym, 'market', side, quantity, price, params={})
+            oid = order.get("id") if isinstance(order, dict) else None
+            self.logger.info(f"Spot order sent: {oid} ({side} {quantity} {sym} @ ~{price})")
+            return order
+        except Exception as e:
+            err = str(e)
+            if "does not exist" in err:
+                self.logger.warning(f"Spot order failed — wallet not registered: {e}")
+            elif "Insufficient" in err:
+                self.logger.warning(f"Spot order failed — insufficient spot USDC for {sym}.")
+            else:
+                self.logger.error(f"Spot order failed for {sym}: {e}")
+            return None
 
     def _fetch_spot_balance(self, user_addr):
         """Fetch spot USDC total and hold via direct HL API."""

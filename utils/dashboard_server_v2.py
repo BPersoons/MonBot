@@ -1094,6 +1094,9 @@ def build_tab_rsi():
 
 def build_v2_html(agents, backlog_items, trades, positions_status, learning_data, llm_stats, pnl_snapshots):
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # Thematic Exposure is a separate sleeve with its own dashboard (/thematic-exposure) —
+    # keep it out of the main Overview/Trades tabs.
+    trades = [t for t in (trades or []) if not t.get('thematic_exposure')]
     return (
         _HTML_SHELL
         .replace('{css}', _CSS)

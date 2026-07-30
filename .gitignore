@@ -131,3 +131,7 @@ market_regime.json
 cost_log.json
 portfolio_peak.json
 audited_trades.json
+
+# Conviction Barbell (persoonlijke portefeuille-waardes / rebalance-state)
+barbell_holdings.json
+barbell_rebalance_log.json

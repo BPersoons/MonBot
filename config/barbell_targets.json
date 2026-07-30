@@ -1,0 +1,20 @@
+{
+  "_comment": "Conviction Barbell targets + banden. Zie docs/CONVICTION_BARBELL_PLAN.md. 50/50 sinds 2026-07-27.",
+  "safe_pct": 50,
+  "growth_pct": 50,
+  "growth_targets_pct": {
+    "BTC": 40,
+    "EQUITY": 30,
+    "GOLD": 20,
+    "ETH": 10
+  },
+  "bands": {
+    "trim_mult": 1.5,
+    "add_mult": 0.6,
+    "hard_cap_pct_of_growth": 50,
+    "toplevel_high_pct": 55,
+    "toplevel_low_pct": 45,
+    "min_trade_usd": 25,
+    "cooldown_days": 7
+  }
+}
