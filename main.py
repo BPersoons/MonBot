@@ -1399,6 +1399,18 @@ def main():
             # Check for External Approvals
             if hasattr(project_lead, 'execution_agent'):
                  project_lead.execution_agent.check_supabase_approvals()
+                 # check_supabase_approvals() schrijft dashboard.json ZELF (het snoeit
+                 # afgehandelde/verlopen approvals). Onze current_dashboard is geladen aan
+                 # het begin van deze cyclus en is nu stale: de save in PHASE 7 hieronder
+                 # zou de gesnoeide entries doodleuk terugzetten. Dat is precies wat er
+                 # gebeurde — 8 approvals uit maart 2026 werden 46 cycli lang elke keer
+                 # opgeschoond én teruggezet, goed voor 368 "EXPIRED"-warnings. Alleen die
+                 # ene sleutel terugsynchroniseren; de rest van current_dashboard is van ons.
+                 try:
+                     current_dashboard['pending_approvals'] = \
+                         load_dashboard_data().get('pending_approvals', [])
+                 except Exception as _pa_err:
+                     logger.debug(f"pending_approvals resync skipped: {_pa_err}")
                  
             # (Active trade management moved to Phase 3.5, before ticker loop)
             # ===========================================
