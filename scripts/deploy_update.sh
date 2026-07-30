@@ -113,8 +113,12 @@ done
 # (covers exactly the 2026-07-16 failure mode: old container gone, nothing to
 # docker cp from) before falling back to an empty touch. Either way, log it —
 # a silent touch-empty is how ~15 files vanished unnoticed that day.
+# Sinds 2026-07-30 stuurt deploy.ps1 dashboard.json/trade_log.json/active_assets.json
+# NIET meer mee (die overschreven de live boekhouding met een dev-snapshot — zie de
+# waarschuwing in deploy.ps1). Ze horen dus in dezelfde restore-uit-backup-behandeling
+# als de andere state: op de host aanwezig = leidend, ontbrekend = uit backup terug.
 LATEST_BACKUP=$(ls -1dt state_backups/*/ 2>/dev/null | head -1)
-for f in $STATE_FILES; do
+for f in $STATE_FILES dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
     if [ ! -f "$f" ]; then
         if [ -n "$LATEST_BACKUP" ] && [ -s "${LATEST_BACKUP}${f}" ]; then
             echo "⚠️  $f missing on host — restoring from backup $LATEST_BACKUP"
@@ -126,9 +130,13 @@ for f in $STATE_FILES; do
         fi
     fi
 done
-[ -f "dashboard.json" ]      || echo '{}' > dashboard.json
-[ -f "active_assets.json" ]  || echo '[]' > active_assets.json
-[ -f "pnl_snapshots.json" ]  || echo '[]' > pnl_snapshots.json
+# Vangnet: een 0-byte touch uit de lus hierboven is voor deze vier geen geldige JSON-vorm.
+# trade_log.json stond hier tot 2026-07-30 NIET bij — die kwam altijd via scp mee, en
+# zonder dat vangnet zou een ontbrekend bestand een Docker-DIRECTORY worden.
+[ -s "dashboard.json" ]      || echo '{}' > dashboard.json
+[ -s "trade_log.json" ]      || echo '[]' > trade_log.json
+[ -s "active_assets.json" ]  || echo '[]' > active_assets.json
+[ -s "pnl_snapshots.json" ]  || echo '[]' > pnl_snapshots.json
 # Recover trade_log.json from Supabase if missing or empty
 if [ ! -f "trade_log.json" ] || [ "$(cat trade_log.json)" = "[]" ] || [ "$(cat trade_log.json)" = "{}" ]; then
     echo "Recovering trade_log.json from Supabase..."

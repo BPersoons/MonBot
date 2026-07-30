@@ -129,7 +129,18 @@ $deployScriptContent = [System.IO.File]::ReadAllText("$PWD\scripts\deploy_update
 
 # Quoted paths
 # We copy deploy_update.sh as well (LF-normalized temp copy, see above)
-gcloud compute scp --zone=$ZONE docker-compose.prod.yml .env.adk dashboard.json trade_log.json active_assets.json $lfScriptPath "${VM_NAME}:${remoteHome}/" --quiet
+#
+# ⚠️ NOOIT state-bestanden meesturen (trade_log.json / dashboard.json /
+# active_assets.json / *_state.json). Die zijn volume-mounted op de VM: productie
+# IS de bron van waarheid, de dev-machine niet. Tot 2026-07-30 stonden ze wél in
+# deze regel, en dat was de oorzaak van een keten incidenten: elke full deploy
+# overschreef de live boekhouding met een lokale snapshot van 17 juli waarin 6
+# posities op OPEN stonden. De swarm zag daarna 6 "open" posities die Hyperliquid
+# niet had, stuurde sluit-orders, en die openden echte shorts ($2.107 notional op
+# 24-07, $128 op 28-07) mét fictieve winst in het log. Dit verklaart ook het
+# onopgehelderde 436->6 trade_log-verlies van 17-07.
+# deploy_update.sh maakt deze bestanden zelf aan als ze op de host ontbreken.
+gcloud compute scp --zone=$ZONE docker-compose.prod.yml .env.adk $lfScriptPath "${VM_NAME}:${remoteHome}/" --quiet
 if ($LASTEXITCODE -ne 0) {
     Write-Error "❌ SCP to VM failed (exit $LASTEXITCODE) — deploy_update.sh may be stale on the VM. Aborting rather than risk running an old script against the new image."
     exit 1
