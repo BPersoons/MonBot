@@ -135,3 +135,6 @@ audited_trades.json
 # Conviction Barbell (persoonlijke portefeuille-waardes / rebalance-state)
 barbell_holdings.json
 barbell_rebalance_log.json
+
+# Playwright MCP scratch-snapshots
+.playwright-mcp/
