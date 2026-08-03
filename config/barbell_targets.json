@@ -20,7 +20,18 @@
       "ticker": "VVSM",
       "ter_pct": 0.35,
       "degiro_kernselectie": true,
-      "slot_order": 1
+      "slot_order": 1,
+      "bridge": {
+        "_why": "TIJDELIJK. Het DEGIRO-account kan niet geactiveerd worden (paspoort verlopen, nieuwe aangevraagd). XYZ-SMH op Hyperliquid volgt dezelfde index als VVSM — het is exact de index waarop de 18-jaars validatie draaide — dus dezelfde blootstelling in een slechtere verpakking.",
+        "_risk": "Dit is een PERP, geen bezit: funding-drag (~3%/jaar, over ~6 weken ~0,4%) en liquidatierisico ook op 1x. Ruime marge aanhouden. De xyz-dex heeft een EIGEN collateral-pool — apart funden via sendAsset.",
+        "active": true,
+        "venue": "hyperliquid_xyz_dex",
+        "instrument": "XYZ-SMH",
+        "opened": "2026-08-03",
+        "review_by": "2026-09-15",
+        "converts_to": "IE00BMC38736 (VVSM) bij DEGIRO",
+        "_expiry_note": "SwarmMonitor Check 23 alarmeert zodra review_by verstrijkt terwijl active=true. Bewust hard gemaakt: dit systeem heeft een geschiedenis van interim-maatregelen die stilletjes permanent werden (de gate-stapel die de counter-trend shorts erdoor duwde begon ook als tijdelijk)."
+      }
     },
     "DEFENSE": {
       "bottleneck": "Certificering en programma's over decennia; structureel EU-budget. Instrument dekt de these hier WEL: alleen Europese primes (Thales 12,7%, BAE 11,8%, Rheinmetall 11,2%, Airbus, Rolls-Royce, Safran). Bewust EUDF en niet VanEck DFEN: die heeft Palantir op 8,9% — een softwarebedrijf, geen defensie-prime — en is bovendien duurder (0,55%).",

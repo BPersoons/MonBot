@@ -90,6 +90,7 @@ class SwarmMonitor:
         self._thematic_wallet_zero_streak = 0
         self._thematic_wallet_empty_alert_time: float = 0
         self._thematic_xyz_empty_alert_time: float = 0  # Check 22: xyz-dex collateral alert cooldown
+        self._bridge_alert_times: dict = {}             # Check 23: per-slot cooldown barbell-brug
         self._running = False
         self._thread: Optional[threading.Thread] = None
         # Alert deduplication: maps alert_key -> last_sent_timestamp
@@ -254,6 +255,9 @@ class SwarmMonitor:
 
         # ── Check 22: Thematic sleeve xyz perp-dex collateral ──
         self._safe_check(self._check_thematic_xyz_collateral)
+
+        # 23. Barbell-brug: tijdelijk instrument dat over zijn vervaldatum heen loopt
+        self._safe_check(self._check_barbell_bridge_expiry)
 
         # Add detected_at timestamp to all findings
         now_str = now.strftime("%H:%M:%S UTC")
@@ -1242,6 +1246,10 @@ class SwarmMonitor:
     THEMATIC_XYZ_MIN_COLLATERAL = 65.0        # one T1 tranche (per_name_budget * 0.20)
     THEMATIC_XYZ_ALERT_COOLDOWN_SEC = 12 * 3600
 
+    # Check 23: dagelijks herinneren is genoeg — dit is een "ga iets regelen"-alarm,
+    # geen incident. Te vaak sturen leidt tot wegkijken.
+    BRIDGE_ALERT_COOLDOWN_SEC = 24 * 3600
+
     def _check_thematic_xyz_collateral(self):
         # Only relevant once the sleeve is actually live (its state file exists).
         if not os.path.exists("thematic_exposure_positions.json"):
@@ -1272,6 +1280,53 @@ class SwarmMonitor:
             f"scripts/fund_xyz_dex.py met master-key). Agent-key kan dit niet."
         )
         logger.warning(f"[SwarmMonitor] Thematic xyz-dex ondergefinancierd: ${xyz_value:.2f}")
+
+    def _check_barbell_bridge_expiry(self):
+        """Check 23 — een TIJDELIJK instrument mag niet stilzwijgend permanent worden.
+
+        De barbell draagt slot 1 voorlopig via XYZ-SMH (perp op de xyz-dex) omdat het
+        broker-account nog niet geactiveerd kon worden. Perps kosten funding en kennen
+        liquidatierisico; als buy-and-hold-drager is dat alleen acceptabel voor weken.
+        Dit systeem heeft een geschiedenis van interim-maatregelen die permanent werden,
+        dus de vervaldatum krijgt een alarm in plaats van een comment.
+        """
+        try:
+            with open("config/barbell_targets.json", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception:
+            return
+
+        for slot, theme in (cfg.get("themes") or {}).items():
+            bridge = ((theme or {}).get("bridge") or {})
+            if not bridge.get("active"):
+                continue
+            review_by = bridge.get("review_by")
+            if not review_by:
+                continue
+            try:
+                deadline = datetime.strptime(review_by, "%Y-%m-%d")
+            except Exception:
+                continue
+            if datetime.now() <= deadline:
+                continue
+
+            if time.time() - self._bridge_alert_times.get(slot, 0) < self.BRIDGE_ALERT_COOLDOWN_SEC:
+                continue
+            self._bridge_alert_times[slot] = time.time()
+
+            days = (datetime.now() - deadline).days
+            self._send_telegram(
+                f"⏳ BARBELL-BRUG VERLOPEN: slot {slot} draait {days} dag(en) langer dan gepland "
+                f"op het tijdelijke instrument {bridge.get('instrument')} ({bridge.get('venue')}).\n"
+                f"Dit is een perp: funding-drag en liquidatierisico, bedoeld voor weken niet maanden.\n"
+                f"Actie: omzetten naar {bridge.get('converts_to')}, daarna bridge.active=false "
+                f"in config/barbell_targets.json.\n"
+                f"Kan het nog niet? Verzet review_by bewust — laat het niet vanzelf doorlopen."
+            )
+            logger.warning(
+                f"[SwarmMonitor] Barbell-brug {slot} ({bridge.get('instrument')}) "
+                f"{days}d over de vervaldatum {review_by}"
+            )
 
     # ──────────────────────────────────────────
     # Check 10: HL position sync / ghost-asset detector
