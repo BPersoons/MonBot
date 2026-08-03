@@ -263,5 +263,25 @@ else
     echo "⚠️ Dashboard returned HTTP ${HTTP_CODE} (may need more startup time)"
 fi
 
+
+# 8. LIVE-verificatie: klopt de draaiende toestand met wat we denken te hebben?
+# Leest de CONTAINER, niet de repo — precies de blinde vlek die eerder stil faalde:
+# config/*.json is volume-mounted, dus een repo-wijziging bereikt productie NIET via
+# een rebuild, terwijl alle tests groen blijven. Ook: boek-vs-beurs (spook- en
+# weesposities) en of de beschermingen echt in de gedeployde code zitten.
+echo ""
+echo "=== Live verificatie ==="
+# Even wachten tot de eerste cyclus de state heeft aangeraakt.
+sleep 10
+if sudo docker exec -w /app -e PYTHONPATH=/app agent_trader_swarm \
+        python3 scripts/verify_live.py 2>&1 | grep -vE "GCPSecrets|Hyperliquid (Public|Signing)|Balance:"; then
+    echo "✅ Live verificatie geslaagd"
+else
+    echo "❌ LIVE VERIFICATIE GEFAALD — de deploy is doorgegaan maar de draaiende"
+    echo "   toestand klopt niet met de verwachting. Zie de FAIL-regels hierboven."
+    echo "   Meest voorkomende oorzaak: een volume-mounted config/*.json op de host"
+    echo "   die de nieuwe image-versie overschaduwt (in-place overschrijven op de host)."
+fi
+
 echo ""
 echo "=== Deploy Update Complete ==="
