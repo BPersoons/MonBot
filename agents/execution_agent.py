@@ -176,11 +176,21 @@ class ExecutionAgent:
 
         added = 0
         now_ts = datetime.utcnow()
+        # Posities van de ALLOCATOR (barbell-brug) horen bewust buiten trade_log:
+        # buy-and-hold-dragers met eigen band-logica, geen trades met een stop-loss.
+        from utils.allocator_positions import barbell_bridge_bases
+        allocator_bases = barbell_bridge_bases()
         for pos in open_positions:
             info = pos.get("info") or {}
             symbol = pos.get("symbol", "")
             base = symbol.split("/")[0].upper()
             if base in open_tickers:
+                continue
+            if base in allocator_bases:
+                self.logger.info(
+                    f"Startup position sync: {base} overgeslagen — allocator-positie "
+                    f"(barbell-brug), wordt niet als trade beheerd."
+                )
                 continue
 
             ticker = symbol.split(":")[0]

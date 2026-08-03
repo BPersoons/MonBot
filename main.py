@@ -85,6 +85,9 @@ def sanitize(obj):
         return [sanitize(v) for v in obj]
     return obj
 
+from utils.allocator_positions import barbell_bridge_bases as _barbell_bridge_bases
+
+
 def load_dashboard_data():
     if not os.path.exists(DASHBOARD_FILE):
         return {"status": "ACTIVE", "market_data": {}}
@@ -830,7 +833,17 @@ def main():
                             _now_rc = time.time()
                             recently_closed = {t: ts for t, ts in recently_closed.items() if _now_rc - ts < 600}
 
+                            # Posities van de ALLOCATOR (barbell) zijn geen verdwaalde
+                            # trades: ze horen bewust buiten trade_log te blijven. Zou de
+                            # reconcile ze adopteren, dan geeft hij ze een standaard 5%
+                            # stop-loss en sluit StrategyManager een buy-and-hold-positie
+                            # bij de eerste normale dip. Zelfde klasse fout als de twee
+                            # orphan-shorts: twee systemen die dezelfde wallet beheren.
+                            _allocator_bases = _barbell_bridge_bases()
+
                             for _base, _hl in hl_pos_map.items():
+                                if _base.upper() in _allocator_bases:
+                                    continue
                                 _ticker_rc = f"{_base}/USDC"
                                 if _ticker_rc in recently_closed:
                                     logger.info(f"[RECONCILE] Skipping {_ticker_rc} — closed {(_now_rc - recently_closed[_ticker_rc]):.0f}s ago (cooldown)")
