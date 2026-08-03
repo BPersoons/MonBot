@@ -148,9 +148,22 @@ def _send_asset(client, address: str, amount: float, from_dex: str, to_dex: str)
 
 def _build_exchange(which: str):
     from utils.exchange_client import HyperliquidExchange
-    if which == "main":
-        return HyperliquidExchange()
     from utils.gcp_secrets import get_secret
+    if which == "main":
+        # Twee valkuilen, beide gefixt 2026-08-03 (het main-pad had nooit gewerkt):
+        #  1. HyperliquidExchange() default naar testnet=True -> alle balansen $0,00.
+        #  2. De DEFAULT order-client van de main-wallet signt met de AGENT-key
+        #     (HL_PRIVATE_KEY -> 0xe18f…), en HL WEIGERT user-signed actions zoals
+        #     sendAsset van een agent-key. De swarm houdt echter ook de MASTER-key van
+        #     0x92D4 (HL_VAULT_PRIVATE_KEY, die naar het account zelf derivt en door de
+        #     treasury voor Arbitrum wordt gebruikt) — daarmee mag het wel.
+        addr = get_secret("HL_VAULT_ADDRESS") or get_secret("HL_WALLET_ADDRESS")
+        key = get_secret("HL_VAULT_PRIVATE_KEY")
+        if not (addr and key):
+            raise RuntimeError(
+                "HL_VAULT_ADDRESS/HL_VAULT_PRIVATE_KEY niet gezet — zonder master-key "
+                "kan de main-wallet geen sendAsset doen (agent-key wordt geweigerd)")
+        return HyperliquidExchange(testnet=False, wallet_address=addr, private_key=key)
     addr = get_secret("HL_THEMATIC_WALLET_ADDRESS")
     key = get_secret("HL_THEMATIC_PRIVATE_KEY")
     if not (addr and key):

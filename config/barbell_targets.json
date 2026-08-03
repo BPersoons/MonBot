@@ -30,6 +30,8 @@
         "opened": "2026-08-03",
         "review_by": "2026-09-15",
         "converts_to": "IE00BMC38736 (VVSM) bij DEGIRO",
+        "funded_by": "Conviction-core target tijdelijk verlaagd van $650 naar $550 (optie A). Bij omzetting OOK conviction_core.json target_usd terugzetten op 650.",
+        "size_usd": 100,
         "_expiry_note": "SwarmMonitor Check 23 alarmeert zodra review_by verstrijkt terwijl active=true. Bewust hard gemaakt: dit systeem heeft een geschiedenis van interim-maatregelen die stilletjes permanent werden (de gate-stapel die de counter-trend shorts erdoor duwde begon ook als tijdelijk)."
       }
     },

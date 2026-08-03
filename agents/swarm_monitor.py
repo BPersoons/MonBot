@@ -1320,7 +1320,8 @@ class SwarmMonitor:
                 f"op het tijdelijke instrument {bridge.get('instrument')} ({bridge.get('venue')}).\n"
                 f"Dit is een perp: funding-drag en liquidatierisico, bedoeld voor weken niet maanden.\n"
                 f"Actie: omzetten naar {bridge.get('converts_to')}, daarna bridge.active=false "
-                f"in config/barbell_targets.json.\n"
+                f"in config/barbell_targets.json"
+                + (f" EN {bridge['funded_by']}" if bridge.get("funded_by") else "") + ".\n"
                 f"Kan het nog niet? Verzet review_by bewust — laat het niet vanzelf doorlopen."
             )
             logger.warning(
