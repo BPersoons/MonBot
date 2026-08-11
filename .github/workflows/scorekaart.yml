@@ -22,9 +22,9 @@ jobs:
   meting:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -122,7 +122,7 @@ jobs:
       # zijn 200d-MA zakt. Een treffer is een kandidaat, geen bevinding.
       - name: Zoekronde nieuwe kandidaten
         id: screen
-        if: github.event.schedule == '0 8 * * 1'
+        if: github.event.schedule == '0 8 * * 1' || github.event_name == 'workflow_dispatch'
         run: python research/screen.py --nieuw
 
       - name: Telegram met nieuwe kandidaten
