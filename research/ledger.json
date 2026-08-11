@@ -190,7 +190,8 @@
         "REGEL: marktkap over alle aandelenklassen, niet alleen de verhandelde klasse.",
         "INGETROKKEN: het voorstel om de overlevingspoort te herformuleren naar 'kas >= katalysator + marge'. Dat kwam voort uit het foute pro-forma-getal. Op de werkelijke cijfers is er geen grensgeval en deed de poort precies wat hij moest doen."
       ],
-      "card": "research/cards/ASTS.md"
+      "card": "research/cards/ASTS.md",
+      "manual_only_conditions": "capex < $200M/kw en financiering rond - capex niet in de metriekenset"
     },
     {
       "ticker": "NTCT",
@@ -251,7 +252,18 @@
       "source": "stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10); NETSCOUT FY2026-resultaten; Mordor Intelligence marktgroei",
       "card": "research/cards/NTCT.md",
       "wait_price_below": null,
-      "wait_price_note": "wachtvoorwaarde is groei (>=9% y/y), geen prijs"
+      "wait_price_note": "wachtvoorwaarde is groei (>=9% y/y), geen prijs",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 9.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "ITRI",
@@ -313,7 +325,18 @@
       "card": "research/cards/ITRI.md",
       "wait_price_below": 85.0,
       "wait_price_note": "koers onder ~$85 (~14x GAAP-TTM-winst)",
-      "wait_price_is_partial": false
+      "wait_price_is_partial": false,
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 0.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "MYRG",
@@ -375,7 +398,8 @@
       "card": "research/cards/MYRG.md",
       "wait_price_below": 250.0,
       "wait_price_note": "koers onder ~$250 (~20x forward EPS $12,85)",
-      "wait_price_is_partial": false
+      "wait_price_is_partial": false,
+      "manual_only_conditions": "marktaandeel-trend t.o.v. Quanta/MasTec - geen publieke reeks"
     },
     {
       "ticker": "PLPC",
@@ -441,7 +465,20 @@
       "card": "research/cards/PLPC.md",
       "wait_price_below": 300.0,
       "wait_price_note": "koers onder ~$300 EN twee kwartalen EPS > $3,00 — prijs alleen is niet genoeg",
-      "wait_price_is_partial": true
+      "wait_price_is_partial": true,
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "eps",
+            "op": ">=",
+            "value": 3.0,
+            "quarters": 2
+          }
+        ],
+        "partial": true,
+        "partial_reason": "de gecodeerde regels zijn maar EEN HELFT van een EN-voorwaarde; de andere helft is guidance (ALNY) of de prijsdrempel (PLPC)"
+      }
     },
     {
       "ticker": "AMSC",
@@ -510,7 +547,24 @@
       "source": "AMSC 8-K/persbericht Q3 FY2025 (4 feb 2026) voor de $113,1M belastingbate; AMSC persbericht Q1 FY2026 (5 aug 2026); stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10)",
       "card": "research/cards/AMSC.md",
       "wait_price_below": null,
-      "wait_price_note": "terugkeervoorwaarde is marge/EV-EBITDA, geen prijs"
+      "wait_price_note": "terugkeervoorwaarde is marge/EV-EBITDA, geen prijs",
+      "return_fundamental": {
+        "mode": "any",
+        "rules": [
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 30.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_margin_pct",
+            "op": ">",
+            "value": 10.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "OTEX",
@@ -574,7 +628,19 @@
       "source": "stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10); OTEX Q4 FY2026-resultaten 6 aug 2026",
       "card": "research/cards/OTEX.md",
       "wait_price_below": null,
-      "wait_price_note": "wachtvoorwaarde is groei (>=4% y/y) of hefboom (<2,5x), geen prijs"
+      "wait_price_note": "wachtvoorwaarde is groei (>=4% y/y) of hefboom (<2,5x), geen prijs",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 4.0,
+            "quarters": 2
+          }
+        ]
+      },
+      "manual_only_conditions": "de alternatieve voorwaarde (netto schuld/EBITDA < 2,5x) vergt balansdata; alleen de omzetgroei-helft is gecodeerd"
     },
     {
       "ticker": "DOCU",
@@ -643,7 +709,18 @@
       "card": "research/cards/DOCU.md",
       "wait_price_below": 45.0,
       "wait_price_note": "koers onder ~$45 (~25x GAAP-winst)",
-      "wait_price_is_partial": false
+      "wait_price_is_partial": false,
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 10.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "BLKB",
@@ -706,7 +783,8 @@
       "card": "research/cards/BLKB.md",
       "wait_price_below": 33.0,
       "wait_price_note": "koers onder ~$33 EN netto schuld/EBITDA onder 3,0x — prijs alleen is niet genoeg",
-      "wait_price_is_partial": true
+      "wait_price_is_partial": true,
+      "manual_only_conditions": "netto schuld/EBITDA < 3,0x - vergt balansdata per kwartaal"
     },
     {
       "ticker": "LDOS",
@@ -772,7 +850,18 @@
       ],
       "note": "Van alles wat in drie ronden is gescoord staat LDOS het dichtst bij koopwaardig.",
       "source": "Leidos 8-K Q2 2026 (SEC); Barchart; Daily Political over FY-guidance; kwartaalcijfers via yfinance (2026-08-10)",
-      "card": "research/cards/LDOS.md"
+      "card": "research/cards/LDOS.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "operating_margin_pct",
+            "op": ">=",
+            "value": 12.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "TTD",
@@ -832,7 +921,24 @@
         "vrije kasstroom onder $500M per jaar"
       ],
       "source": "Motley Fool; Seeking Alpha (Citizens over Amazon DSP); TheStreet; kwartaalcijfers via yfinance (2026-08-10)",
-      "card": "research/cards/TTD.md"
+      "card": "research/cards/TTD.md",
+      "return_fundamental": {
+        "mode": "any",
+        "rules": [
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 77.0,
+            "quarters": 2
+          },
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 8.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "HUBS",
@@ -893,7 +999,24 @@
         "Salesforce of Microsoft brengt een AI-CRM voor het middensegment tegen een fractie van de prijs"
       ],
       "source": "StocksToTrade en ad-hoc-news over de AI-prijsomslag; Seeking Alpha; kwartaalcijfers via yfinance (2026-08-10)",
-      "card": "research/cards/HUBS.md"
+      "card": "research/cards/HUBS.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 15.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_margin_pct",
+            "op": ">=",
+            "value": 7.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "ALNY",
@@ -954,7 +1077,21 @@
         "pijplijnkandidaat buiten ATTR faalt"
       ],
       "source": "Yahoo Finance en FiercePharma over de Q2-misser en prognoseverlaging; Investing.com Q2-presentatie; kwartaalcijfers via yfinance (2026-08-10)",
-      "card": "research/cards/ALNY.md"
+      "card": "research/cards/ALNY.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 25.0,
+            "quarters": 1
+          }
+        ],
+        "partial": true,
+        "partial_reason": "de gecodeerde regels zijn maar EEN HELFT van een EN-voorwaarde; de andere helft is guidance (ALNY) of de prijsdrempel (PLPC)"
+      },
+      "manual_only_conditions": "'geen verdere verlaging van de TTR-prognose' is guidance, niet meetbaar uit de jaarrekening - alleen de omzetgroei-helft is gecodeerd"
     },
     {
       "ticker": "CHKP",
@@ -1015,7 +1152,18 @@
       ],
       "note": "Zwakste operationele profiel van alle veertien namen die toch alle poorten halen: dimensies 3, 4 en 5 staan alle drie op 2.",
       "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10); marktgroei cybersecurity zoals in NTCT-kaart",
-      "card": "research/cards/CHKP.md"
+      "card": "research/cards/CHKP.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 6.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "LEA",
@@ -1078,7 +1226,18 @@
         "vrije kasstroom onder $400M per jaar"
       ],
       "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10)",
-      "card": "research/cards/LEA.md"
+      "card": "research/cards/LEA.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "operating_margin_pct",
+            "op": ">=",
+            "value": 5.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "TRMB",
@@ -1141,7 +1300,8 @@
       ],
       "note": "Operationeel de sterkste van ronde 4: elke dimensie behalve waardering scoort 4. Geblokkeerd op prijs, niet op bedrijf.",
       "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10, cijfers t/m mrt-2026)",
-      "card": "research/cards/TRMB.md"
+      "card": "research/cards/TRMB.md",
+      "manual_only_conditions": "alleen een prijsvoorwaarde; geen fundamentele component"
     },
     {
       "ticker": "WLDN",
@@ -1204,7 +1364,24 @@
       ],
       "note": "Kleinste naam van alle twintig ($1,25 mrd) en met 2 analisten de op een na minst gedekte. Samen met PLPC (0) en SEB (0) de toets op de 'weinig analistendekking'-hypothese uit het plan.",
       "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10)",
-      "card": "research/cards/WLDN.md"
+      "card": "research/cards/WLDN.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_usd",
+            "op": ">=",
+            "value": 200000000.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_margin_pct",
+            "op": ">=",
+            "value": 8.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "SEB",
@@ -1268,7 +1445,24 @@
         "een segment maakt structureel verlies zonder afstoting"
       ],
       "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10)",
-      "card": "research/cards/SEB.md"
+      "card": "research/cards/SEB.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "fcf_quarter_usd",
+            "op": ">",
+            "value": 0.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_income_usd",
+            "op": ">=",
+            "value": 90000000.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "WIX",
@@ -1330,7 +1524,24 @@
       ],
       "note": "Enige naam van de twintig met een dimensie op 1 (schaalbaarheid). Zelfde geval als TTD: goedkoop op een maatstaf, fundamentals mee omlaag.",
       "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10)",
-      "card": "research/cards/WIX.md"
+      "card": "research/cards/WIX.md",
+      "return_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 68.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_income_usd",
+            "op": ">",
+            "value": 0.0,
+            "quarters": 2
+          }
+        ]
+      }
     },
     {
       "ticker": "CHRW",
@@ -1393,7 +1604,18 @@
       ],
       "note": "Zwakste profiel van alle twintig: vijf van de zes dimensies op 2, geen enkele op 3 of hoger.",
       "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10, cijfers t/m mrt-2026)",
-      "card": "research/cards/CHRW.md"
+      "card": "research/cards/CHRW.md",
+      "return_fundamental": {
+        "mode": "any",
+        "rules": [
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 8.5,
+            "quarters": 2
+          }
+        ]
+      }
     }
   ],
   "_screened_layer1_20260811": [

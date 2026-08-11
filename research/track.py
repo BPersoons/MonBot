@@ -5,6 +5,8 @@
     python research/track.py dashboard  # research/dashboard.html (voeg --snel toe om
                                         #   de cijferdatums over te slaan)
     python research/track.py check      # CI-modus: zwijgt tenzij er actie nodig is
+    python research/track.py fundamentals  # toetst de fundamentele wacht- en
+                                        #   terugkeervoorwaarden aan de kwartaalcijfers
 
 Dit script scoort niets en beslist niets. Het meet en het signaleert; het oordeel
 blijft een handmatige `/scorecard <TICKER>`-aanroep. Zie docs/PLAN_2026-08.md §2:
@@ -317,6 +319,89 @@ def cmd_due(ledger):
     print("niet de kalender. De %d-dagenregel is alleen een vangnet." % RESCORE_AFTER_DAYS)
 
 
+# --------------------------------------------------------------- fundamentals
+
+def cmd_fundamentals(ledger):
+    """Toetst de fundamentele wacht- en terugkeervoorwaarden aan de kwartaalcijfers.
+
+    Dit is de helft die er eerst niet was: de dagelijkse check keek alleen naar
+    koersen, terwijl 12 van de 20 namen op iets fundamenteels wachten.
+    """
+    import fundamentals as fu
+
+    entries = live_entries(ledger)
+    te_toetsen = [e for e in entries
+                  if e.get("wait_fundamental") or e.get("return_fundamental")]
+    print("Kwartaalcijfers toetsen voor %d namen...\n" % len(te_toetsen))
+
+    vervuld, onbekend, alleen_handmatig = [], [], []
+    for e in entries:
+        if not (e.get("wait_fundamental") or e.get("return_fundamental")):
+            alleen_handmatig.append(e["ticker"])
+            continue
+
+        is_return = bool(e.get("return_fundamental"))
+        blok = e.get("return_fundamental") or e.get("wait_fundamental")
+        metrieken = fu.kwartaalmetrieken(e["ticker"])
+        ok, regels = fu.toets_voorwaarde(e["ticker"], blok, metrieken)
+
+        stempel = {True: "VERVULD ", False: "nee     ", None: "onbekend",
+                   "gedeeltelijk": "DEELS   "}[ok]
+        soort = "terugkeer" if is_return else "wacht"
+        print("%-6s %-9s %s %s" % (e["ticker"], stempel, soort,
+                                   "(%s)" % blok.get("mode", "all")))
+        for r_ok, uitleg in regels:
+            merk = {True: "  +", False: "  -", None: "  ?"}[r_ok]
+            print("%s %s" % (merk, uitleg))
+        if e.get("manual_only_conditions"):
+            print("   ! handmatig deel: %s" % e["manual_only_conditions"])
+
+        if ok is True or ok == "gedeeltelijk":
+            vervuld.append((e, is_return, ok == "gedeeltelijk"))
+        elif ok is None:
+            onbekend.append(e["ticker"])
+        print()
+
+    print("=" * 74)
+    print("Vervuld: %d · onbekend: %d · niet vervuld: %d"
+          % (len(vervuld), len(onbekend), len(te_toetsen) - len(vervuld) - len(onbekend)))
+    if alleen_handmatig:
+        print("Geen machine-toets (alleen prijs of handmatig): %s"
+              % ", ".join(alleen_handmatig))
+    if onbekend:
+        print("Onbekend = niet meetbaar, NIET hetzelfde als gehaald: %s"
+              % ", ".join(onbekend))
+
+    if not vervuld:
+        _emit(False, "")
+        return
+
+    regels_uit = ["<b>Scorekaart — fundamentele voorwaarde geraakt</b>"]
+    for e, is_return, deels in vervuld:
+        soort_txt = "terugkeervoorwaarde" if is_return else "wachtvoorwaarde"
+        if deels:
+            regels_uit.append(
+                "\n⚠️ <b>%s</b> — het MEETBARE deel van de %s is gehaald, "
+                "maar niet de hele voorwaarde. Dit is geen koopsignaal; controleer "
+                "eerst het handmatige deel." % (e["ticker"], soort_txt))
+        elif is_return:
+            regels_uit.append("\n\U0001f504 <b>%s</b> (AFVALLER) voldoet aan zijn "
+                              "terugkeervoorwaarde — herscoren." % e["ticker"])
+        else:
+            regels_uit.append("\n✅ <b>%s</b> voldoet aan zijn fundamentele "
+                              "wachtvoorwaarde." % e["ticker"])
+        conds = e.get("wait_conditions") or e.get("return_to_volgen_conditions") or []
+        if conds:
+            regels_uit.append("Voorwaarde: %s" % " / ".join(conds))
+        if e.get("manual_only_conditions"):
+            regels_uit.append("<i>Nog handmatig te controleren: %s</i>"
+                              % e["manual_only_conditions"])
+        regels_uit.append("Kaart: %s" % e.get("card", ""))
+    msg = "\n".join(regels_uit)
+    print("\n" + msg)
+    _emit(True, msg)
+
+
 # --------------------------------------------------------------------------- dashboard
 
 DASHBOARD = os.path.join(os.path.dirname(__file__), "dashboard.html")
@@ -582,5 +667,7 @@ if __name__ == "__main__":
         cmd_dashboard(ledger, with_earnings="--snel" not in sys.argv)
     elif cmd == "check":
         cmd_check(ledger)
+    elif cmd == "fundamentals":
+        cmd_fundamentals(ledger)
     else:
         sys.exit(__doc__)
