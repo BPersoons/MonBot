@@ -4,6 +4,14 @@ Papieren analyse van kandidaat-namen en ETF's, vanaf 2026-08-10. Geen kapitaal n
 
 **Doel:** over 6 maanden kunnen toetsen of onze selectie de wereld-ETF verslaat. Dat vraagt geen geld — het vraagt gescoorde namen, een vastgelegde datum en een prijs. Zie de poort in het plan: *6 maanden · ≥20 gescoorde namen · versla de wereld-ETF over dezelfde periode.*
 
+## Stand per 2026-08-11
+
+**20 van 20 namen gescoord — het aantal is gehaald.** Vier screenronden, ~300 namen door de laag-1-screen, alle twintig met prijs én benchmarkprijs (URTH $210,11 op 2026-08-10). Verdeling: **15 VOLGEN · 5 AFVALLER · 0 KOOPBAAR**.
+
+Wat rest is tijd. De poort valt rond **2027-02-10** (zes maanden na de eerste regel). Tot die tijd: maandelijks `python research/track.py meet`, en herscoren zodra de cijfers landen — `python research/track.py due`. Eerstvolgende: **DOCU op 2026-09-03**, de rest eind okt / begin nov.
+
+Nul KOOPBAAR is geen storing maar de uitkomst van twee dingen: bijna niets stond onder zijn 200-daags gemiddelde (22% van 299 namen), en waar dat wél zo was, waren de marges meestal mee omlaag gegaan. **LDOS staat het dichtst bij koopwaardig.**
+
 ## Werkwijze
 
 1. **Kandidaat komt uit een screen**, niet uit een onderbuikgevoel. Bron: holdings van thema-ETF's, toeleveranciers/klanten van bekende namen, nieuwe noteringen.
@@ -55,6 +63,16 @@ Praktisch: een poort wordt **nooit opgerekt omdat hij ongelegen uitkomt**. Deugt
 - **VOLGEN** — poorten PASS maar iets is zwak. **Wachtvoorwaarde verplicht**: bij welke prijs of gebeurtenis wordt dit KOOPBAAR?
 - **AFVALLER** — een poort faalt, of de these houdt geen stand
 
+**Wanneer blokkeert een `2`?** (Bart, 2026-08-11, na het NTCT-grensgeval)
+
+> Een dimensie op `2` blokkeert KOOPBAAR **niet** — behalve wanneer die dimensie het beslissende getal levert. Staat de dimensie waarop `deciding_number` rust op ≤2, dan is het VOLGEN.
+>
+> **Tiebreak** (Bart, 2026-08-11, na OTEX en LDOS): is er twijfel over wélk getal beslissend is, dan telt **het getal dat het risico beschrijft, niet het getal dat de kans beschrijft.** Zonder deze afspraak bepaalt de formulering het verdict — bij LDOS gaf "operationele winst −5,5%" VOLGEN en "guidance op consensus terwijl de koers −35% staat" KOOPBAAR, op precies dezelfde cijfers. De keuze voor de risicokant sluit aan bij *bij twijfel niet kopen*.
+
+De regel gebruikt wat de kaart toch al moet opschrijven (*welk getal beslist*), dus er komt geen veld en geen drempel bij. Het alternatief — élke `2` blokkeert — is bewust verworpen: elk echt bedrijf heeft een zwakke plek, dus die lezing zet KOOPBAAR structureel op nul. Dat is exact het zelf-dichtslaande patroon dat dit project al drie keer nekte (PerformanceAuditor, EXP-002, de dead zone na de redesign — zie `feedback_adaptive_gates_must_decay`). Een raamwerk dat nooit "ja" zegt, toetst nooit of zijn "ja" deugt.
+
+*Toegepast op de eerste zes kaarten (2026-08-11): geen enkel verdict verandert.* NTCT blijft VOLGEN — het beslissende getal (+4% eigen groei tegen +8,9% marktgroei) **is** dimensie 3, en die staat op 2. Bij ITRI, MYRG en PLPC lag er al een `?` of een `1`, dus de regel was daar niet bindend.
+
 ## De divergentie-screen (Bart, 2026-08-11)
 
 Bart's toevoeging: de kans zit in bedrijven met **negatief handelaarssentiment terwijl de marges en winst dat niet laten zien**. De koers is dan sentiment-gedreven, niet fundamenteel — en dus laag ten opzichte van wat het waard is.
@@ -86,7 +104,28 @@ research/
   scorecard_template.md   lege kaart
   ledger.json             machine-leesbaar: datum, prijs, score, verdict, benchmark
   cards/<TICKER>.md       de analyse per naam
+  track.py                meet + signaleer (geen oordeel)
+  tracking.json           snapshots van track.py meet
 ```
+
+## Cadans
+
+```bash
+python research/track.py meet    # maandelijks: elke regel tegen de wereld-ETF
+python research/track.py due     # welke kaarten zijn toe aan herscoring?
+```
+
+`meet` haalt koersen via yfinance, rekent elk aandeel af tegen de benchmark op de scoredatum, groepeert het resultaat per verdict en waarschuwt zodra een prijs-wachtvoorwaarde (`wait_price_below`) geraakt wordt. `due` gebruikt de echte earnings-datum per naam, met een 90-dagenvangnet.
+
+**Het script scoort niets en beslist niets** — het meet en signaleert. Het oordeel blijft een handmatige `/scorecard <TICKER>`-aanroep. Dat is bewust: `docs/PLAN_2026-08.md` §2 zet automatisering van de onderzoekscadans pas op de agenda vanaf ~€100k.
+
+Drie ritmes:
+
+| Ritme | Wat |
+|---|---|
+| elke 1-2 weken | nieuwe namen screenen en scoren, tot de 20 vol is |
+| **op de cijfers** (niet op de kalender) | `due` → `/scorecard <TICKER> rescore` |
+| maandelijks | `meet` |
 
 **De ledger is het punt.** Elke regel legt vast wat we vonden, op welke datum en tegen welke prijs — inclusief de benchmarkprijs op diezelfde dag. Over zes maanden rekent dat af of hoge scores écht aan goede uitkomsten voorafgingen. Zonder die regels is het een verzameling meningen.
 

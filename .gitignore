@@ -138,3 +138,6 @@ barbell_rebalance_log.json
 
 # Playwright MCP scratch-snapshots
 .playwright-mcp/
+
+# Gegenereerd door research/track.py dashboard (tracking.json is wel de historie)
+research/dashboard.html
