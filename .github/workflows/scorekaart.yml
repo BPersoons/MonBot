@@ -117,14 +117,39 @@ jobs:
             -d disable_web_page_preview=true \
             --data-urlencode "text=${MSG}"
 
+      # --- maandag: de trechter vullen -----------------------------------------
+      # track.py bewaakt wat er al in de ledger zit; dit zoekt wat er NIEUW onder
+      # zijn 200d-MA zakt. Een treffer is een kandidaat, geen bevinding.
+      - name: Zoekronde nieuwe kandidaten
+        id: screen
+        if: github.event.schedule == '0 8 * * 1'
+        run: python research/screen.py --nieuw
+
+      - name: Telegram met nieuwe kandidaten
+        if: steps.screen.outputs.nieuw == 'true'
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MSG: ${{ steps.screen.outputs.message }}
+        run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
+            echo "::warning::Telegram-secrets ontbreken — melding overgeslagen"
+            exit 0
+          fi
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d parse_mode=HTML \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text=${MSG}"
+
       # --- historie vastleggen -------------------------------------------------
       - name: Snapshot terugcommitten
         run: |
           git config user.name  "scorekaart-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/tracking.json
+          git add research/tracking.json research/metrics_history.json
           if git diff --staged --quiet; then
-            echo "Geen wijziging in tracking.json."
+            echo "Geen wijziging in de meetbestanden."
           else
             git commit -m "chore(research): meting $(date -u +%F)"
             git push

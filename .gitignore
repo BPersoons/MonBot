@@ -145,3 +145,6 @@ barbell_rebalance_log.json
 
 # Gegenereerd door research/track.py dashboard (tracking.json is wel de historie)
 research/dashboard.html
+
+# Wekelijkse screen-uitvoer (de melding en de kaarten zijn het resultaat)
+research/screen_result.json
