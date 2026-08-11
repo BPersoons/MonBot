@@ -335,6 +335,9 @@ def cmd_fundamentals(ledger):
     print("Kwartaalcijfers toetsen voor %d namen...\n" % len(te_toetsen))
 
     vervuld, onbekend, alleen_handmatig = [], [], []
+    historie = fu.laad_historie()
+    hist_voor = sum(len(v) for v in historie.values())
+
     for e in entries:
         if not (e.get("wait_fundamental") or e.get("return_fundamental")):
             alleen_handmatig.append(e["ticker"])
@@ -342,7 +345,7 @@ def cmd_fundamentals(ledger):
 
         is_return = bool(e.get("return_fundamental"))
         blok = e.get("return_fundamental") or e.get("wait_fundamental")
-        metrieken = fu.kwartaalmetrieken(e["ticker"])
+        metrieken, historie = fu.kwartaalmetrieken(e["ticker"], historie)
         ok, regels = fu.toets_voorwaarde(e["ticker"], blok, metrieken)
 
         stempel = {True: "VERVULD ", False: "nee     ", None: "onbekend",
@@ -361,6 +364,13 @@ def cmd_fundamentals(ledger):
         elif ok is None:
             onbekend.append(e["ticker"])
         print()
+
+    # Historie bewaren: yfinance geeft ~5 kwartalen, dus jaar-op-jaar over 2
+    # kwartalen valt vaak buiten het venster. Onze eigen reeks groeit wel door.
+    fu.bewaar_historie(historie)
+    hist_na = sum(len(v) for v in historie.values())
+    print("Metriek-historie: %d kwartaalregels over %d namen (+%d deze run)"
+          % (hist_na, len(historie), hist_na - hist_voor))
 
     print("=" * 74)
     print("Vervuld: %d · onbekend: %d · niet vervuld: %d"
