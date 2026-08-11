@@ -13,6 +13,10 @@ load_dotenv()
 TRADE_LOG_FILE = "trade_log.json"
 APPROVAL_THRESHOLD = float(os.getenv("APPROVAL_THRESHOLD", "1000"))  # Default $1000
 
+# Boekhoudkundige sluiting van een positie die de beurs niet (meer) heeft. Geen
+# strategie-uitkomst, dus PnL 0 en uitgesloten van weight-learning in utils/auditor.py.
+PHANTOM_CLOSE_REASON = "PHANTOM_NO_POSITION"
+
 def _sanitize_trade(obj):
     """Recursively replace NaN/Inf with safe values so json.dump never fails."""
     if isinstance(obj, float):
@@ -146,8 +150,8 @@ class ExecutionAgent:
             for t in trades:
                 if t.get("status") not in ("OPEN", "PLACED"):
                     continue
-                if t.get("harvest") or t.get("thematic_dip"):
-                    continue  # Treasury harvest / Thematic Dip Sleeve positions: managed elsewhere
+                if t.get("harvest") or t.get("thematic_exposure"):
+                    continue  # Treasury harvest / Thematic Exposure Sleeve positions: managed elsewhere
                 if t.get("take_profit") and t.get("stop_loss"):
                     continue  # Already has levels
                 ep = t.get("entry_price", 0.0)
@@ -172,11 +176,21 @@ class ExecutionAgent:
 
         added = 0
         now_ts = datetime.utcnow()
+        # Posities van de ALLOCATOR (barbell-brug) horen bewust buiten trade_log:
+        # buy-and-hold-dragers met eigen band-logica, geen trades met een stop-loss.
+        from utils.allocator_positions import barbell_bridge_bases
+        allocator_bases = barbell_bridge_bases()
         for pos in open_positions:
             info = pos.get("info") or {}
             symbol = pos.get("symbol", "")
             base = symbol.split("/")[0].upper()
             if base in open_tickers:
+                continue
+            if base in allocator_bases:
+                self.logger.info(
+                    f"Startup position sync: {base} overgeslagen — allocator-positie "
+                    f"(barbell-brug), wordt niet als trade beheerd."
+                )
                 continue
 
             ticker = symbol.split(":")[0]
@@ -267,8 +281,8 @@ class ExecutionAgent:
         for t in trades:
             if t.get("status") not in ("OPEN", "PLACED"):
                 continue
-            if t.get("harvest") or t.get("thematic_dip"):
-                continue  # Treasury harvest / Thematic Dip Sleeve positions: managed elsewhere
+            if t.get("harvest") or t.get("thematic_exposure"):
+                continue  # Treasury harvest / Thematic Exposure Sleeve positions: managed elsewhere
             _base = (t.get("ticker") or "").split("/")[0].upper()
             if _base in hl_bases_live:
                 continue
@@ -484,6 +498,36 @@ class ExecutionAgent:
             self.logger.error(f"Error processing approved trade: {e}")
             return None
             
+    def _has_live_position(self, ticker: str):
+        """Heeft de beurs ECHT een open positie in dit ticker?
+
+        Tri-state, en dat is essentieel: True = ja, False = aantoonbaar niet,
+        None = onbepaald (fetch mislukt). Alleen bij een expliciete False mag een
+        trade als spookpositie worden weggeboekt; bij None gaan we ervan uit dat
+        de positie leeft, want een echte positie ten onrechte als gesloten boeken
+        laat hem onbeheerd doorlopen.
+        """
+        try:
+            positions = self.exchange.fetch_all_positions()
+        except Exception as e:
+            self.logger.warning(f"_has_live_position({ticker}): fetch failed ({e}) — onbepaald")
+            return None
+        if positions is None:
+            return None
+
+        base = str(ticker).split("/")[0].upper()
+        for p in positions:
+            size = (p.get('info') or {}).get('szi', 0) or p.get('contracts') or 0
+            try:
+                if abs(float(size)) <= 1e-9:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            sym = str(p.get('symbol') or (p.get('info') or {}).get('coin') or '')
+            if sym.split("/")[0].upper() == base:
+                return True
+        return False
+
     def close_position(self, trade_id: str, reason: str = 'CLOSE_TP'):
         """
         Executes a closing order for an active trade (TP, SL, or manual).
@@ -496,11 +540,39 @@ class ExecutionAgent:
                 if trade['id'] == trade_id and trade.get('status') in ('OPEN', 'PLACED'):
                     self.logger.info(f"Closing position {trade_id} due to {reason}")
 
-                    # Execute reversing order
+                    # Execute reversing order — reduce_only so it can NEVER open a
+                    # position when the book claims one the exchange doesn't have.
                     close_action = "SELL" if trade['action'] == "BUY" else "BUY"
-                    order = self.exchange.create_order(trade['ticker'], close_action, trade['quantity'], order_type='market')
+                    order = self.exchange.create_order(trade['ticker'], close_action, trade['quantity'],
+                                                       order_type='market', reduce_only=True)
 
                     if not order:
+                        # Spookpositie? Alleen wegboeken als de beurs EXPLICIET zegt dat
+                        # er niets staat. Bij twijfel (None = fetch mislukt) blijft de
+                        # trade OPEN — een echte positie stilzwijgend als gesloten
+                        # boeken is veel erger dan een retry.
+                        if self._has_live_position(trade['ticker']) is False:
+                            self.logger.warning(
+                                f"PHANTOM position {trade_id} ({trade['ticker']}): trade_log says OPEN "
+                                f"but the exchange has no such position. Booking it flat (PnL 0) instead of "
+                                f"retrying the close every cycle."
+                            )
+                            trade['status'] = 'CLOSED'
+                            trade['close_reason'] = PHANTOM_CLOSE_REASON
+                            trade['exit_time'] = datetime.now().isoformat()
+                            trade['exit_price'] = trade.get('entry_price') or 0.0
+                            trade['pnl'] = 0.0
+                            trade['close_pnl'] = 0.0
+                            trade['pnl_net'] = 0.0
+                            with open(TRADE_LOG_FILE, "w") as f:
+                                json.dump(trades, f, indent=2)
+                            _send_telegram(
+                                f"PHANTOM POSITION: {trade['ticker']}  [{reason}]\n"
+                                f"Stond OPEN in trade_log maar niet op de beurs — "
+                                f"weggeboekt met PnL 0, geen order geplaatst."
+                            )
+                            return True
+
                         self.logger.warning(
                             f"Close order for {trade['ticker']} ({reason}) returned None — "
                             f"position likely still open on HL. NOT marking CLOSED."
@@ -759,6 +831,16 @@ class ExecutionAgent:
                  
         return {'passed': True, 'reason': f"Auditor Passed (Vs L1 Book). Spread Impact: {delta_pct*100:.3f}%"}
 
+    @staticmethod
+    def _directional_cap_usd() -> float:
+        """F1 G2a: max totale open directional-exposure in USD. 0 = geen cap.
+        Config-gedreven (config/auto_params.json), tunebaar zonder redeploy."""
+        try:
+            with open("config/auto_params.json") as f:
+                return float(json.load(f).get("directional_exposure_cap_usd", 0.0) or 0.0)
+        except Exception:
+            return 0.0
+
     def execute_order(self, trade_proposal):
         """
         Executes an order based on the APPROVED proposal.
@@ -811,6 +893,29 @@ class ExecutionAgent:
                         return None
         except Exception:
             pass  # fail-open — don't block trades due to file read error
+
+        # Directional capital cap (F1 G2a, 2026-07-23): bound total open directional
+        # exposure to a small amount (~$200-300) — the tech-LONG edge is real but
+        # modest/lumpy, so we cap downside. Excludes the thematic sleeve (own wallet)
+        # and treasury harvest (separate strategies). Blocks new entries once the cap
+        # is reached; combined with small sizing this bounds risk to ~cap + one position.
+        try:
+            cap = self._directional_cap_usd()
+            if cap > 0:
+                with open(TRADE_LOG_FILE, "r") as f:
+                    _open = [t for t in json.load(f)
+                             if t.get('status') in ('OPEN', 'PLACED')
+                             and not t.get('thematic_exposure') and not t.get('harvest')]
+                cur_notional = sum(
+                    float(t.get('entry_price', 0) or 0) * float(t.get('quantity', 0) or 0)
+                    for t in _open)
+                if cur_notional >= cap:
+                    self.logger.warning(
+                        f"BLOCKED {ticker}: directional exposure cap ${cap:.0f} reached "
+                        f"(open directional ${cur_notional:.0f}).")
+                    return None
+        except Exception as _cap_err:
+            self.logger.debug(f"directional cap check skipped: {_cap_err}")  # fail-open
 
         # Spot order guard: only allow perpetual swaps, block spot markets
         # _normalize_symbol prefers perps (:USDC) over spot, so use it for the check
@@ -1175,7 +1280,9 @@ class ExecutionAgent:
                     except Exception:
                         pass
                     close_action = "SELL" if trade['action'] == "BUY" else "BUY"
-                    order = self.exchange.create_order(trade['ticker'], close_action, close_qty, order_type='market')
+                    # reduce_only: een partial exit mag nooit een tegenpositie openen
+                    order = self.exchange.create_order(trade['ticker'], close_action, close_qty,
+                                                       order_type='market', reduce_only=True)
                     exit_price = 0.0
                     partial_pnl = 0.0
                     if order:

@@ -140,8 +140,8 @@ class StrategyManager:
         Evaluates an OPEN position to determine if it should be closed or modified.
         Returns a dict with 'action' key: HOLD, CLOSE_FULL, CLOSE_PARTIAL, UPDATE_SL
         """
-        if trade.get("harvest") or trade.get("thematic_dip"):
-            return {"action": "HOLD", "reason": "treasury harvest / thematic dip sleeve position"}
+        if trade.get("harvest") or trade.get("thematic_exposure"):
+            return {"action": "HOLD", "reason": "treasury harvest / thematic exposure sleeve position"}
 
         entry     = trade.get('entry_price', 0.0)
         action    = trade.get('action', 'BUY')

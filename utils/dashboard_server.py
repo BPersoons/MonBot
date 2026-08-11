@@ -2556,10 +2556,15 @@ def _build_pnl_charts(trades, pnl_snapshots):
 
 
 def _build_trades_section(trades, positions_status=None, pnl_snapshots=None):
-    """Build the Trades tab: open positions (two tables by P&L) + pending + paginated history."""
+    """Build the Trades tab: open positions (two tables by P&L) + pending + paginated history.
+
+    Excludes thematic_exposure trades — that sleeve is a separate book with its
+    own dashboard (/thematic-exposure) and shouldn't blend into the main trade list.
+    """
     import time as _time
     positions_status = positions_status or {}
     pnl_snapshots = pnl_snapshots or []
+    trades = [t for t in (trades or []) if not t.get('thematic_exposure')]
 
     if not trades:
         return '''<div class="section">
@@ -3119,10 +3124,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(f"treasury Error: {e}".encode())
             return
 
-        if self.path in ("/thematic-dip", "/thematic-dip/"):
+        if self.path in ("/thematic-exposure", "/thematic-exposure/"):
             try:
-                from utils.dashboard_thematic_dip import build_thematic_dip_html
-                html = build_thematic_dip_html()
+                from utils.dashboard_thematic_exposure import build_thematic_exposure_html
+                html = build_thematic_exposure_html()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()
@@ -3131,7 +3136,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.send_header("Content-Type", "text/plain")
                 self.end_headers()
-                self.wfile.write(f"thematic-dip Error: {e}".encode())
+                self.wfile.write(f"thematic-exposure Error: {e}".encode())
             return
 
         if self.path in ("/performance", "/performance/"):
@@ -3164,7 +3169,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(f"focus Error: {e}".encode())
             return
 
-        if self.path in ("/dashboard", "/dashboard/", "/"):
+        if self.path in ("/", "/home", "/home/"):
+            try:
+                from utils.dashboard_home import build_home_html
+                agents = self.db_client.get_swarm_health() if self.db_client else []
+                html = build_home_html(agents=agents)
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(f"home Error: {e}".encode())
+            return
+
+        if self.path in ("/dashboard", "/dashboard/", "/legacy", "/legacy/"):
             try:
                 # Read dashboard.json for open opportunities and LLM stats
                 open_opportunities = []
@@ -3350,9 +3371,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.wfile.write(_j.dumps({"error": str(e)}).encode())
             return
 
-        if self.path in ("/api/thematic-dip/approve", "/api/thematic-dip/approve/",
-                          "/api/thematic-dip/edit", "/api/thematic-dip/edit/",
-                          "/api/thematic-dip/ignore", "/api/thematic-dip/ignore/"):
+        if self.path in ("/api/thematic-exposure/approve", "/api/thematic-exposure/approve/",
+                          "/api/thematic-exposure/edit", "/api/thematic-exposure/edit/",
+                          "/api/thematic-exposure/ignore", "/api/thematic-exposure/ignore/"):
             import json as _json
             try:
                 length = int(self.headers.get("Content-Length", 0))
@@ -3366,7 +3387,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     self.wfile.write(_json.dumps({"ok": False, "error": "ticker required"}).encode())
                     return
 
-                from utils.thematic_dip_lab import approve_ticker, edit_ticker, ignore_ticker
+                from utils.thematic_exposure_lab import approve_ticker, edit_ticker, ignore_ticker
                 if "/approve" in self.path:
                     ok, message = approve_ticker(ticker)
                 elif "/edit" in self.path:

@@ -1,5 +1,5 @@
 """
-Thematic Dip Sleeve dashboard — served at /thematic-dip (EXP-008).
+Thematic Exposure Sleeve dashboard — served at /thematic-exposure (EXP-008).
 
 Shows:
 - Portfolio overview (budget, cash, value, realized/unrealized P&L)
@@ -195,11 +195,11 @@ def _build_positions_table(positions: dict) -> str:
 
 
 def _build_dca_history(trade_log: list) -> str:
-    dip_trades = [t for t in trade_log if t.get("thematic_dip")]
-    if not dip_trades:
+    exposure_trades = [t for t in trade_log if t.get("thematic_exposure")]
+    if not exposure_trades:
         return '<div class="card" style="color:var(--muted)">Nog geen DCA-tranches uitgevoerd.</div>'
     by_ticker: dict[str, list] = {}
-    for t in dip_trades:
+    for t in exposure_trades:
         by_ticker.setdefault(t.get("ticker", "?"), []).append(t)
 
     blocks = []
@@ -238,7 +238,7 @@ def _build_pending_classifications(themes_cfg: dict) -> str:
         themes_str = ", ".join(f"{k} ({v:.2f})" for k, v in (entry.get("themes") or {}).items()) or "geen voorstel"
         status_color = "var(--yellow)" if entry.get("status") == "PENDING_REVIEW" else "var(--red)"
         approve_btn = (
-            f'<button onclick="dipAction(\'approve\',\'{safe_ticker}\')" '
+            f'<button onclick="expAction(\'approve\',\'{safe_ticker}\')" '
             'style="background:var(--green);color:#000;border:none;border-radius:6px;padding:4px 10px;'
             'font-size:.72rem;font-weight:600;cursor:pointer;margin:2px">✓ Approve</button>'
             if entry.get("themes") else ""
@@ -250,13 +250,13 @@ def _build_pending_classifications(themes_cfg: dict) -> str:
             f"<td>{_html.escape(themes_str)}</td>"
             "<td>"
             f"{approve_btn}"
-            f'<button onclick="dipAction(\'ignore\',\'{safe_ticker}\')" '
+            f'<button onclick="expAction(\'ignore\',\'{safe_ticker}\')" '
             'style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:4px 10px;'
             'font-size:.72rem;font-weight:600;cursor:pointer;margin:2px">✗ Ignore</button><br>'
             f'<input type="text" id="edit-{safe_ticker}" placeholder="thema:gewicht,thema:gewicht" '
             'style="width:200px;font-size:.72rem;padding:3px 6px;border-radius:5px;border:1px solid var(--border);'
             'background:rgba(0,0,0,0.3);color:var(--text);margin:2px">'
-            f'<button onclick="dipEdit(\'{safe_ticker}\')" '
+            f'<button onclick="expEdit(\'{safe_ticker}\')" '
             'style="background:var(--blue);color:#fff;border:none;border-radius:6px;padding:4px 10px;'
             'font-size:.72rem;font-weight:600;cursor:pointer;margin:2px">Edit+Approve</button>'
             "</td>"
@@ -267,17 +267,17 @@ def _build_pending_classifications(themes_cfg: dict) -> str:
         "<th>Ticker</th><th>Status</th><th>Voorstel</th><th>Actie</th>"
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
         '<div style="font-size:.75rem;color:var(--muted);margin-top:10px">'
-        "Ook mogelijk via Telegram: <code>/dipapprove</code>, <code>/dipedit</code>, <code>/dipignore</code> "
+        "Ook mogelijk via Telegram: <code>/themeapprove</code>, <code>/themeedit</code>, <code>/themeignore</code> "
         "(zie <code>/help</code>).</div></div>"
     )
 
 
 # ── Page assembly ────────────────────────────────────────────────────────────
 
-def build_thematic_dip_html() -> str:
-    positions = _load_json("thematic_dip_positions.json", {"positions": {}, "cash_usd": 0, "budget_usd": 0})
-    report = _load_json("thematic_dip_report.json", {})
-    themes_cfg = _load_json("config/thematic_dip_themes.json", {"themes": {}, "tickers": {}})
+def build_thematic_exposure_html() -> str:
+    positions = _load_json("thematic_exposure_positions.json", {"positions": {}, "cash_usd": 0, "budget_usd": 0})
+    report = _load_json("thematic_exposure_report.json", {})
+    themes_cfg = _load_json("config/thematic_exposure_themes.json", {"themes": {}, "tickers": {}})
     trade_log = _load_json("trade_log.json", [])
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -299,13 +299,13 @@ def build_thematic_dip_html() -> str:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="300">
-<title>Thematic Dip Sleeve — Agent Trader</title>
+<title>Thematic Exposure Sleeve — Agent Trader</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>{_CSS}</style>
 <script>
-async function dipAction(action, ticker) {{
+async function expAction(action, ticker) {{
   try {{
-    const res = await fetch('/api/thematic-dip/' + action, {{
+    const res = await fetch('/api/thematic-exposure/' + action, {{
       method: 'POST',
       headers: {{'Content-Type': 'application/json'}},
       body: JSON.stringify({{ticker}})
@@ -315,12 +315,12 @@ async function dipAction(action, ticker) {{
     else {{ alert('Fout: ' + (data.error || data.message || 'onbekend')); }}
   }} catch(e) {{ alert('Netwerk fout: ' + e); }}
 }}
-async function dipEdit(ticker) {{
+async function expEdit(ticker) {{
   const input = document.getElementById('edit-' + ticker);
   const theme_spec = input ? input.value.trim() : '';
   if (!theme_spec) {{ alert('Vul eerst thema:gewicht in (bv. semiconductors:0.6)'); return; }}
   try {{
-    const res = await fetch('/api/thematic-dip/edit', {{
+    const res = await fetch('/api/thematic-exposure/edit', {{
       method: 'POST',
       headers: {{'Content-Type': 'application/json'}},
       body: JSON.stringify({{ticker, theme_spec}})
@@ -339,7 +339,7 @@ async function dipEdit(ticker) {{
   <div class="logo">
     <div class="logo-icon">🧠</div>
     <div>
-      <h1>Thematic Dip Sleeve{pending_badge}</h1>
+      <h1>Thematic Exposure Sleeve{pending_badge}</h1>
       <div style="font-size:.75rem;color:var(--muted)">EXP-008 — crash-scanner + DCA, actieve thema's: {active_str}</div>
     </div>
   </div>
@@ -393,7 +393,7 @@ async function dipEdit(ticker) {{
 </div>
 
 <footer>
-  Auto-refresh elke 5 min &nbsp;|&nbsp; Data: thematic_dip_positions.json · thematic_dip_report.json · config/thematic_dip_themes.json
+  Auto-refresh elke 5 min &nbsp;|&nbsp; Data: thematic_exposure_positions.json · thematic_exposure_report.json · config/thematic_exposure_themes.json
   &nbsp;|&nbsp; <a href="/" style="color:var(--blue)">Dashboard</a>
   &nbsp;|&nbsp; <a href="/treasury" style="color:var(--blue)">Treasury</a>
 </footer>

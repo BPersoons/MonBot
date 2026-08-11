@@ -1,5 +1,5 @@
 {
- "_comment": "Thematic Dip Sleeve (EXP-008) \u2014 thema-registry + ticker-classificatie. themes[].target_weight is alleen richtinggevend voor classificatie/breedte-meting, NIET voor allocatie (die is rank-gebaseerd, zie thematic_dip_lab.py). tickers[].themes zijn fractionele lidmaatschapsgewichten (kunnen optellen tot <1.0 als een naam ook buiten de geregistreerde thema's valt). status: CONFIRMED (telt mee in scoring/executie) | PENDING_REVIEW (LLM-voorstel, wacht op handmatige correctie) | PENDING_MANUAL (LLM-classificatie mislukt, telt niet mee tot iemand het hier invult) | IGNORED (bewust uitgesloten).",
+ "_comment": "Thematic Exposure Sleeve (EXP-008) \u2014 thema-registry + ticker-classificatie. themes[].target_weight is alleen richtinggevend voor classificatie/breedte-meting, NIET voor allocatie (die is rank-gebaseerd, zie thematic_exposure_lab.py). tickers[].themes zijn fractionele lidmaatschapsgewichten (kunnen optellen tot <1.0 als een naam ook buiten de geregistreerde thema's valt). status: CONFIRMED (telt mee in scoring/executie) | PENDING_REVIEW (LLM-voorstel, wacht op handmatige correctie) | PENDING_MANUAL (LLM-classificatie mislukt, telt niet mee tot iemand het hier invult) | IGNORED (bewust uitgesloten).",
  "version": 1,
  "seeded_at": "2026-07-16",
  "themes": {

@@ -1,9 +1,9 @@
 {
-  "_comment": "Treasury allocation targets. TreasuryAgent enforces these each cycle.",
-  "target_trade_pct": 30,
+  "_comment": "Treasury allocation targets. TreasuryAgent enforces these each cycle. Sinds de Conviction Barbell (2026-07-28) is HL geen 'portefeuille' meer maar alleen marge voor de directional trader (F1, cap $300 notional @3x = ~$100 marge); het groei-been staat als spot UBTC/UETH op dezelfde wallet en wordt via _conviction_reserved_usd() buiten de sweep gehouden.",
+  "target_trade_pct": 10,
   "rebalance_drift_pct": 10,
-  "min_hl_buffer_usd": 200,
-  "min_trade_pct": 15,
+  "min_hl_buffer_usd": 150,
+  "min_trade_pct": 5,
   "adapt_to_performance": true,
   "perf_lookback_trades": 30,
   "perf_high_wr_threshold": 45,
@@ -16,5 +16,15 @@
     "VOLATILE": 0,
     "TRENDING_BULL": 0,
     "TRENDING_BEAR": 0
-  }
+  },
+  "_sleeve_comment": "G2 meta-allocator: autonome funding van de Thematic Exposure Sleeve (aparte wallet 0xBd6c). sleeve_first_topup_approved wordt automatisch op true gezet na de 1e geslaagde top-up.",
+  "sleeve_funding_enabled": true,
+  "sleeve_target_pct": 10,
+  "sleeve_cap_usd": 500,
+  "sleeve_trigger_frac": 0.60,
+  "sleeve_topup_cap_usd": 150,
+  "sleeve_cooldown_h": 24,
+  "sleeve_first_topup_approved": false,
+  "sleeve_rebalance_enabled": true,
+  "sleeve_rebalance_frac": 1.40
 }

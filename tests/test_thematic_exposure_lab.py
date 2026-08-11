@@ -1,5 +1,5 @@
 """
-Unit tests for utils/thematic_dip_lab.py (EXP-008: Thematic Dip Sleeve).
+Unit tests for utils/thematic_exposure_lab.py (EXP-008: Thematic Exposure Sleeve).
 
 Runs entirely against mocked HL/yfinance/LLM/exchange_client data in a
 temporary working directory — no live network calls, no real orders.
@@ -9,7 +9,7 @@ here since this module places real orders in production.
 
 IMPORTANT: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID are forcibly cleared for the
 entire duration of this module's test run (setUpModule/tearDownModule below).
-_notify_telegram() is a real method on ThematicDipLab and several tests
+_notify_telegram() is a real method on ThematicExposureLab and several tests
 exercise code paths that call it (e.g. a successful mocked _open_tranche) —
 without this guard, running these tests against a dev machine that has real
 Telegram credentials in its environment sends real messages describing fake
@@ -28,8 +28,8 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from utils import thematic_dip_lab as tdl
-from utils.thematic_dip_lab import ThematicDipLab
+from utils import thematic_exposure_lab as tel
+from utils.thematic_exposure_lab import ThematicExposureLab
 
 _ORIGINAL_ENV = {}
 _BLOCKED_ENV_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
@@ -88,12 +88,18 @@ def _fast_crash_closes():
     return closes
 
 
-class ThematicDipLabTestBase(unittest.TestCase):
+class ThematicExposureLabTestBase(unittest.TestCase):
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
         self._orig_cwd = os.getcwd()
         os.chdir(self._tmpdir.name)
         os.makedirs("config", exist_ok=True)
+        # _classify_ticker valideert sinds 2026-07-17 via yfinance dat een
+        # symbool historie heeft — in tests altijd "ja", geen netwerk. Tests
+        # die het faal-pad testen overriden dit expliciet.
+        patcher = patch.object(ThematicExposureLab, "_yf_has_history", return_value=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         os.chdir(self._orig_cwd)
@@ -106,15 +112,15 @@ class ThematicDipLabTestBase(unittest.TestCase):
             "tickers": tickers,
             "pending": {},
         }
-        with open(tdl.THEMES_FILE, "w") as f:
+        with open(tel.THEMES_FILE, "w") as f:
             json.dump(data, f)
         return data
 
 
-class TestCrashScoring(ThematicDipLabTestBase):
+class TestCrashScoring(ThematicExposureLabTestBase):
     def setUp(self):
         super().setUp()
-        self.lab = ThematicDipLab(exchange_client=None)
+        self.lab = ThematicExposureLab(exchange_client=None)
 
     def test_slow_crash_scores_as_pullback(self):
         """A gradual -29% grind over ~250 sessions must still clear the
@@ -157,10 +163,10 @@ class TestCrashScoring(ThematicDipLabTestBase):
         self.assertEqual(score["pullback_z"], 0.0)
 
 
-class TestThemeBreadth(ThematicDipLabTestBase):
+class TestThemeBreadth(ThematicExposureLabTestBase):
     def setUp(self):
         super().setUp()
-        self.lab = ThematicDipLab(exchange_client=None)
+        self.lab = ThematicExposureLab(exchange_client=None)
 
     def test_breadth_requires_multiple_members_hit(self):
         themes_cfg = {
@@ -185,11 +191,94 @@ class TestThemeBreadth(ThematicDipLabTestBase):
         breadth = self.lab._theme_breadth({}, themes_cfg)
         self.assertEqual(breadth["optical_networking"], 0.0)
 
+    def test_breadth_ignores_unscoreable_members(self):
+        """CONFIRMED leden zonder score (geen yfinance-historie / te dun)
+        horen niet in de noemer — anders drukt een onmeetbare naam als
+        Samsung/Kioxia de breadth van precies het kern-thema structureel
+        onder de drempel (bug 2026-07-17)."""
+        themes_cfg = {
+            "themes": {"memory_storage": {}},
+            "tickers": {
+                "XYZ-MU": {"real_symbol": "MU", "themes": {"memory_storage": 0.5}, "status": "CONFIRMED"},
+                "XYZ-SNDK": {"real_symbol": "SNDK", "themes": {"memory_storage": 0.5}, "status": "CONFIRMED"},
+                "XYZ-SMSN": {"real_symbol": "SMSN", "themes": {"memory_storage": 0.5}, "status": "CONFIRMED"},
+                "XYZ-KIOXIA": {"real_symbol": "KIOXIA", "themes": {"memory_storage": 0.5}, "status": "CONFIRMED"},
+            },
+        }
+        # SMSN/KIOXIA hebben geen score (geen prijshistorie) — noemer = 2
+        scores = {"XYZ-MU": {"pullback_z": 3.0}, "XYZ-SNDK": {"pullback_z": 2.0}}
+        breadth = self.lab._theme_breadth(scores, themes_cfg)
+        self.assertAlmostEqual(breadth["memory_storage"], 1.0)
 
-class TestClassification(ThematicDipLabTestBase):
+
+class TestPriceHistoryFetch(ThematicExposureLabTestBase):
+    """_fetch_price_history: FX-conversie naar USD + negatieve cache.
+    yfinance wordt volledig gemockt via sys.modules — geen netwerk."""
+
     def setUp(self):
         super().setUp()
-        self.lab = ThematicDipLab(exchange_client=None)
+        self.lab = ThematicExposureLab(exchange_client=None)
+
+    @staticmethod
+    def _fake_yf_frame(closes_by_symbol: dict):
+        import pandas as pd
+        n = max(len(v) for v in closes_by_symbol.values())
+        idx = pd.date_range("2026-01-01", periods=n, freq="D")
+        cols = {}
+        for sym, closes in closes_by_symbol.items():
+            padded = [float("nan")] * (n - len(closes)) + list(closes)
+            cols[(sym, "Close")] = padded
+        df = pd.DataFrame(cols, index=idx)
+        df.columns = pd.MultiIndex.from_tuples(df.columns)
+        return df
+
+    def _run_fetch(self, symbol_specs, closes_by_symbol):
+        import sys
+        fake_yf = MagicMock()
+        fake_yf.download.return_value = self._fake_yf_frame(closes_by_symbol)
+        with patch.dict(sys.modules, {"yfinance": fake_yf}):
+            result = self.lab._fetch_price_history(symbol_specs)
+        return result, fake_yf
+
+    def test_fx_symbol_converts_closes_to_usd(self):
+        """9984.T-closes in JPY gedeeld door JPY=X → USD-closes, zodat
+        drawdown-scoring en de prijs-sanity-guard tegen HL's USD-mark kloppen."""
+        result, _ = self._run_fetch(
+            {"9984.T": "JPY=X"},
+            {"9984.T": [16000.0] * 30, "JPY=X": [160.0] * 30},
+        )
+        self.assertIn("9984.T", result)
+        self.assertTrue(all(abs(c - 100.0) < 1e-9 for c in result["9984.T"]["closes"]))
+
+    def test_unfetchable_symbol_lands_in_negative_cache(self):
+        result, _ = self._run_fetch(
+            {"NVDA": None, "SOFTBANK": None},
+            {"NVDA": [100.0] * 30},  # SOFTBANK ontbreekt volledig
+        )
+        self.assertIn("NVDA", result)
+        self.assertNotIn("SOFTBANK", result)
+        state = self.lab._load_state()
+        self.assertIn("SOFTBANK", state.get("price_cache_failed", {}))
+
+    def test_negative_cache_prevents_refetch_loop(self):
+        """Zonder negatieve cache bleef een onfetchbaar symbool eeuwig
+        'missing' → volledige 1y-batch elke run opnieuw + dezelfde yfinance-
+        ERRORs naar Telegram elke ~5 min (bug 2026-07-17)."""
+        specs = {"NVDA": None, "SOFTBANK": None}
+        self._run_fetch(specs, {"NVDA": [100.0] * 30})
+        # tweede run: NVDA vers gecachet, SOFTBANK in negatieve cache → geen download
+        import sys
+        fake_yf = MagicMock()
+        with patch.dict(sys.modules, {"yfinance": fake_yf}):
+            result = self.lab._fetch_price_history(specs)
+        fake_yf.download.assert_not_called()
+        self.assertIn("NVDA", result)
+
+
+class TestClassification(ThematicExposureLabTestBase):
+    def setUp(self):
+        super().setUp()
+        self.lab = ThematicExposureLab(exchange_client=None)
 
     def test_high_confidence_llm_response_auto_confirms(self):
         """2026-07-16, Bart's verzoek: high-confidence voorstellen tellen
@@ -240,6 +329,22 @@ class TestClassification(ThematicDipLabTestBase):
         with patch.object(self.lab, "_get_llm", return_value=None):
             self.lab._classify_ticker("XYZ-BAZ", themes)
         self.assertEqual(themes["tickers"]["XYZ-BAZ"]["status"], "PENDING_MANUAL")
+
+    def test_no_yfinance_history_blocks_auto_confirm(self):
+        """HL-codes als SOFTBANK/KIOXIA zijn geen Yahoo-symbolen: high
+        confidence of niet, zonder prijshistorie is de naam onscoorbaar en
+        moet hij PENDING_MANUAL worden — mét bewaard thema-voorstel zodat
+        alleen de symbol-mapping handwerk is (bug 2026-07-17)."""
+        themes = self._seed_themes({})
+        mock_llm = MagicMock()
+        mock_llm.analyze_text.return_value = '{"themes": {"semiconductors": 0.9}, "confidence": "high"}'
+        with patch.object(self.lab, "_get_llm", return_value=mock_llm), \
+             patch.object(ThematicExposureLab, "_yf_has_history", return_value=False):
+            result = self.lab._classify_ticker("XYZ-SOFTBANK", themes)
+        entry = themes["tickers"]["XYZ-SOFTBANK"]
+        self.assertEqual(entry["status"], "PENDING_MANUAL")
+        self.assertEqual(entry["themes"], {"semiconductors": 0.9})  # voorstel bewaard
+        self.assertEqual(result, ("XYZ-SOFTBANK", "PENDING_MANUAL", {}))
 
     def test_scan_new_tickers_filters_non_equity_before_llm(self):
         """FX/index/commodity tickers must never reach the LLM or generate a
@@ -344,7 +449,7 @@ class TestClassification(ThematicDipLabTestBase):
         self.assertTrue(state.get("universe_seeded"))
 
 
-class TestExecutionGuards(ThematicDipLabTestBase):
+class TestExecutionGuards(ThematicExposureLabTestBase):
     def setUp(self):
         super().setUp()
         self.exchange = MagicMock()
@@ -352,7 +457,7 @@ class TestExecutionGuards(ThematicDipLabTestBase):
         self.exchange.get_min_notional.return_value = 10.0
         self.exchange.get_amount_precision.return_value = 0.0001
         self.exchange.create_order.return_value = {"id": "mock-order-1"}
-        self.lab = ThematicDipLab(exchange_client=self.exchange)
+        self.lab = ThematicExposureLab(exchange_client=self.exchange)
         self.themes_cfg = self._seed_themes({
             "XYZ-NVDA": {"real_symbol": "NVDA", "themes": {"semiconductors": 0.4}, "status": "CONFIRMED"},
         })
@@ -398,7 +503,7 @@ class TestExecutionGuards(ThematicDipLabTestBase):
         starting_cash = self.positions["cash_usd"]
         with patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
             self.lab._open_tranche("XYZ-NVDA", 1, self.themes_cfg, self.positions, self._report())
-        expected_tranche = (starting_cash / tdl.MAX_CONCURRENT_NAMES) * tdl.TRANCHE_PCTS[1]
+        expected_tranche = (starting_cash / tel.MAX_CONCURRENT_NAMES) * tel.TRANCHE_PCTS[1]
         self.assertAlmostEqual(self.positions["cash_usd"], starting_cash - expected_tranche, places=2)
         self.assertIn("XYZ-NVDA", self.positions["positions"])
         self.assertEqual(self.positions["positions"]["XYZ-NVDA"]["status"], "OPEN")
@@ -424,42 +529,42 @@ class TestTrancheTriggers(unittest.TestCase):
     def test_t2_requires_drop_and_breadth(self):
         pos = {"avg_entry_price": 100.0}
         score = {"mark_px": 88.0, "theme_breadth": 0.5}  # -12%, breadth ok
-        self.assertTrue(ThematicDipLab._tranche_trigger(2, score, pos))
+        self.assertTrue(ThematicExposureLab._tranche_trigger(2, score, pos))
 
     def test_t2_false_without_breadth(self):
         pos = {"avg_entry_price": 100.0}
         score = {"mark_px": 80.0, "theme_breadth": 0.0}
-        self.assertFalse(ThematicDipLab._tranche_trigger(2, score, pos))
+        self.assertFalse(ThematicExposureLab._tranche_trigger(2, score, pos))
 
     def test_t3_requires_recovering_flag(self):
-        self.assertTrue(ThematicDipLab._tranche_trigger(3, {"recovering": True}, {}))
-        self.assertFalse(ThematicDipLab._tranche_trigger(3, {"recovering": False}, {}))
+        self.assertTrue(ThematicExposureLab._tranche_trigger(3, {"recovering": True}, {}))
+        self.assertFalse(ThematicExposureLab._tranche_trigger(3, {"recovering": False}, {}))
 
     def test_t4_requires_renewed_capitulation(self):
-        self.assertTrue(ThematicDipLab._tranche_trigger(4, {"pullback_z": 3.0}, {}))
-        self.assertFalse(ThematicDipLab._tranche_trigger(4, {"pullback_z": 0.5}, {}))
+        self.assertTrue(ThematicExposureLab._tranche_trigger(4, {"pullback_z": 3.0}, {}))
+        self.assertFalse(ThematicExposureLab._tranche_trigger(4, {"pullback_z": 0.5}, {}))
 
 
-class TestBudgetIsolation(ThematicDipLabTestBase):
+class TestBudgetIsolation(ThematicExposureLabTestBase):
     """Positions written by this module must never leak into the swarm's
     learning loop — verified at the StrategyManager guard (execution_agent's
     guards are simple one-line additions verified by direct code inspection,
     same pattern as the existing 'harvest' guard)."""
 
-    def test_strategy_manager_holds_thematic_dip_positions(self):
+    def test_strategy_manager_holds_thematic_exposure_positions(self):
         from agents.strategy_manager import StrategyManager
         with patch("agents.strategy_manager.StrategyManager.__init__", return_value=None):
             sm = StrategyManager()
-        result = sm.evaluate_position({"thematic_dip": True, "entry_price": 100.0, "action": "BUY"}, 90.0)
+        result = sm.evaluate_position({"thematic_exposure": True, "entry_price": 100.0, "action": "BUY"}, 90.0)
         self.assertEqual(result["action"], "HOLD")
 
 
-class TestT2T4DryRunGate(ThematicDipLabTestBase):
+class TestT2T4DryRunGate(ThematicExposureLabTestBase):
     def setUp(self):
         super().setUp()
         self.exchange = MagicMock()
         self.exchange.get_market_price.return_value = 80.0
-        self.lab = ThematicDipLab(exchange_client=self.exchange)
+        self.lab = ThematicExposureLab(exchange_client=self.exchange)
 
     def test_t2_t4_stays_dry_run_when_flag_off(self):
         positions = {

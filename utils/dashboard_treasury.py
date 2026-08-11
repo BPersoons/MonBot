@@ -86,6 +86,62 @@ def _apy_color(apy: float) -> str:
     return "var(--muted)"
 
 
+_SLEEVE_LABELS: dict[str, str] = {
+    "swarm": "Swarm (directioneel)",
+    "yield_core": "Yield core",
+    "basis": "Basis/funding",
+    "house": "House-vaults",
+    "lab": "Lab",
+    "tradfi": "TradFi",
+    "thematic_exposure": "Thematic Exposure (stocks)",
+    "thematic_dip": "Thematic Dip (legacy)",
+}
+
+
+def _build_sleeves_section() -> str:
+    """Sleeve-NAV breakdown (docs/MASTERPLAN.md Fase 0) — one snapshot/UTC-day,
+    written by utils/sleeve_nav.py. Distinct from the HL/Yield/Wallet portfolio
+    card above: this shows the SLEEVE label (incl. thematic_exposure, which since
+    the 2026-07-18 wallet-split lives on its own HL account and is invisible to
+    treasury_state.json/hl_snapshot) rather than the raw venue balances."""
+    nav = _load_json("data/sleeve_nav.json", {})
+    hist = nav.get("history") or []
+    if not hist:
+        return '<div class="card" style="color:var(--muted);font-size:.85rem">Nog geen sleeve-NAV snapshot beschikbaar (1x/dag, zie /v2).</div>'
+
+    cur = hist[-1]
+    snap_date = cur.get("date", "—")
+    sleeves = {k: v for k, v in (cur.get("sleeves") or {}).items() if v and v > 0.5}
+    venues = {k: v for k, v in (cur.get("venues") or {}).items() if v and v > 0.5}
+    total = cur.get("total_usd", 0) or 1
+
+    rows = "".join(
+        f'<tr><td style="padding:8px 0;color:var(--text)">{_SLEEVE_LABELS.get(k, k)}</td>'
+        f'<td style="padding:8px 0;text-align:right;font-weight:600">{_fmt_usd(v)}</td>'
+        f'<td style="padding:8px 0;text-align:right;color:var(--muted);font-size:.75rem">{v/total*100:.1f}%</td></tr>'
+        for k, v in sorted(sleeves.items(), key=lambda kv: -kv[1])
+    )
+    venue_chips = "".join(
+        f'<span style="font-size:.72rem;color:var(--muted);margin-right:12px">{k}: {_fmt_usd(v)}</span>'
+        for k, v in sorted(venues.items(), key=lambda kv: -kv[1])
+    )
+    stale_note = (
+        f'<div style="font-size:.72rem;color:var(--yellow);margin-top:10px">'
+        f'⚠️ Snapshot van {snap_date} — 1x per UTC-dag, kan tot 24u achterlopen op live wallet-mutaties (bv. het thematic-exposure wallet-split).</div>'
+    )
+    return f"""
+    <div class="card">
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <thead><tr style="color:var(--muted);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding-bottom:6px">Sleeve</th><th style="text-align:right;padding-bottom:6px">NAV</th><th style="text-align:right;padding-bottom:6px">%</th>
+        </tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">{venue_chips}</div>
+      {stale_note}
+    </div>"""
+
+
 # ── Section builders ──────────────────────────────────────────────────────────
 
 _PROTOCOL_META: dict[str, tuple[str, str, str]] = {
@@ -790,6 +846,15 @@ async function approveTreasury(id) {{
     <span style="font-size:.75rem;color:var(--muted)">TreasuryAgent data: {ts}</span>
   </div>
   {_build_portfolio_overview(state)}
+</div>
+
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">Sleeves</span>
+    <div class="section-line"></div>
+    <span style="font-size:.75rem;color:var(--muted)">incl. Thematic Exposure — apart wallet sinds 2026-07-18</span>
+  </div>
+  {_build_sleeves_section()}
 </div>
 
 <div class="section">
