@@ -131,3 +131,6 @@ market_regime.json
 cost_log.json
 portfolio_peak.json
 audited_trades.json
+
+# Gegenereerd door research/track.py dashboard (tracking.json is wel de historie)
+research/dashboard.html

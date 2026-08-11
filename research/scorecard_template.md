@@ -18,6 +18,7 @@
 | **2. Reconciliatie** — komt de aangenomen burn overeen met de gerapporteerde kasverandering over 2 kwartalen? | |
 | **3. Twee routes** — poortgetal langs twee onafhankelijke bronnen; afwijking >30% = stoppen | |
 | **4. Cijfer-aanval** — welk getal hier beantwoordt een andere vraag dan gesteld? | |
+| **5. Geen management-cijfer** — draait geen poortgetal op "pro forma" / "adjusted" / "run-rate"? Alleen balans of kasstroomoverzicht | |
 
 ## Dimensies
 
