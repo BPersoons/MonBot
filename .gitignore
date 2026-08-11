@@ -50,8 +50,12 @@ github-ci-key.json
 new_api_key.txt
 *.txt.key
 
-# Claude local memory/session (not source)
-.claude/
+# Claude local memory/session (not source) — behalve de project-skills, die horen
+# bij de repo. settings.local.json, hooks, worktrees en locks blijven lokaal.
+.claude/*
+!.claude/commands/
+.claude/commands/*
+!.claude/commands/*.md
 
 # Junk / OS artifacts
 nul
@@ -138,3 +142,6 @@ barbell_rebalance_log.json
 
 # Playwright MCP scratch-snapshots
 .playwright-mcp/
+
+# Gegenereerd door research/track.py dashboard (tracking.json is wel de historie)
+research/dashboard.html

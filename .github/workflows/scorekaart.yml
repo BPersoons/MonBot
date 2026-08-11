@@ -1,0 +1,131 @@
+name: Scorekaart — dagelijkse meting
+
+# Waarom hier en niet op de VM: research/ledger.json staat in git, dus de repo IS
+# de bron. Een kopie op de VM zou de waarheid op twee plekken zetten — precies de
+# fout die dit project al drie keer heeft geraakt (zie CLAUDE.md § Common Pitfalls).
+# Deze workflow raakt de swarm niet aan.
+
+on:
+  schedule:
+    - cron: "30 22 * * 1-5"   # weekdagen na de Amerikaanse slotbel: prijs-triggers
+    - cron: "0 8 * * 1"       # maandagochtend: welke kaarten zijn toe aan herscoring
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scorekaart
+  cancel-in-progress: false
+
+jobs:
+  meting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Afhankelijkheden
+        run: pip install --quiet yfinance
+
+      # De ledger is de enige dataset die telt voor de zesmaandstoets en kan stil
+      # kapot (`benchmark: TODO` deed dat al eens). Faalt dit, dan stopt de run.
+      - name: Ledger valideren
+        run: python research/test_ledger.py
+
+      # --- dagelijks: prijs-triggers ------------------------------------------
+      - name: Meten en triggers controleren
+        id: check
+        if: github.event.schedule != '0 8 * * 1'
+        run: python research/track.py check
+
+      - name: Telegram bij een geraakte trigger
+        if: steps.check.outputs.triggered == 'true'
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MSG: ${{ steps.check.outputs.message }}
+        run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN/CHAT_ID ontbreken — melding overgeslagen"
+            exit 0
+          fi
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d parse_mode=HTML \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text=${MSG}"
+
+      # --- maandag: herscoring-agenda -----------------------------------------
+      - name: Herscoring-agenda
+        id: agenda
+        if: github.event.schedule == '0 8 * * 1'
+        run: |
+          python research/track.py due | tee /tmp/due.txt
+          {
+            echo "text<<AGENDA_EOF"
+            echo "<b>Scorekaart — herscoring-agenda</b>"
+            echo "<pre>"
+            head -c 3000 /tmp/due.txt
+            echo "</pre>"
+            echo "AGENDA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Telegram met de agenda
+        if: github.event.schedule == '0 8 * * 1'
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MSG: ${{ steps.agenda.outputs.text }}
+        run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
+            echo "::warning::Telegram-secrets ontbreken — melding overgeslagen"
+            exit 0
+          fi
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d parse_mode=HTML \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text=${MSG}"
+
+      # --- maandag: fundamentele voorwaarden aan de kwartaalcijfers toetsen ----
+      # De helft die er eerst niet was: 12 van de 20 namen wachten op iets
+      # fundamenteels, niet op een koers.
+      - name: Fundamentele voorwaarden toetsen
+        id: fund
+        if: github.event.schedule == '0 8 * * 1' || github.event_name == 'workflow_dispatch'
+        run: python research/track.py fundamentals
+
+      - name: Telegram bij een geraakte fundamentele voorwaarde
+        if: steps.fund.outputs.triggered == 'true'
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MSG: ${{ steps.fund.outputs.message }}
+        run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
+            echo "::warning::Telegram-secrets ontbreken — melding overgeslagen"
+            exit 0
+          fi
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d parse_mode=HTML \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text=${MSG}"
+
+      # --- historie vastleggen -------------------------------------------------
+      - name: Snapshot terugcommitten
+        run: |
+          git config user.name  "scorekaart-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/tracking.json
+          if git diff --staged --quiet; then
+            echo "Geen wijziging in tracking.json."
+          else
+            git commit -m "chore(research): meting $(date -u +%F)"
+            git push
+          fi

@@ -1,0 +1,1748 @@
+{
+  "_comment": "Scorekaart-ledger. Elke regel legt vast wat we vonden, wanneer, en tegen welke prijs — inclusief de benchmarkprijs op dezelfde dag. Over 6 maanden rekent dit af of hoge scores echt aan goede uitkomsten voorafgingen. Zie research/README.md.",
+  "_poort": "6 maanden vanaf de eerste regel, minimaal 20 gescoorde namen, criterium = versla de wereld-ETF over dezelfde periode.",
+  "_benchmark": {
+    "ticker": "URTH",
+    "name": "iShares MSCI World ETF",
+    "currency": "USD",
+    "note": "Ingevuld 2026-08-11. Was 'TODO', waardoor elke regel een lege benchmarkprijs had en de poort van 6 maanden dus niet af te rekenen was geweest. URTH is gekozen als USD-index-proxy omdat alle kandidaten in USD noteren; het uiteindelijke DeGiro-instrument (waarschijnlijk IWDA, EUR/accumulerend) volgt DEZELFDE index MSCI World. Bij de eindafrekening: vergelijk in dezelfde valuta, of reken beide om — een EUR/USD-beweging mag het oordeel niet bepalen.",
+    "degiro_instrument_chosen": false
+  },
+  "_rounds": [
+    {
+      "date": "2026-08-11",
+      "source": "Holdings First Trust GRID (119 posities) en CIBR (42 posities), peildatum 2026-08-07, opgehaald bij de fondsaanbieder",
+      "filter": "kleine/mid-cap posities buiten de kern-index, winstgevend of kasruimte >= 3 jaar, weinig analistendekking",
+      "scored": [
+        "MYRG",
+        "ITRI",
+        "AMSC",
+        "NTCT",
+        "PLPC"
+      ],
+      "rejected_at_screen": [
+        "ATKR — overnamebod Prysmian $95/aandeel contant tegen koers $93,75; dit is een dealspread (~1,3% opwaarts), geen selectiekandidaat. Uitgesloten vóór scoring."
+      ],
+      "note": "4 van de 5 komen uit hetzelfde thema (netinfrastructuur). Voor de 20-namen-poort is dat te geconcentreerd: dan meet je het thema, niet de selectie. Volgende rondes uit andere sectoren screenen."
+    },
+    {
+      "date": "2026-08-11 (ronde 2 - brede screen)",
+      "source": "Holdings First Trust SKYY (63 posities) en CIBR, plus iShares IHI (medtech). Themakeuze omgedraaid: eerst gezocht welke thema's GEDAALD zijn, daarna daarbinnen gescreend.",
+      "method_change": "Ronde 1 screende een thema dat al 190% had gelopen; daar zat per definitie nauwelijks divergentie in. Ronde 2 selecteert eerst op gedaalde sectoren (software na AI-disruptievrees, medtech IHI -9,2%/12mnd) en pas daarna op namen.",
+      "layer1_screened": 18,
+      "cards_written": [
+        "OTEX",
+        "DOCU",
+        "BLKB"
+      ],
+      "rejected_at_screen": [
+        "ITGR - overnamebod KKR $127/aandeel contant tegen koers $125,08; dealspread, geen selectiekandidaat (zelfde reden als ATKR in ronde 1)"
+      ],
+      "finding": "Van 18 gescreende namen stonden er 11 op of vlak onder hun 52-weekstop. Software en medtech zijn NIET breed gedaald op naamniveau - de sectorindices dalen door hun mega-caps. Divergentie-kandidaten zijn in deze markt schaars; meer volledige kaarten forceren zou activiteit zijn, geen selectie."
+    },
+    {
+      "date": "2026-08-11 (ronde 3 - marktbreed)",
+      "source": "Holdings First Trust GRID/CIBR/SKYY/FTXO/FTXR/FTXH/FTXG en QCLN = 299 unieke namen. Laag-1 screen lokaal gedraaid met yfinance i.p.v. per naam een webverzoek.",
+      "method_change": "Twee verbeteringen. (1) Sectorkeuze op 'staat NU onder de 200d-MA' i.p.v. op de 52-weeksverandering - de BLKB-les. (2) Laag 1 volledig lokaal: 299 namen in een run, daarna alleen kaarten op de treffers. Dit haalt de rem van 'een webverzoek per naam' weg.",
+      "layer1_screened": 299,
+      "layer1_hits": 41,
+      "cards_written": [
+        "LDOS",
+        "TTD",
+        "HUBS",
+        "ALNY",
+        "CHKP"
+      ],
+      "market_finding": "Van 34 sector-ETF's stonden er DRIE onder hun 200d-MA (URA -8,3%, TAN -5,8%, XLU -2,7%). Van 299 losse namen stond 22% onder de 200d-MA. Dit is een brede stijgende markt: divergentie-kandidaten zijn structureel schaars, en dat is een eigenschap van het moment, niet van de screen.",
+      "correction": "De eerdere aanname 'software -24,3% YTD' (uit een nieuwsartikel) is WEERLEGD: IGV staat +11,3% boven de 200d-MA en -3,1% over 52 weken. Ronde 2 is deels op dat foute uitgangspunt gescreend. Les: een sectorclaim uit een artikel altijd tegen de koersdata leggen voordat je erop screent."
+    },
+    {
+      "date": "2026-08-11 (ronde 4 - de 20 vol)",
+      "source": "Zes namen uit de 41 laag-1-treffers van ronde 3, gespreid over zes sectoren: SaaS (WIX), industriele tech (TRMB), expeditie (CHRW), auto-onderdelen (LEA), agri-conglomeraat (SEB), energiediensten (WLDN).",
+      "cards_written": [
+        "WIX",
+        "TRMB",
+        "CHRW",
+        "LEA",
+        "SEB",
+        "WLDN"
+      ],
+      "screen_error_caught": "Bij CHRW gaf het laag-1-veld `revenueGrowth` +19,3% terwijl de kwartaalregels een DALENDE brutowinst (-14,0%) en operationele winst (-18,6%) laten zien. Eerste keer dat de fout in de SCREEN zat en niet in de kaart. Bevestigt dat laag 1 kandidaten oplevert, geen bevindingen - de kaart doet het werk. Bij een expediteur is 'omzet' bovendien doorbelaste vracht; de betekenisvolle regel is de brutowinst.",
+      "gate_note": "WIX slaagt op de overlevingspoort zonder winstgevend te zijn: GAAP-operationele winst -$181,4M maar op. kasstroom +$421,1M. De poort is een KASvraag en wordt met een KASgetal beantwoord - precies de ASTS-les. WIX valt af op de divergentie-screen, niet op de poort."
+    }
+  ],
+  "entries": [
+    {
+      "ticker": "ASTS",
+      "name": "AST SpaceMobile",
+      "scored_at": "2026-08-10",
+      "price_at_score": 72.87,
+      "currency": "USD",
+      "market_cap_usd": 28300000000,
+      "market_cap_note": "afgeleid uit 388,12M aandelen x $72,87; bronnen geven 21,5-27,9 mrd — herleiden uit 10-Q",
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "benchmark_backfilled": "2026-08-11 — stond op null; ingevuld met de URTH-slotkoers van dezelfde week. Let op bij de afrekening: dit is een backfill, geen live vastgelegde prijs.",
+      "gates": {
+        "survival": "PASS",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 4,
+        "margin_and_direction": null,
+        "competition": null,
+        "scalability": 3,
+        "execution": 2,
+        "valuation": 1
+      },
+      "unanalyzed": [
+        "competition",
+        "margin_and_direction (pre-revenue, n.v.t.)"
+      ],
+      "verdict": "VOLGEN",
+      "superseded_by": "2026-08-11 herscoring na Q2-cijfers",
+      "deciding_number": "aandelenaantal +51,37% in 1 jaar",
+      "wait_conditions": [
+        "verwatering onder 15%/jaar in 2 opeenvolgende kwartalen",
+        "commerciele dienst live met betalende abonnees",
+        "koers onder ~$45"
+      ],
+      "thesis_break": [
+        "commerciele start schuift voorbij midden 2027",
+        "verwatering versnelt boven +60%/jaar",
+        "operator-overeenkomsten opgezegd of niet verlengd",
+        "Starlink direct-to-cell bereikt brede commerciele dekking tegen lagere prijs eerst"
+      ],
+      "rescore_after": "2026-08-10 Q2-cijfers",
+      "card": "research/cards/ASTS.md"
+    },
+    {
+      "ticker": "ASTS",
+      "name": "AST SpaceMobile",
+      "scored_at": "2026-08-11",
+      "price_at_score": 68.76,
+      "price_asof": "2026-08-10 slot",
+      "price_note": "Ingevuld 2026-08-11 (stond op TODO). Koers na de Q2-daling: $68,76, -4,42% op de dag. Marktkap $26,69 mrd.",
+      "market_cap_usd": 26690000000,
+      "currency": "USD",
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "benchmark_backfilled": "2026-08-11 — stond op null; ingevuld met de URTH-slotkoers van 2026-08-10, dezelfde peildatum als price_at_score. Regel is nu volledig af te rekenen.",
+      "quarter": "Q2 2026",
+      "earnings_surprise": {
+        "revenue_actual_usd": 31500000,
+        "revenue_consensus_usd": 34130000,
+        "revenue_surprise_pct": -7.65,
+        "eps_actual": -0.77,
+        "eps_consensus": -0.28,
+        "classification": "MISS_BOTH_LINES"
+      },
+      "divergence_screen": "NIET_KOPEN — koers omlaag met tegengevallen kwartaal; post-earnings drift loopt door in de richting van de verrassing",
+      "gates": {
+        "survival": "FAIL",
+        "survival_detail": "10-Q H1-2026: kas+restricted $2.722,8M / burn $502,2M per kwartaal (op. kasstroom $145,2M + capex $859,2M over 6 mnd) = 5,4 kwartalen = ~1,4 jaar. Eis >=3 jaar. Geen grensgeval.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "share_classes_2026_08_06": {
+        "class_a": 299789305,
+        "class_b": 11215111,
+        "class_c": 78163078,
+        "total": 389167494,
+        "market_cap_class_a_only_usd": 21843000000,
+        "market_cap_all_classes_usd": 28358000000,
+        "note": "Verklaart de bronnen-discrepantie 21,5 vs 27,9 mrd. Voor waardering telt het totaal; B/C hebben economische claim via omwisselbare LLC-units. Class C ongewijzigd sinds 31-12-2025."
+      },
+      "funding_shift": {
+        "equity_issuance_h1_2026_usd": 85723000,
+        "equity_issuance_h1_2025_usd": 462776000,
+        "debt_proceeds_h1_2026_usd": 1060608000,
+        "debt_proceeds_h1_2025_usd": 473498000,
+        "interest_paid_h1_2026_usd": 23556000,
+        "interest_paid_h1_2025_usd": 813000,
+        "note": "Verwatering vertraagt sterk, schuld versnelt. De +51,37% aandelengroei zat in de eerdere periode. Risico verschuift van verwatering naar hefboom."
+      },
+      "scores": {
+        "role_in_chain": 4,
+        "margin_and_direction": null,
+        "competition": null,
+        "scalability": 2,
+        "execution": 2,
+        "valuation": 1
+      },
+      "unanalyzed": [
+        "competition",
+        "samenstelling pro-forma kas",
+        "oorzaak verwatering"
+      ],
+      "verdict": "AFVALLER",
+      "deciding_number": "kasruimte ~1,4 jaar (10-Q) tegen een eis van >=3 jaar — ruim, geen grensgeval",
+      "return_to_volgen_conditions": [
+        "capex structureel onder $200M per kwartaal",
+        "financiering volledige constellatie aantoonbaar rond zonder nieuwe uitgifte",
+        "koers zo ver omlaag dat de financieringsonzekerheid is ingeprijsd"
+      ],
+      "source": "10-Q, SEC, ingediend 2026-08-10, periode 2026-06-30, accession 0001193125-26-342550",
+      "method_corrections": [
+        "Kaart 1 berekende kasruimte uit nettoverlies (4,6 jaar). Fout: bij een constellatiebouwer is capex de echte burn. REGEL: burn = operationele kasstroom + capex, uit het kasstroomoverzicht.",
+        "Herscoring 11-08 gebruikte managements '>$3,7 mrd pro forma cash' uit het persbericht (1,9 jaar). Balans zegt $2,72 mrd -> 1,4 jaar. Verschil ~$1 mrd. REGEL: nooit een management-cijfer (pro forma / adjusted) voor een poortberekening; altijd balans of kasstroomoverzicht.",
+        "REGEL: marktkap over alle aandelenklassen, niet alleen de verhandelde klasse.",
+        "INGETROKKEN: het voorstel om de overlevingspoort te herformuleren naar 'kas >= katalysator + marge'. Dat kwam voort uit het foute pro-forma-getal. Op de werkelijke cijfers is er geen grensgeval en deed de poort precies wat hij moest doen."
+      ],
+      "card": "research/cards/ASTS.md",
+      "manual_only_conditions": "capex < $200M/kw en financiering rond - capex niet in de metriekenset"
+    },
+    {
+      "ticker": "NTCT",
+      "name": "NetScout Systems, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 38.64,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 2810000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust CIBR holding 0,41% (peildatum 2026-08-07)",
+      "analyst_coverage": 3,
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $271,75M, capex $10,73M, FCF $261,02M. Netto kas $589,43M ($629,41M kas - $39,98M schuld) = 21,0% van de marktkap. Bron: kasstroomoverzicht + balans, 4 kw t/m jun-2026.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 4,
+        "competition": 2,
+        "scalability": 3,
+        "execution": 3,
+        "valuation": 4
+      },
+      "unanalyzed": [
+        "geen dimensie op '?' - alle zes hebben een getal",
+        "aandeel per segment (marktafbakening verschilt per brancherapport; richting robuust, grootte niet)",
+        "contractduur en verlengingspercentage bij telecom-operators",
+        "samenstelling van de $589M netto kas (offshore?)"
+      ],
+      "divergence_screen": "N.V.T. — geen koersdaling (+78,97% over 52 weken). De screen classificeert dalingen; hier is er geen.",
+      "key_metrics": {
+        "pe": 23.74,
+        "forward_pe": 14.31,
+        "ev_ebitda": 11.64,
+        "fcf_yield_on_ev_pct": 12.0,
+        "gross_margin_pct": 78.86,
+        "revenue_growth_yoy_pct": 12.7,
+        "market_growth_cagr_pct": 8.89,
+        "fy2026_revenue_growth_pct": 4.0
+      },
+      "verdict": "VOLGEN",
+      "deciding_number": "eigen groei +4% (FY2026) tegen marktgroei ~+8,9% — verliest aandeel; dat maakt van de lage multiple een correcte prijs in plaats van een korting",
+      "rule_ambiguity": "Naar de LETTER van README haalt NTCT KOOPBAAR (poorten PASS, geen '?', geen dimensie op 1, waardering 4 >= 3). Toch staat dimensie 3 op 2, en de schaal noemt 2 letterlijk 'zwak', terwijl VOLGEN gedefinieerd is als 'poorten PASS maar iets is zwak'. VOLGEN gekozen; de regel is NIET ad hoc aangescherpt voor deze naam. Openstaand punt: dit hoort eenmalig in README beslist te worden, niet per kaart.",
+      "wait_conditions": [
+        "twee opeenvolgende kwartalen omzetgroei >= 9% y/y (marktgroei) — dan stopt het aandeelverlies en gaat dimensie 3 naar >=3"
+      ],
+      "thesis_break": [
+        "omzetgroei twee kwartalen op rij onder +4% y/y",
+        "cybersecurity-omzet groeit niet meer boven het bedrijfsgemiddelde",
+        "brutomarge structureel onder 75%",
+        "netto kas uitgegeven aan een overname buiten het kernvak",
+        "grote telecom-operator kondigt publiek vervanging aan"
+      ],
+      "source": "stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10); NETSCOUT FY2026-resultaten; Mordor Intelligence marktgroei",
+      "card": "research/cards/NTCT.md",
+      "wait_price_below": null,
+      "wait_price_note": "wachtvoorwaarde is groei (>=9% y/y), geen prijs",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 9.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "ITRI",
+      "name": "Itron, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 102.63,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 4490000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust GRID holding 0,42% (peildatum 2026-08-07)",
+      "analyst_coverage": 13,
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $410,74M, capex $25,37M, FCF $385,37M. Kas $745,23M, schuld $1,60 mrd (netto schuld $855M = 2,2x jaarlijkse FCF). Bron: kasstroomoverzicht + balans, 4 kw t/m jun-2026.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 4,
+        "margin_and_direction": 4,
+        "competition": null,
+        "scalability": 2,
+        "execution": 3,
+        "valuation": 3
+      },
+      "unanalyzed": [
+        "competition",
+        "samenstelling eenmalige post dec-2025 (nettowinst $101,63M boven operationele winst $78,66M)",
+        "verhouding hardware- versus software-omzet",
+        "orderboek/backlog"
+      ],
+      "divergence_screen": "GEEN SCHONE DIVERGENTIE — koers -18,21% (52 wk), brutomarge stijgend naar een record (40,97%), maar de omzet daalde ECHT mee (-7% y/y, derde daling op rij) en de winstverrassing was gemengd (non-GAAP EPS beat, omzet miss). Bovendien is de onderreactie al grotendeels gecorrigeerd (+19,3% op de cijfers, koers nu boven 50d- en 200d-MA).",
+      "key_metrics": {
+        "pe_gaap": 17.11,
+        "pe_adjusted_for_dec2025_item": "ruwweg 20-21",
+        "ev_ebitda": 14.59,
+        "fcf_yield_on_ev_pct": 7.2,
+        "gross_margin_pct": 40.97,
+        "revenue_growth_yoy_pct": -7.0,
+        "fy_guidance_growth_pct": 1.0
+      },
+      "verdict": "VOLGEN",
+      "deciding_number": "FY-guidance +1% omzetgroei — het bedrijf beoordeelt zichzelf; recordmarges op een niet-groeiende basis zijn een kostenverhaal, geen franchise-verhaal",
+      "wait_conditions": [
+        "twee opeenvolgende kwartalen omzetgroei >= 0% y/y",
+        "of koers onder ~$85 (~14x GAAP-TTM-winst)"
+      ],
+      "thesis_break": [
+        "vierde en vijfde omzetdaling op rij",
+        "brutomarge terug onder 38%",
+        "Networked Solutions krimpt twee kwartalen door",
+        "FY-guidance wordt verlaagd in plaats van verhoogd",
+        "vrije kasstroom onder $250M per jaar"
+      ],
+      "check_4_finding": "De gevierde beat was non-GAAP EPS $1,59; GAAP-EPS was $1,19 en daarmee -19% y/y. De koers sprong +19,3% op een getal dat niet in de jaarrekening staat. PE 17,11 is wel op GAAP berekend.",
+      "source": "stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10); Investing.com en StockStory over Q2-2026",
+      "card": "research/cards/ITRI.md",
+      "wait_price_below": 85.0,
+      "wait_price_note": "koers onder ~$85 (~14x GAAP-TTM-winst)",
+      "wait_price_is_partial": false,
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 0.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "MYRG",
+      "name": "MYR Group Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 330.31,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 5140000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust GRID holding 0,53% (peildatum 2026-08-07)",
+      "analyst_coverage": 7,
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $298,50M, capex $105,14M, FCF $193,36M. Netto kas $70,77M ($137,87M kas - $67,10M schuld). Bron: kasstroomoverzicht + balans, 4 kw t/m jun-2026.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 4,
+        "competition": null,
+        "scalability": 3,
+        "execution": 4,
+        "valuation": 2
+      },
+      "unanalyzed": [
+        "competition",
+        "marge per segment (T&D versus commercieel/industrieel)",
+        "reden insiderverkoop ($10,5M, geen aankopen)",
+        "bijdrage overnames Valley/Comet aan de +20,1% groei"
+      ],
+      "divergence_screen": "HALF VAN TOEPASSING — op ~3 maanden een koop-kandidaat (koers -20,6% t.o.v. 50d-MA, kwartaal beat op BEIDE lijnen: EPS +20,1%, omzet +8,8%; brutomarge stijgend). MAAR op 6 maanden is er geen daling: koers +5,0% boven de 200d-MA en +78,50% over 52 weken. Geen goedkoop geworden aandeel, wel een teruggezette.",
+      "key_metrics": {
+        "pe": 31.34,
+        "forward_pe": 25.71,
+        "ev_ebitda": 17.18,
+        "gross_margin_pct": 13.19,
+        "operating_margin_pct": 6.3,
+        "revenue_growth_yoy_pct": 20.1,
+        "backlog_usd": 3160000000
+      },
+      "verdict": "VOLGEN",
+      "deciding_number": "PE 31,3 tegen een operationele marge van 6,3% — een groeimultiple voor een aannemersmarge, zonder kussen voor de projecttegenvaller die bij aannemers hoort",
+      "wait_conditions": [
+        "koers onder ~$250 (~20x forward EPS $12,85)",
+        "of een marktaandeel-cijfer dat aantoont dat MYRG structureel wint van Quanta/MasTec"
+      ],
+      "thesis_break": [
+        "brutomarge twee kwartalen op rij onder 12,0%",
+        "operationele kasstroom twee kwartalen onder 25% van de nettowinst",
+        "backlog daalt twee kwartalen op rij",
+        "projectafschrijving groter dan $25M",
+        "insiders blijven verkopen terwijl de koers daalt"
+      ],
+      "check_3_finding": "Twee routes naar de TTM-nettowinst weken 13,6% af: winst-en-verliespagina $187,77M versus kasstroomoverzicht $165,29M. Route B (kasstroom) reconcilieert met de gerapporteerde TTM EN met EPS x aandelen; route A met niets. Onder de 30%-drempel, maar wel echt — route B gebruikt.",
+      "source": "stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10); Yahoo/Zacks en StockStory over Q2-2026; GuruFocus over insiderverkoop",
+      "card": "research/cards/MYRG.md",
+      "wait_price_below": 250.0,
+      "wait_price_note": "koers onder ~$250 (~20x forward EPS $12,85)",
+      "wait_price_is_partial": false,
+      "manual_only_conditions": "marktaandeel-trend t.o.v. Quanta/MasTec - geen publieke reeks"
+    },
+    {
+      "ticker": "PLPC",
+      "name": "Preformed Line Products Company",
+      "scored_at": "2026-08-11",
+      "price_at_score": 462.63,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 2262000000,
+      "market_cap_note": "nagerekend: 4,89M aandelen x $462,63 = $2,262 mrd",
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust GRID holding 0,09% (peildatum 2026-08-07)",
+      "analyst_coverage": 0,
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $72,15M, capex $37,73M, FCF $34,42M. Kas $75,91M, schuld $52,07M. Bron: kasstroomoverzicht + balans, 4 kw t/m jun-2026.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS",
+        "liquidity_note": "Slechts 4,89M aandelen uitstaand — de dunste van deze ronde. Niet bindend bij max 2% per naam op portefeuilles tot enkele tonnen, maar wel de enige naam waar deze poort ooit kan gaan knellen."
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 4,
+        "competition": null,
+        "scalability": 4,
+        "execution": 3,
+        "valuation": 1
+      },
+      "unanalyzed": [
+        "competition",
+        "oorzaak marge-sprong (grondstofprijzen, mix of prijszetting)",
+        "geografische spreiding van de omzetgroei",
+        "wat het juni-kwartaal uitzonderlijk maakte — dit getal bepaalt de hele kaart"
+      ],
+      "divergence_screen": "N.V.T. — geen koersdaling (+190,74% over 52 weken); dit is het spiegelbeeld van waar de screen naar zoekt. Bijkomende bevinding: zonder analistendekking BESTAAT er geen winstverrassing, dus valt een van de vier meetpunten van de screen structureel weg. Dat is de prijs van deze categorie.",
+      "key_metrics": {
+        "pe": 52.44,
+        "forward_pe": 34.22,
+        "ev_ebitda": 24.63,
+        "gross_margin_pct": 34.33,
+        "operating_margin_pct": 13.1,
+        "revenue_growth_yoy_pct": 25.4,
+        "operating_income_growth_yoy_pct": 63.0,
+        "price_change_52w_pct": 190.74,
+        "pct_above_200d_ma": 60.0
+      },
+      "verdict": "VOLGEN",
+      "deciding_number": "de helft van de TTM-winst ($21,51M van $43,12M) komt uit een enkel kwartaal, terwijl de koers +190,74% is gestegen — een structurele multiple voor een grillige winstreeks ($0,53 / $1,72 / $2,14 / $4,49 EPS)",
+      "wait_conditions": [
+        "twee opeenvolgende kwartalen EPS boven $3,00 (maakt van juni-2026 een niveau in plaats van een uitschieter)",
+        "EN koers onder ~$300 (~22x een genormaliseerde winst van ~$13,50 per aandeel)"
+      ],
+      "wait_conditions_note": "Beide voorwaarden, niet een van beide: de twee risico's zijn onafhankelijk — de prijs kan zakken zonder dat de winst bestendig blijkt, en omgekeerd.",
+      "thesis_break": [
+        "EPS in enig kwartaal terug onder $1,50",
+        "brutomarge terug onder 30%",
+        "omzetgroei onder +5% y/y",
+        "operationele kasstroom twee kwartalen onder 50% van de nettowinst",
+        "aandelenaantal (4,89M) stijgt met meer dan 10%"
+      ],
+      "source": "stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10)",
+      "card": "research/cards/PLPC.md",
+      "wait_price_below": 300.0,
+      "wait_price_note": "koers onder ~$300 EN twee kwartalen EPS > $3,00 — prijs alleen is niet genoeg",
+      "wait_price_is_partial": true,
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "eps",
+            "op": ">=",
+            "value": 3.0,
+            "quarters": 2
+          }
+        ],
+        "partial": true,
+        "partial_reason": "de gecodeerde regels zijn maar EEN HELFT van een EN-voorwaarde; de andere helft is guidance (ALNY) of de prijsdrempel (PLPC)"
+      }
+    },
+    {
+      "ticker": "AMSC",
+      "name": "American Superconductor Corporation",
+      "scored_at": "2026-08-11",
+      "price_at_score": 30.99,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 1500000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust GRID holding 0,17% (peildatum 2026-08-07)",
+      "analyst_coverage": 4,
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend op operationeel niveau. Op. kasstroom TTM $35,04M, capex $14,51M, FCF $20,53M. Kas $143,71M, schuld $3,90M. Bron: kasstroomoverzicht + balans, 4 kw t/m jun-2026. Dit is GEEN ASTS-geval: het bedrijf gaat niet om, het valt af op de these.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 2,
+        "competition": null,
+        "scalability": 2,
+        "execution": 3,
+        "valuation": 1
+      },
+      "unanalyzed": [
+        "competition",
+        "marge per segment — mixverschuiving of prijsdruk? Zolang onbekend telt de daling als structureel (bij twijfel niet kopen)",
+        "duur en omvang van het Navy-contract"
+      ],
+      "divergence_screen": "AFVALLER — README-rij 4: koers omlaag (-39,22% over 52 wk) EN brutomarge vier kwartalen op rij dalend (31,03% -> 26,28%). Fundamenteel bevestigde daling, geen sentiment-gedreven kans.",
+      "one_off_correction": {
+        "reported_ttm_net_income_usd": 136580000,
+        "one_off_tax_benefit_usd": 113100000,
+        "one_off_description": "Vrijval waarderingsreserve op uitgestelde belastingvordering, kwartaal dec-2025 (niet-kas)",
+        "adjusted_ttm_net_income_usd": 23480000,
+        "pe_reported": 10.38,
+        "pe_adjusted": 63.9,
+        "ev_ebitda": 55.71,
+        "ttm_operating_income_usd": 15640000,
+        "note": "De gerapporteerde PE van 10,38 was het enige getal dat 'koopje' zei en het bestond niet. Na correctie is de PE (63,9) consistent met de EV/EBITDA (55,71) — de twee routes vallen samen zodra de eenmalige post eruit is."
+      },
+      "checks_that_fired": {
+        "check_1_source_tag": "Waarderingsvraag beantwoord met een belastingpost — type vraag != type bron",
+        "check_2_reconciliation": "Kwartaal dec-2025: nettowinst $117,81M tegen operationele kasstroom $3,25M — gat van $114,56M. Gevonden in het kasstroomoverzicht, VOOR het persbericht",
+        "check_3_two_routes": "PE 10,38 versus EV/EBITDA 55,71 — afwijking >400%, ver boven de 30%-drempel",
+        "check_4_number_attack": "'TTM nettowinst $136,58M' beantwoordt 'wat deed de belastingboekhouding' op de vraag 'wat verdient dit bedrijf'",
+        "check_5_no_management_number": "De $113,1M is een GAAP-post, geen pro-forma — maar hem in een waarderingsratio gebruiken is dezelfde soort fout. De regel gaat over elk getal dat een andere vraag beantwoordt, niet alleen over pro-forma"
+      },
+      "verdict": "AFVALLER",
+      "deciding_number": "gecorrigeerde PE 63,9 (niet 10,38) bij een operationele marge van 4,9%, terwijl de brutomarge in 5 kwartalen 7,6pp daalde bij 30% omzetgroei",
+      "return_to_volgen_conditions": [
+        "brutomarge twee opeenvolgende kwartalen >= 30%",
+        "of koers zo laag dat EV/EBITDA onder 20 komt",
+        "of operationele marge structureel boven 10%"
+      ],
+      "thesis_break": [
+        "brutomarge onder 25%",
+        "orderinstroom twee kwartalen onder $80M",
+        "Navy-programma niet verlengd",
+        "nieuwe aandelenuitgifte terwijl er $143,71M kas staat",
+        "operationele kasstroom onder $5M per kwartaal"
+      ],
+      "source": "AMSC 8-K/persbericht Q3 FY2025 (4 feb 2026) voor de $113,1M belastingbate; AMSC persbericht Q1 FY2026 (5 aug 2026); stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10)",
+      "card": "research/cards/AMSC.md",
+      "wait_price_below": null,
+      "wait_price_note": "terugkeervoorwaarde is marge/EV-EBITDA, geen prijs",
+      "return_fundamental": {
+        "mode": "any",
+        "rules": [
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 30.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_margin_pct",
+            "op": ">",
+            "value": 10.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "OTEX",
+      "name": "Open Text Corporation",
+      "scored_at": "2026-08-11",
+      "price_at_score": 24.72,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 5870000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust SKYY holding 0,59% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $1.006,81M, capex $199,30M, FCF $807,51M. Netto schuld $5,01 mrd = 3,07x EBITDA. Slaagt NIET triviaal - op een na hoogste hefboom van de negen.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 4,
+        "competition": 2,
+        "scalability": 2,
+        "execution": 4,
+        "valuation": 4
+      },
+      "unanalyzed": [
+        "aflossingsschema en rentevoet van de $5,97 mrd schuld - belangrijkste ontbrekende getal",
+        "uitsplitsing structurele versus eenmalige kostenbesparingen",
+        "marktaandeel per productlijn binnen de +1,5% totaal"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT (README-rij 1/2) - de enige schone van beide ronden: koers -20,03% over 52 wk en 7,7% ONDER de 200d-MA, brutomarge stijgend (75,37% -> 78,16%), kwartaal beat op beide lijnen (EPS +18,3%, omzet +2,3%).",
+      "key_metrics": {
+        "pe": 9.58,
+        "forward_pe": 6.38,
+        "ev_ebitda": 6.66,
+        "fcf_ttm_usd": 807510000,
+        "fcf_yield_on_market_cap_pct": 13.8,
+        "fcf_yield_on_ev_pct": 7.4,
+        "dividend_yield_pct": 4.53,
+        "net_debt_to_ebitda": 3.07,
+        "gross_margin_pct": 78.16,
+        "operating_margin_pct": 24.1,
+        "revenue_growth_ttm_pct": 1.5,
+        "price_change_52w_pct": -20.03
+      },
+      "verdict": "VOLGEN",
+      "rule_a_applied": "Het beslissende getal (+1,5% omzetgroei) rust op dimensie 3, die op 2 staat -> VOLGEN. Zonder regel A (2026-08-11) was dit KOOPBAAR geweest: poorten PASS, geen '?', geen 1, waardering 4. Eerste keer dat de nieuwe regel daadwerkelijk bijt.",
+      "deciding_number": "+1,5% omzetgroei tegen 3,07x netto schuld/EBITDA - bij nul hefboom zou vlakke omzet met 13,8% FCF-rendement aantrekkelijk zijn; met 3x hefboom is de marge tussen goed en slecht dun",
+      "wait_conditions": [
+        "twee opeenvolgende kwartalen totale omzetgroei >= 4% y/y (of cloud >= 8%)",
+        "of netto schuld/EBITDA onder 2,5x"
+      ],
+      "thesis_break": [
+        "omzet krimpt twee kwartalen op rij",
+        "cloudomzet groeit onder 3% y/y",
+        "netto schuld/EBITDA boven 3,5x",
+        "dividend verlaagd",
+        "brutomarge onder 75%"
+      ],
+      "source": "stockanalysis.com kwartaalcijfers/kasstroom/statistieken (slot 2026-08-10); OTEX Q4 FY2026-resultaten 6 aug 2026",
+      "card": "research/cards/OTEX.md",
+      "wait_price_below": null,
+      "wait_price_note": "wachtvoorwaarde is groei (>=4% y/y) of hefboom (<2,5x), geen prijs",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 4.0,
+            "quarters": 2
+          }
+        ]
+      },
+      "manual_only_conditions": "de alternatieve voorwaarde (netto schuld/EBITDA < 2,5x) vergt balansdata; alleen de omzetgroei-helft is gecodeerd"
+    },
+    {
+      "ticker": "DOCU",
+      "name": "DocuSign, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 59.64,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 11390000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust SKYY holding 0,65% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Operationele winst TTM $349,64M, nettowinst $315,20M. Netto kas $630,85M ($814,18M kas - $183,33M schuld).",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 4,
+        "competition": null,
+        "scalability": 4,
+        "execution": 3,
+        "valuation": 3
+      },
+      "unanalyzed": [
+        "competition - marktaandeel t.o.v. Adobe Acrobat Sign en de trend; bepaalt of de vertraging naar 8% verzadiging of aandeelverlies is",
+        "exacte omvang en aard van de belastingpost jul-2024",
+        "netto-omzetretentie (NRR)",
+        "aandeel van IAM-producten in de omzet"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT naar de letter (koers -13,80%, brutomarge vlak ~79,4%, geen echte tegenvaller) MAAR de instap is grotendeels weg: koers staat +20,1% boven de 50d-MA en +9,8% boven de 200d-MA. Je koopt het herstel, niet de dip.",
+      "one_off_correction": {
+        "headline_metric": "nettowinst TTM -71,5%",
+        "why_wrong": "Vergelijkingsbasis: het kwartaal jul-2024 bevatte een eenmalige belastingbate (nettowinst $888,21M, EPS $4,26).",
+        "what_actually_happened": "Operationele winst steeg over 6 kwartalen van $60,47M naar $111,31M = +84%; omzet +8,4%.",
+        "note": "Dit is de AMSC-fout met tegengesteld teken. Bij AMSC tilde zo'n post de winst op en leek een duur aandeel goedkoop; hier tilde hij het VORIGE jaar op en lijkt een verbeterend bedrijf in te storten. Een screener op winstgroei koopt de eerste en verwerpt de tweede - allebei fout."
+      },
+      "key_metrics": {
+        "pe_gaap": 38.73,
+        "forward_pe_non_gaap": 12.82,
+        "ev_ebitda": 14.55,
+        "net_cash_usd": 630850000,
+        "gross_margin_pct": 79.37,
+        "operating_margin_pct": 13.4,
+        "operating_income_growth_6q_pct": 84.0,
+        "revenue_growth_ttm_pct": 8.4,
+        "price_change_52w_pct": -13.8
+      },
+      "check_3_finding": "Trailing PE 38,73 (GAAP) versus forward PE 12,82 - een verschil van 3x is bij 8% omzetgroei onmogelijk. De forward-PE rust op non-GAAP winst. Niet vergelijkbaar; niet gebruikt als waarderingsmaatstaf.",
+      "verdict": "VOLGEN",
+      "deciding_number": "omzetgroei +8,4% (niet de winstgroei van 84%) - de winstgroei vertelt wat er met de kosten gebeurde, de omzetgroei wat de markt van het product vindt",
+      "wait_conditions": [
+        "omzetgroei versnelt twee kwartalen op rij naar >= 10% y/y",
+        "of koers onder ~$45 (~25x GAAP-winst)"
+      ],
+      "thesis_break": [
+        "omzetgroei onder +5% y/y",
+        "brutomarge onder 77%",
+        "operationele marge stagneert twee kwartalen",
+        "Adobe of Microsoft bundelt ondertekenen kosteloos in een breed pakket",
+        "netto kas gaat op aan een overname buiten het kernvak"
+      ],
+      "source": "stockanalysis.com kwartaalcijfers/statistieken (slot 2026-08-10)",
+      "card": "research/cards/DOCU.md",
+      "wait_price_below": 45.0,
+      "wait_price_note": "koers onder ~$45 (~25x GAAP-winst)",
+      "wait_price_is_partial": false,
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 10.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "BLKB",
+      "name": "Blackbaud, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 45.96,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 2060000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust SKYY holding 0,80% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Operationele winst TTM $227,18M, nettowinst $150,68M. Netto schuld $1,12 mrd = 3,60x EBITDA - hoogste hefboom van alle negen gescoorde namen, met slechts $35,11M kas.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 4,
+        "competition": null,
+        "scalability": 2,
+        "execution": 3,
+        "valuation": 3
+      },
+      "unanalyzed": [
+        "competition - marktaandeel t.o.v. Salesforce Nonprofit Cloud en de trend",
+        "aflossingsschema van de $1,16 mrd schuld",
+        "netto-omzetretentie - de plakkerigheid is het hele argument maar is niet gestaafd",
+        "waarom de koers in juni zo laag stond"
+      ],
+      "divergence_screen": "KANS GESLOTEN - de divergentie was echt in juni (koers gedaald, marges stijgend, beats), maar de markt liep hem in twee maanden in: +72,84% vanaf de bodem, koers nu +42,2% BOVEN de 50d-MA. Wat resteert is een vlak groeiend, hefboomrijk bedrijf tegen een normale prijs.",
+      "key_metrics": {
+        "pe": 14.3,
+        "ev_ebitda": 10.21,
+        "net_debt_to_ebitda": 3.6,
+        "gross_margin_pct": 61.31,
+        "operating_margin_pct_gaap": 21.3,
+        "operating_margin_pct_non_gaap": 32.6,
+        "revenue_growth_ttm_pct": 0.7,
+        "price_change_52w_pct": -28.29,
+        "rebound_from_low_pct": 72.84
+      },
+      "check_4_finding": "'-28,29% over 52 weken' beantwoordt niet 'is dit NU gedaald' - de koers staat +42% boven de 50d-MA na een herstel van 72,84%. METHODELES: 52-weekscijfer om te vinden, maar altijd de stand t.o.v. 50d- en 200d-MA erbij om te bepalen of de daling er nu nog is. Tweede vondst: non-GAAP operationele marge 32,6% tegen GAAP 21,3% (11,3pp verschil).",
+      "verdict": "VOLGEN",
+      "deciding_number": "+72,84% koersherstel tegen +0,7% omzetgroei - die twee horen niet bij elkaar; de vraag is niet meer waarom dit goedkoop is maar waarom het verder zou stijgen",
+      "wait_conditions": [
+        "koers terug onder ~$33 (rond de 50d-MA, ~10x de winst)",
+        "EN netto schuld/EBITDA onder 3,0x"
+      ],
+      "thesis_break": [
+        "omzet krimpt in enig kwartaal y/y",
+        "brutomarge onder 58%",
+        "netto schuld/EBITDA boven 4,0x",
+        "Salesforce wint een zichtbaar aantal grote goede doelen",
+        "aandeleninkoop gestaakt ten gunste van schuldaflossing"
+      ],
+      "source": "stockanalysis.com kwartaalcijfers/statistieken (slot 2026-08-10); Investing.com over het herstel van 73% sinds juni",
+      "card": "research/cards/BLKB.md",
+      "wait_price_below": 33.0,
+      "wait_price_note": "koers onder ~$33 EN netto schuld/EBITDA onder 3,0x — prijs alleen is niet genoeg",
+      "wait_price_is_partial": true,
+      "manual_only_conditions": "netto schuld/EBITDA < 3,0x - vergt balansdata per kwartaal"
+    },
+    {
+      "ticker": "LDOS",
+      "name": "Leidos Holdings, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 139.1,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 17500000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust CIBR holding 1,96% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $2.300M, capex $137M, FCF $2.163M. Netto schuld $5,83 mrd = 2,45x EBITDA.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 3,
+        "competition": 3,
+        "scalability": 2,
+        "execution": 4,
+        "valuation": 4
+      },
+      "unanalyzed": [
+        "marktaandeel met een echte reeks (dim. 3 rust op een vergelijking met BAH)",
+        "book-to-bill-ratio",
+        "contractmix vast-prijs versus cost-plus",
+        "blootstelling aan specifieke bezuinigingsprogramma's"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT (rij 1/2) - de schoonste van alle drie de ronden. Koers -32,4% onder de top en -11,6% onder de 200d-MA, brutomarge stabiel (17,9%), omzet +7,2%, $5 mrd nieuwe opdrachten, FY-guidance OP de consensus. Daling toegeschreven aan de overheidsshutdown = macro, niet bedrijfsprestatie.",
+      "key_metrics": {
+        "pe": 12.99,
+        "forward_pe": 10.8,
+        "ev_ebitda": 9.8,
+        "fcf_ttm_usd": 2163000000,
+        "fcf_yield_on_ev_pct": 9.3,
+        "net_debt_to_ebitda": 2.45,
+        "gross_margin_pct": 17.9,
+        "operating_margin_pct": 11.7,
+        "revenue_growth_yoy_pct": 7.2,
+        "price_vs_200dma_pct": -11.6
+      },
+      "verdict": "VOLGEN",
+      "rule_a_applied": "Beslissend getal (operationele winst -5,5% bij omzet +7,2%) rust op dimensie 4, die op 2 staat -> VOLGEN. Naar de vier criteria was dit KOOPBAAR geweest.",
+      "rule_a_weakness": "TWEEDE keer (na OTEX) dat de KEUZE van het beslissende getal het verdict bepaalt. Wie 'FY-guidance op consensus terwijl de koers -35% staat' als beslissend neemt, krijgt KOOPBAAR. Regel A heeft een tiebreak nodig. Voorstel: bij twijfel telt het getal dat het RISICO beschrijft, niet dat wat de KANS beschrijft - sluit aan bij 'bij twijfel niet kopen'. Zo toegepast hier.",
+      "deciding_number": "operationele winst -5,5% bij omzet +7,2% - werk komt binnen tegen dunnere marges; blijft die erosie doorlopen dan is 10,8x de winst de juiste prijs, stabiliseert hij dan koop je nu dubbelcijferig kasstroomrendement",
+      "wait_price_below": 120.0,
+      "wait_price_note": "koers onder ~$120 (~9x verwachte winst)",
+      "wait_price_is_partial": false,
+      "wait_conditions": [
+        "operationele marge twee opeenvolgende kwartalen >= 12,0%",
+        "of koers onder ~$120 (~9x verwachte winst)"
+      ],
+      "thesis_break": [
+        "operationele marge onder 10,5%",
+        "book-to-bill twee kwartalen onder 1,0",
+        "FY-guidance verlaagd in plaats van bevestigd",
+        "netto schuld/EBITDA boven 3,0x",
+        "groot contract verloren bij herbesteding"
+      ],
+      "note": "Van alles wat in drie ronden is gescoord staat LDOS het dichtst bij koopwaardig.",
+      "source": "Leidos 8-K Q2 2026 (SEC); Barchart; Daily Political over FY-guidance; kwartaalcijfers via yfinance (2026-08-10)",
+      "card": "research/cards/LDOS.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "operating_margin_pct",
+            "op": ">=",
+            "value": 12.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "TTD",
+      "name": "The Trade Desk, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 13.39,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 6290000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust SKYY holding 0,36% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $1.081,7M, capex $233,1M, FCF $848,6M. Netto kas $1.051,2M = 16,7% van de beurswaarde. Poorten slagen ruim; valt af op de these, niet op overleving.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 2,
+        "margin_and_direction": 2,
+        "competition": 2,
+        "scalability": 2,
+        "execution": 2,
+        "valuation": 5
+      },
+      "unanalyzed": [
+        "marktaandeelreeks (dim. 3 rust op groeivergelijking +3,0% tegen ~10% markt)",
+        "oorzaak brutomarge-daling: prijsconcessies, mix of datakosten",
+        "aandelenbeloning als percentage van de omzet"
+      ],
+      "divergence_screen": "AFVALLER - rij 4: koers omlaag (-76,3% onder de top, -52,6% onder de 200d-MA) MET structureel dalende brutomarge (78,2% -> 74,2%, -4,0pp) en omzetgroei die van 25,4% naar 3,0% viel. Fundamenteel bevestigde daling.",
+      "key_metrics": {
+        "pe": 16.33,
+        "forward_pe": 13.45,
+        "ev_ebitda": 7.51,
+        "fcf_ttm_usd": 848600000,
+        "fcf_yield_on_ev_pct": 16.2,
+        "net_cash_pct_of_mcap": 16.7,
+        "gross_margin_pct": 74.2,
+        "revenue_growth_yoy_pct": 3.0,
+        "operating_income_growth_yoy_pct": -13.0,
+        "price_vs_200dma_pct": -52.6
+      },
+      "verdict": "AFVALLER",
+      "deciding_number": "+3,0% omzetgroei tegen een advertentiemarkt die ~10% groeit, met brutomarge -4,0pp - zolang dat gat er is, is elke multiple de juiste multiple",
+      "cost_of_the_rule": "Dit is de GOEDKOOPSTE naam uit 299 gescreende bedrijven (EV/EBITDA 7,51, 16,2% FCF-rendement, 16,7% netto kas) en het raamwerk wijst hem af. Bewust: laag gewaardeerd + dalende marges + verliezend marktaandeel is de klassieke waardeval. De ledger houdt bij of dat klopte.",
+      "return_to_volgen_conditions": [
+        "brutomarge twee opeenvolgende kwartalen >= 77%",
+        "of omzetgroei twee kwartalen >= 8% y/y"
+      ],
+      "thesis_break": [
+        "omzetgroei wordt negatief",
+        "brutomarge onder 72%",
+        "Amazon of Google sluit TTD uit van inventaris",
+        "nieuw directievertrek",
+        "vrije kasstroom onder $500M per jaar"
+      ],
+      "source": "Motley Fool; Seeking Alpha (Citizens over Amazon DSP); TheStreet; kwartaalcijfers via yfinance (2026-08-10)",
+      "card": "research/cards/TTD.md",
+      "return_fundamental": {
+        "mode": "any",
+        "rules": [
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 77.0,
+            "quarters": 2
+          },
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 8.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "HUBS",
+      "name": "HubSpot, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 215.91,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 10770000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust SKYY holding 1,61% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $856,4M, capex $198,5M, FCF $657,9M. Netto kas $1.101M = 10,2% van de beurswaarde.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 4,
+        "margin_and_direction": 3,
+        "competition": null,
+        "scalability": 3,
+        "execution": 3,
+        "valuation": 3
+      },
+      "unanalyzed": [
+        "competition - marktaandeel t.o.v. Salesforce en Zoho in het middensegment",
+        "netto-omzetretentie (NRR) - hét cijfer onder een prijsmodelwissel",
+        "aandelenbeloning als percentage van de omzet ($511M gat winst vs FCF)",
+        "aandeel van de omzet dat al op uitkomstbasis loopt"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT (rij 1/2): koers -58,9% onder de top en -22,8% onder de 200d-MA, brutomarge vrijwel vlak (~83%), Q1 beat EN FY-guidance verhoogd. De daling komt van een VERWACHTING over de toekomst (AI-disruptie van seat-based SaaS) na de eigen aankondiging van uitkomstgebaseerde prijzen - niet van gerealiseerde cijfers.",
+      "key_metrics": {
+        "pe_gaap": 74.71,
+        "forward_pe_non_gaap": 13.04,
+        "ev_ebitda": 61.7,
+        "fcf_ttm_usd": 657900000,
+        "fcf_yield_on_ev_pct": 6.8,
+        "gross_margin_pct": 82.3,
+        "operating_margin_pct_gaap": 4.9,
+        "revenue_growth_yoy_pct": 19.8,
+        "price_vs_200dma_pct": -22.8
+      },
+      "check_2_finding": "TTM nettowinst $146,8M tegen FCF $657,9M - een gat van $511M dat grotendeels aandelenbeloning is: geen kasuitgave, wel een reele kost via verwatering. Wie op FCF waardeert negeert ~15% van de omzet aan kosten.",
+      "check_3_finding": "EV/EBITDA 61,70 (GAAP) tegen forward PE 13,04 (non-GAAP) - onmogelijke kloof bij 20% groei; de forward-PE laat aandelenbeloning weg. GAAP-route gebruikt. Zelfde valstrik als bij DOCU.",
+      "verdict": "VOLGEN",
+      "deciding_number": "gebruikers +90% tegen omzet +19,8% - de opbrengst per gebruiker daalt sterk, en dat is een eigen keuze (uitkomstbetaling), geen overkomen gebeurtenis; of dat slimme verdediging is of een prijsspiraal blijkt pas na twee kwartalen",
+      "wait_conditions": [
+        "twee opeenvolgende kwartalen omzetgroei >= 15% y/y onder het nieuwe prijsmodel",
+        "EN GAAP operationele marge >= 7%"
+      ],
+      "thesis_break": [
+        "omzetgroei onder 12% y/y",
+        "brutomarge onder 80%",
+        "GAAP operationele marge weer negatief",
+        "aandelenaantal groeit meer dan 3% per jaar",
+        "Salesforce of Microsoft brengt een AI-CRM voor het middensegment tegen een fractie van de prijs"
+      ],
+      "source": "StocksToTrade en ad-hoc-news over de AI-prijsomslag; Seeking Alpha; kwartaalcijfers via yfinance (2026-08-10)",
+      "card": "research/cards/HUBS.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 15.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_margin_pct",
+            "op": ">=",
+            "value": 7.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "ALNY",
+      "name": "Alnylam Pharmaceuticals, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 216.98,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 29030000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust FTXH holding 0,29% (peildatum 2026-08-10)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $911,8M, FCF $819,9M. Kas $3.308,1M tegen schuld $2.987,5M -> netto kas $320,6M.",
+        "core_etf_overlap": "PASS",
+        "core_etf_overlap_note": "~0,04% van MSCI World bij $29,03 mrd - het zwaarste van alle gescoorde namen, nog altijd verwaarloosbaar.",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 4,
+        "margin_and_direction": 3,
+        "competition": 2,
+        "scalability": 4,
+        "execution": 2,
+        "valuation": 3
+      },
+      "unanalyzed": [
+        "concurrentiepositie in ATTR-CM met vergelijkende data (nucresiran e.a.)",
+        "splitsing eerste- versus tweedelijns-vraag",
+        "waarde van de pijplijn buiten ATTR",
+        "aflossingsprofiel van de $2,99 mrd schuld"
+      ],
+      "divergence_screen": "NIET KOPEN - rij 3: koers omlaag (-56,2% onder de top) MET een tegengevallen kwartaal. Q2 miste de verwachting EN de TTR-jaarprognose ging van $4,4-4,7 mrd naar $4,2-4,5 mrd; aandeel -28,3% op een dag. Zelfde rij als ASTS. Minimaal 1-2 kwartalen wachten.",
+      "key_metrics": {
+        "pe": 37.74,
+        "forward_pe": 17.23,
+        "ev_ebitda": 27.23,
+        "revenue_growth_yoy_pct": 66.9,
+        "operating_margin_pct": 17.9,
+        "guidance_cut_from_usd_bn": "4,4-4,7",
+        "guidance_cut_to_usd_bn": "4,2-4,5",
+        "one_day_drop_pct": -28.3,
+        "price_vs_200dma_pct": -36.5
+      },
+      "check_4_finding": "'Omzet +66,9%' kijkt ACHTERUIT; de koers wordt bepaald door wat vooruit ligt, en daarop verlaagde het bedrijf zelf de prognose. Achteruitkijkende groei tegenover vooruitkijkende verlaging.",
+      "verdict": "VOLGEN",
+      "deciding_number": "verlaging van de eigen TTR-jaarprognose van $4,4-4,7 naar $4,2-4,5 mrd - dat cijfer kijkt vooruit, de +66,9% kijkt achteruit",
+      "wait_conditions": [
+        "een tot twee kwartalen zonder verdere verlaging van de TTR-prognose",
+        "EN omzetgroei >= 25% y/y in dat kwartaal"
+      ],
+      "thesis_break": [
+        "TTR-prognose een tweede keer verlaagd",
+        "omzetgroei onder 15% y/y",
+        "concurrent toont fase 3-superioriteit op ATTR-CM",
+        "Amvuttra-omzet daalt twee kwartalen sequentieel",
+        "pijplijnkandidaat buiten ATTR faalt"
+      ],
+      "source": "Yahoo Finance en FiercePharma over de Q2-misser en prognoseverlaging; Investing.com Q2-presentatie; kwartaalcijfers via yfinance (2026-08-10)",
+      "card": "research/cards/ALNY.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 25.0,
+            "quarters": 1
+          }
+        ],
+        "partial": true,
+        "partial_reason": "de gecodeerde regels zijn maar EEN HELFT van een EN-voorwaarde; de andere helft is guidance (ALNY) of de prijsdrempel (PLPC)"
+      },
+      "manual_only_conditions": "'geen verdere verlaging van de TTR-prognose' is guidance, niet meetbaar uit de jaarrekening - alleen de omzetgroei-helft is gecodeerd"
+    },
+    {
+      "ticker": "CHKP",
+      "name": "Check Point Software Technologies Ltd.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 131.14,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 13390000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust CIBR holding 1,92% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $1.131,1M, capex $30,4M, FCF $1.099,7M. Kas $2.279,5M tegen schuld $1.974,9M -> netto kas $304,6M.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 3,
+        "competition": 2,
+        "scalability": 2,
+        "execution": 2,
+        "valuation": 4
+      },
+      "unanalyzed": [
+        "samenstelling van de winst boven de operationele lijn (rente versus belastingpost)",
+        "splitsing product- versus abonnementsomzet",
+        "marktaandeelcijfer (de +1,3% tegen ~12% markt is een afgeleide)"
+      ],
+      "divergence_screen": "GRENSGEVAL, neigend naar niet kopen. Koers -37,7% onder de top en -16,5% onder de 200d-MA, brutomarge stabiel (~85%, dus rij 4 gaat niet op), maar omzet groeit +1,3% en de operationele marge zakte 3,1pp. Geen sentiment-gedreven daling maar een correcte herwaardering van een stilstaand bedrijf.",
+      "key_metrics": {
+        "pe": 13.45,
+        "forward_pe": 11.6,
+        "ev_ebitda": 15.59,
+        "fcf_ttm_usd": 1099700000,
+        "fcf_yield_on_ev_pct": 8.3,
+        "gross_margin_pct": 85.2,
+        "operating_margin_pct": 27.5,
+        "revenue_growth_yoy_pct": 1.3,
+        "operating_income_growth_yoy_pct": -9.1,
+        "price_vs_200dma_pct": -16.5
+      },
+      "check_2_finding": "TTM nettowinst $1.048,6M ligt BOVEN de TTM operationele winst $802,2M - kan niet uit de bedrijfsvoering komen. Kwartaal sep-2025 springt eruit ($358,7M netto tegen $199,1M operationeel). De PE van 13,45 rust dus op een opgeblazen winstcijfer.",
+      "check_3_finding": "PE 13,45 versus EV/EBITDA 15,59 - bij netto kas hoort EV/EBITDA LAGER te liggen dan de PE; hier is het omgekeerd. Dat is het bewijs dat posten onder de operationele lijn de nettowinst optillen. Route B (EV/EBITDA) is de eerlijke.",
+      "verdict": "VOLGEN",
+      "deciding_number": "+1,3% eigen groei tegen ~12% marktgroei - zolang dat gat er is, is elke lage multiple de correcte multiple; je koopt de contante waarde van een langzaam krimpende positie",
+      "wait_conditions": [
+        "twee opeenvolgende kwartalen omzetgroei >= 6% y/y (halve marktgroei)"
+      ],
+      "thesis_break": [
+        "omzetgroei wordt negatief",
+        "operationele marge onder 25%",
+        "brutomarge onder 83%",
+        "vrije kasstroom onder $800M per jaar",
+        "grote klant stapt publiek over naar een cloud-native aanbieder"
+      ],
+      "note": "Zwakste operationele profiel van alle veertien namen die toch alle poorten halen: dimensies 3, 4 en 5 staan alle drie op 2.",
+      "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10); marktgroei cybersecurity zoals in NTCT-kaart",
+      "card": "research/cards/CHKP.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_growth_yoy_pct",
+            "op": ">=",
+            "value": 6.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "LEA",
+      "name": "Lear Corporation",
+      "scored_at": "2026-08-11",
+      "price_at_score": 120.87,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 8050000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust FTXR holding 1,13% (peildatum 2026-08-10)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $1.478,9M, capex $629,5M, FCF $849,4M. Netto schuld $2.509M = 1,48x EBITDA.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 2,
+        "margin_and_direction": 4,
+        "competition": null,
+        "scalability": 3,
+        "execution": 3,
+        "valuation": 4
+      },
+      "unanalyzed": [
+        "competition - marktaandeel t.o.v. Adient, Magna, Forvia",
+        "klantconcentratie top-3",
+        "splitsing stoelen versus e-systemen",
+        "oorzaak van de margedip in dec-2025"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT (rij 1/2): koers -19,6% onder de top, brutomarge 5,7% -> 7,6% over 3 kw, operationele winst +8,0% y/y. Wel de mildste daling van de ronde (-2,7% onder de 200d-MA).",
+      "key_metrics": {
+        "pe": 11.24,
+        "forward_pe": 7.07,
+        "ev_ebitda": 5.07,
+        "fcf_ttm_usd": 849400000,
+        "fcf_yield_on_market_cap_pct": 10.6,
+        "net_debt_to_ebitda": 1.48,
+        "gross_margin_pct": 7.6,
+        "operating_margin_pct": 4.3,
+        "revenue_growth_yoy_pct": 3.0,
+        "price_vs_200dma_pct": -2.7
+      },
+      "verdict": "VOLGEN",
+      "deciding_number": "operationele marge 4,3% - de dikte van het kussen tussen winst en verlies bij een toeleverancier die 3% groeit in een cyclische eindmarkt; bij die marge is 5,07x EBITDA de normale prijs, geen korting",
+      "wait_price_below": 100.0,
+      "wait_price_note": "koers onder ~$100 (~4x EBITDA)",
+      "wait_price_is_partial": false,
+      "wait_conditions": [
+        "operationele marge twee opeenvolgende kwartalen >= 5,0%",
+        "of koers onder ~$100 (~4x EBITDA)"
+      ],
+      "thesis_break": [
+        "brutomarge onder 6,5%",
+        "operationele marge onder 3,0%",
+        "netto schuld/EBITDA boven 2,5x",
+        "verlies van een groot platformcontract",
+        "vrije kasstroom onder $400M per jaar"
+      ],
+      "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10)",
+      "card": "research/cards/LEA.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "operating_margin_pct",
+            "op": ">=",
+            "value": 5.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "TRMB",
+      "name": "Trimble Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 58.44,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 13620000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust GRID holding 0,05% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $505,3M, capex $24,8M, FCF $480,5M. Netto schuld $1.178,7M = ~1,4x EBITDA.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 4,
+        "margin_and_direction": 4,
+        "competition": null,
+        "scalability": 4,
+        "execution": 4,
+        "valuation": 2
+      },
+      "unanalyzed": [
+        "competition - marktaandeel t.o.v. Topcon, Hexagon, Deere",
+        "splitsing hardware versus abonnementen - de hele these rust hierop",
+        "cijfers over het kwartaal jun-2026 (kaart loopt t/m mrt-2026)",
+        "oorzaak van de kasstroomschommeling (-$53,5M tot +$274,7M per kwartaal)"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT (rij 1/2): koers -30,9% onder de top en -12,4% onder de 200d-MA, brutomarge 66,7% -> 68,8%, operationele winst +44% bij omzet +11,8%. Fundamenteel geen enkele verslechtering.",
+      "key_metrics": {
+        "pe": 31.09,
+        "forward_pe": 14.32,
+        "ev_ebitda": 17.07,
+        "fcf_ttm_usd": 480500000,
+        "fcf_yield_on_market_cap_pct": 3.5,
+        "gross_margin_pct": 68.8,
+        "operating_margin_pct": 15.6,
+        "revenue_growth_yoy_pct": 11.8,
+        "price_vs_200dma_pct": -12.4
+      },
+      "data_caveat": "Kwartaalcijfers lopen t/m mrt-2026, een kwartaal ouder dan de overige kaarten van deze ronde.",
+      "verdict": "VOLGEN",
+      "deciding_number": "3,5% vrije-kasstroomrendement bij 11,8% groei - je wordt niet betaald om te wachten; de daling bracht de waardering van extreem naar vol, niet naar goedkoop",
+      "wait_price_below": 45.0,
+      "wait_price_note": "koers onder ~$45 (~24x winst, ~13x EBITDA)",
+      "wait_price_is_partial": false,
+      "wait_conditions": [
+        "koers onder ~$45 (~24x de winst, ~13x EBITDA, FCF-rendement ~4,6%)"
+      ],
+      "thesis_break": [
+        "brutomarge onder 66%",
+        "omzetgroei onder 5% y/y",
+        "operationele marge onder 12%",
+        "netto schuld/EBITDA boven 2,5x",
+        "abonnementsomzet groeit langzamer dan de totale omzet"
+      ],
+      "note": "Operationeel de sterkste van ronde 4: elke dimensie behalve waardering scoort 4. Geblokkeerd op prijs, niet op bedrijf.",
+      "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10, cijfers t/m mrt-2026)",
+      "card": "research/cards/TRMB.md",
+      "manual_only_conditions": "alleen een prijsvoorwaarde; geen fundamentele component"
+    },
+    {
+      "ticker": "WLDN",
+      "name": "Willdan Group, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 82.31,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 1250000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust GRID holding 0,14% en QCLN holding 0,43% (peildatum 2026-08-10)",
+      "analyst_coverage": 2,
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $70,9M, capex $8,5M, FCF $62,4M. Netto schuld $54,3M = ~0,7x EBITDA.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 3,
+        "competition": null,
+        "scalability": 4,
+        "execution": 4,
+        "valuation": 3
+      },
+      "unanalyzed": [
+        "competition - marktaandeel t.o.v. Ameresco en regionale bureaus",
+        "orderboek/backlog - het cijfer om de zaagtand mee te beoordelen",
+        "aandeel overgenomen versus autonome groei",
+        "post onder de operationele lijn in jun-2026 (nettowinst $24,3M boven operationele winst $19,7M)"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT (rij 1/2): koers -39,9% onder de top en -12,0% onder de 200d-MA, marges vlak tot beter, operationele winst +67% y/y.",
+      "key_metrics": {
+        "pe": 20.22,
+        "forward_pe": 15.53,
+        "ev_ebitda": 17.75,
+        "fcf_ttm_usd": 62400000,
+        "fcf_yield_on_market_cap_pct": 5.0,
+        "gross_margin_pct": 37.9,
+        "operating_margin_pct": 8.5,
+        "revenue_growth_quarter_yoy_pct": 33.1,
+        "revenue_growth_ttm_pct": 14.0,
+        "price_vs_200dma_pct": -12.0
+      },
+      "check_4_finding": "'Omzet +33,1%' is een kwartaalvergelijking op een grillige reeks ($173,5 -> $182,0 -> $173,7 -> $155,1 -> $231,0M). Op TTM-basis is de groei ~14%, minder dan de helft. Zelfde lumpiness-valstrik als bij PLPC.",
+      "verdict": "VOLGEN",
+      "deciding_number": "het verschil tussen +33,1% (een kwartaal) en ~+14% (TTM) - op 33% groei is 20x de winst goedkoop, op 14% bij een ingenieursbureau met wisselende marges is het een volle prijs",
+      "wait_conditions": [
+        "twee opeenvolgende kwartalen omzet >= $200M",
+        "EN operationele marge >= 8,0% in beide kwartalen"
+      ],
+      "thesis_break": [
+        "kwartaalomzet onder $170M",
+        "operationele marge onder 6,0%",
+        "brutomarge structureel onder 36%",
+        "netto schuld/EBITDA boven 2,0x",
+        "verlies van een groot nutsbedrijf als opdrachtgever"
+      ],
+      "note": "Kleinste naam van alle twintig ($1,25 mrd) en met 2 analisten de op een na minst gedekte. Samen met PLPC (0) en SEB (0) de toets op de 'weinig analistendekking'-hypothese uit het plan.",
+      "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10)",
+      "card": "research/cards/WLDN.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_usd",
+            "op": ">=",
+            "value": 200000000.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_margin_pct",
+            "op": ">=",
+            "value": 8.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "SEB",
+      "name": "Seaboard Corporation",
+      "scored_at": "2026-08-11",
+      "price_at_score": 4239.16,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 4060000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust FTXG holding 1,33% (peildatum 2026-08-10)",
+      "analyst_coverage": 0,
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $477M. Kas $1.207M tegen schuld $1.972M -> netto schuld $765M. LET OP: capex TTM $500M > op. kasstroom $477M -> FCF -$23M.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS",
+        "liquidity_note": "Slechts ~1,0M uitstaande aandelen a $4.239 - minst verhandelbaar van alle twintig. Niet bindend bij Bart's positieomvang, MAAR een enkel aandeel kost meer dan een hele positie mag zijn, dus tranchegewijs instappen (expliciete plan-regel) is onmogelijk. Praktisch bezwaar, geen poortfout."
+      },
+      "scores": {
+        "role_in_chain": 2,
+        "margin_and_direction": 3,
+        "competition": null,
+        "scalability": 2,
+        "execution": 3,
+        "valuation": 3
+      },
+      "unanalyzed": [
+        "competition - per segment andere spelers, geen aandeelcijfer",
+        "samenstelling van de $289M winst buiten de bedrijfsvoering - belangrijkste ontbrekende getal",
+        "winst per segment",
+        "waar de $500M capex naartoe gaat (uitbreiding of onderhoud)"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT MET ASTERISK: koers -29,2% onder de top, marges vlak tot beter. Maar bij een grondstoffenbedrijf meet de screen iets anders dan bedoeld - de 'fundamentals' bewegen met varkens- en graanprijzen, niet met de kwaliteit van de onderneming. Ook: geen analistendekking = geen winstverrassing = een van de vier meetpunten valt weg (zelfde blinde vlek als PLPC).",
+      "key_metrics": {
+        "pe_reported": 6.42,
+        "pe_on_operating_income": 11.8,
+        "ev_ebitda": 7.23,
+        "fcf_ttm_usd": -23000000,
+        "operating_cashflow_ttm_usd": 477000000,
+        "capex_ttm_usd": 500000000,
+        "gross_margin_pct": 7.6,
+        "operating_margin_pct": 3.4,
+        "revenue_growth_yoy_pct": 17.8,
+        "price_vs_200dma_pct": -11.4
+      },
+      "check_2_finding": "TTM nettowinst $634M tegen TTM operationele winst $345M - de nettowinst is 1,8x de operationele winst. Kwartaal dec-2025: nettowinst $253M bij operationele winst $65M. De PE van 6,42 rust dus op een winstcijfer met honderden miljoenen aan posten onder de operationele lijn.",
+      "check_3_finding": "Route A: PE 6,42. Route B: op operationele winst 11,8x, EV/EBITDA 7,23. De PE flatteert met bijna een factor 2.",
+      "verdict": "VOLGEN",
+      "deciding_number": "vrije kasstroom -$23M bij op. kasstroom $477M en capex $500M - zolang alles wat binnenkomt weer de grond in gaat is er geen eigenaarsrendement, en dan is een lage multiple geen korting",
+      "wait_conditions": [
+        "vrije kasstroom twee opeenvolgende kwartalen positief",
+        "EN operationele winst >= $90M per kwartaal in beide kwartalen"
+      ],
+      "thesis_break": [
+        "operationele winst onder $60M per kwartaal",
+        "vrije kasstroom vier kwartalen op rij negatief",
+        "netto schuld boven $1,2 mrd",
+        "brutomarge onder 6,5%",
+        "een segment maakt structureel verlies zonder afstoting"
+      ],
+      "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10)",
+      "card": "research/cards/SEB.md",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "fcf_quarter_usd",
+            "op": ">",
+            "value": 0.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_income_usd",
+            "op": ">=",
+            "value": 90000000.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "WIX",
+      "name": "Wix.com Ltd.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 62.42,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 2610000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust SKYY holding 1,21% (peildatum 2026-08-07)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "PASS maar NIET op winst: GAAP-operationele winst TTM -$181,4M en nettowinst -$174,7M. Wel op kas: op. kasstroom TTM $421,1M, capex $10,7M, FCF $410,4M. Kas $960,8M tegen schuld $2.038,7M. De poort is een KASvraag en wordt met een KASgetal beantwoord (ASTS-les).",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 2,
+        "competition": 2,
+        "scalability": 1,
+        "execution": 2,
+        "valuation": 3
+      },
+      "unanalyzed": [
+        "oorzaak van de margeomslag: AI-infrastructuurkosten, overname-afschrijving of prijsdruk - belangrijkste openstaande vraag",
+        "aandelenbeloning als percentage van de omzet (gat van ~$600M tussen winst en kasstroom)",
+        "netto-omzetretentie"
+      ],
+      "divergence_screen": "AFVALLER - rij 4: koers -67,3% onder de top MET dalende brutomarge (68,7% -> 65,8%, -2,9pp) en operationele winst die van +$44,3M naar -$31,7M ging. Fundamenteel bevestigde daling.",
+      "key_metrics": {
+        "pe": null,
+        "forward_pe_non_gaap": 9.13,
+        "ev_ebitda": -25.44,
+        "fcf_ttm_usd": 410400000,
+        "operating_income_ttm_usd": -181400000,
+        "net_debt_usd": 1077900000,
+        "gross_margin_pct": 65.8,
+        "operating_margin_pct": -5.6,
+        "revenue_growth_yoy_pct": 14.9,
+        "operating_cashflow_per_quarter_trend": "van $150,3M naar $55,6M (-63%)",
+        "price_vs_200dma_pct": -22.4
+      },
+      "check_3_finding": "GROOTSTE tegenspraak van alle twintig kaarten: forward PE 9,13 (non-GAAP, spotgoedkoop) tegen EV/EBITDA -25,44 (GAAP, negatief). Twee routes die elkaar niet met 30% maar met een TEKEN tegenspreken.",
+      "verdict": "AFVALLER",
+      "deciding_number": "brutomarge -2,9pp bij omzet +14,9%, met operationele winst die $76M verslechterde - meer verkopen tegen een lagere marge is de definitie van kapotgaande eenheidseconomie, niet van tijdelijk investeren",
+      "return_to_volgen_conditions": [
+        "brutomarge twee opeenvolgende kwartalen >= 68%",
+        "EN operationele winst weer positief"
+      ],
+      "thesis_break": [
+        "omzetgroei onder 10% y/y",
+        "operationele kasstroom onder $50M per kwartaal",
+        "brutomarge onder 64%",
+        "netto schuld boven $1,5 mrd",
+        "een AI-aanbieder brengt websitebouw kosteloos in een breed pakket"
+      ],
+      "note": "Enige naam van de twintig met een dimensie op 1 (schaalbaarheid). Zelfde geval als TTD: goedkoop op een maatstaf, fundamentals mee omlaag.",
+      "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10)",
+      "card": "research/cards/WIX.md",
+      "return_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 68.0,
+            "quarters": 2
+          },
+          {
+            "metric": "operating_income_usd",
+            "op": ">",
+            "value": 0.0,
+            "quarters": 2
+          }
+        ]
+      }
+    },
+    {
+      "ticker": "CHRW",
+      "name": "C.H. Robinson Worldwide, Inc.",
+      "scored_at": "2026-08-11",
+      "price_at_score": 148.29,
+      "price_asof": "2026-08-10 slot",
+      "currency": "USD",
+      "market_cap_usd": 17330000000,
+      "benchmark_price_at_score": 210.11,
+      "benchmark_asof": "2026-08-10 slot",
+      "candidate_source": "First Trust FTXR holding 0,81% (peildatum 2026-08-10)",
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Winstgevend. Op. kasstroom TTM $876,5M, capex $69,5M, FCF $807,0M. Netto schuld $1.818M.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 2,
+        "margin_and_direction": 2,
+        "competition": 2,
+        "scalability": 2,
+        "execution": 2,
+        "valuation": 2
+      },
+      "unanalyzed": [
+        "cyclus versus structuur - de kernvraag; vrachttarieven over meerdere cycli naast de opslag leggen",
+        "cijfers over het kwartaal jun-2026 (kaart loopt t/m mrt-2026)",
+        "marktaandeel t.o.v. digitale makelaars",
+        "splitsing wegvervoer versus wereldwijde expeditie"
+      ],
+      "divergence_screen": "AFVALLER - rij 4: koers -29,5% onder de top MET brutomarge die vier kwartalen op rij daalt (8,7% -> 7,7%) en operationele winst -18,6%.",
+      "key_metrics": {
+        "pe": 28.3,
+        "forward_pe": 19.79,
+        "ev_ebitda": 20.53,
+        "fcf_ttm_usd": 807000000,
+        "fcf_yield_on_market_cap_pct": 4.7,
+        "gross_margin_pct": 7.7,
+        "operating_margin_pct": 4.4,
+        "gross_profit_growth_pct": -14.0,
+        "operating_income_growth_pct": -18.6,
+        "price_vs_200dma_pct": -13.6
+      },
+      "screen_error": "Het laag-1-veld `revenueGrowth` gaf +19,3%; de kwartaalregels laten een DALENDE brutowinst (-14,0%) zien. Eerste fout die in de SCREEN zat in plaats van in de kaart. Bij een expediteur is 'omzet' doorbelaste vracht - de betekenisvolle regel is de brutowinst.",
+      "check_4_finding": "'Brutomarge 7,7%' is bij een expediteur geen marge maar de opslag op doorbelaste vracht. Een daling van 8,7% naar 7,7% is dus geen 1 procentpunt maar 11,5% minder verdienste per zending.",
+      "verdict": "AFVALLER",
+      "deciding_number": "brutowinst -14,0% met een opslag die van 8,7% naar 7,7% zakte - of dat cyclus of disintermediatie is maakt niet uit: de marges zakten mee met de koers",
+      "return_to_volgen_conditions": [
+        "brutomarge twee opeenvolgende kwartalen >= 8,5%",
+        "of brutowinst twee kwartalen op rij groeiend y/y"
+      ],
+      "thesis_break": [
+        "brutomarge onder 7,0%",
+        "operationele marge onder 3,5%",
+        "grote verlader stapt over naar een digitaal platform",
+        "vrije kasstroom onder $400M per jaar",
+        "netto schuld/EBITDA boven 2,5x"
+      ],
+      "note": "Zwakste profiel van alle twintig: vijf van de zes dimensies op 2, geen enkele op 3 of hoger.",
+      "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10, cijfers t/m mrt-2026)",
+      "card": "research/cards/CHRW.md",
+      "return_fundamental": {
+        "mode": "any",
+        "rules": [
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 8.5,
+            "quarters": 2
+          }
+        ]
+      }
+    }
+  ],
+  "_screened_layer1_20260811": [
+    {
+      "ticker": "OTEX",
+      "etf": "SKYY",
+      "outcome": "KAART - koers -38% onder top en onder 200d-MA, operationele winst +53%, PE 9,58"
+    },
+    {
+      "ticker": "DOCU",
+      "etf": "SKYY",
+      "outcome": "KAART - koers -31% onder top; 'winst -71,5%' is een basiseffect, operationele winst +84%"
+    },
+    {
+      "ticker": "BLKB",
+      "etf": "SKYY",
+      "outcome": "KAART - koers -28% over 52wk maar +72,8% hersteld sinds juni; kans gesloten"
+    },
+    {
+      "ticker": "WK",
+      "etf": "SKYY",
+      "outcome": "geen kaart - -31% onder top maar PE 80,31; waardering blokkeert vooraf"
+    },
+    {
+      "ticker": "QTWO",
+      "etf": "SKYY",
+      "outcome": "geen kaart - -25% onder top, PE 44,77; waardering zwak"
+    },
+    {
+      "ticker": "PCTY",
+      "etf": "SKYY",
+      "outcome": "geen kaart - -20% onder top, PE 29,60, omzet +11%; grensgeval, herbeoordelen bij lagere koers"
+    },
+    {
+      "ticker": "PAYC",
+      "etf": "SKYY",
+      "outcome": "geen kandidaat - vlak onder 52-weekstop"
+    },
+    {
+      "ticker": "DBX",
+      "etf": "SKYY",
+      "outcome": "geen kandidaat - bij de 52-weekstop; omzet vlak (-0,0%)"
+    },
+    {
+      "ticker": "FIVN",
+      "etf": "SKYY",
+      "outcome": "geen kandidaat - staat OP de 52-weekstop, +160% vanaf bodem"
+    },
+    {
+      "ticker": "TWLO",
+      "etf": "SKYY",
+      "outcome": "geen kandidaat - bij de top, marktkap +153,7% y/y"
+    },
+    {
+      "ticker": "ZM",
+      "etf": "SKYY",
+      "outcome": "geen kandidaat - bij de top, marktkap +45,2% y/y"
+    },
+    {
+      "ticker": "ZBH",
+      "etf": "IHI",
+      "outcome": "geen kaart - -10% onder top, fwd PE 11,15; grensgeval, herbeoordelen"
+    },
+    {
+      "ticker": "TFX",
+      "etf": "IHI",
+      "outcome": "geen kaart - nettoverlies $1,03 mrd en omzet +110,9% (overname-artefact); te rommelig zonder 10-Q"
+    },
+    {
+      "ticker": "BAX",
+      "etf": "IHI",
+      "outcome": "geen kandidaat - nettoverlies $1,06 mrd en koers bij de top (+77% vanaf bodem)"
+    },
+    {
+      "ticker": "DXCM",
+      "etf": "IHI",
+      "outcome": "geen kandidaat - bij de top, omzet +15,5%, winst +74,9%"
+    },
+    {
+      "ticker": "GMED",
+      "etf": "IHI",
+      "outcome": "geen kandidaat - marktkap +46% y/y, stijgend"
+    },
+    {
+      "ticker": "NVST",
+      "etf": "IHI",
+      "outcome": "geen kandidaat - bij de top, marktkap +34,6% y/y"
+    },
+    {
+      "ticker": "ITGR",
+      "etf": "IHI",
+      "outcome": "UITGESLOTEN - overname KKR $127/aandeel; dealspread"
+    }
+  ],
+  "_screened_layer1_20260811_ronde3": {
+    "universe": 299,
+    "below_200d_ma": 67,
+    "passed_gates_and_growth": 41,
+    "carded": [
+      "LDOS",
+      "TTD",
+      "HUBS",
+      "ALNY",
+      "CHKP"
+    ],
+    "notable_not_carded": [
+      "RUN -36,2% vs200, PE 7,0, omzet +52,8% - zonne-energie, hoge schuld en subsidie-afhankelijk; apart uitzoeken",
+      "CELH -31,7% vs200, PE 118 trailing / 15,4 forward, omzet +10,6%",
+      "BL -27,5% vs200, PE 52,3, omzet +9,2%",
+      "WIX -22,4% vs200, fwd PE 9,1, omzet +14,9% - kandidaat voor volgende ronde",
+      "TRMB -12,4% vs200, fwd PE 14,3, omzet +11,8% - kandidaat voor volgende ronde",
+      "MKC -7,2% vs200, PE 8,8, omzet +16,7% - PE lijkt afwijkend laag voor McCormick; datakwaliteit eerst controleren"
+    ],
+    "rejected_on_falling_revenue": [
+      "PRIM -37,3% vs200, omzet -10,7%",
+      "ARRY -35,1%, omzet -5,6%",
+      "ZTS -30,2%, omzet -0,2%",
+      "POST -22,8%, omzet -1,8%",
+      "LUMN -17,5%, omzet -9,3%",
+      "LKQ -14,9%, omzet -3,0%",
+      "OLED -12,5%, omzet -11,4%",
+      "SGML -8,7%, omzet -11,2%",
+      "CPB -6,9%, omzet -4,4%",
+      "STZ -6,7%, omzet -3,3%",
+      "TSN -3,9%, omzet -0,1%",
+      "BAH -1,6%, omzet -4,2%"
+    ],
+    "note": "AMSC kwam opnieuw als laag-1-treffer bovendrijven (-17,6% vs200, omzet +30%) maar is in ronde 1 al AFVALLER op dalende brutomarges. Bewijs dat laag 1 alleen niet volstaat: de kaart doet het werk."
+  }
+}
