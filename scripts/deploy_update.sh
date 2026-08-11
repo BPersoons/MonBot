@@ -44,11 +44,11 @@ sudo gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet 2>/dev/nul
 # replacement ready, so the (container-only) preserve step below had nothing
 # to recover from and ~15 state files got silently touch-emptied. With this
 # backup in place, the touch-loop in step 5 restores from here instead.
-STATE_FILES="shadow_book.json shadow_report.json shadow_basis_state.json shadow_basis_log.json shadow_basis_report.json shadow_xyz_funding_state.json shadow_xyz_funding_log.json shadow_xyz_funding_report.json shadow_xyz_gap_state.json shadow_xyz_gap_log.json shadow_xyz_gap_report.json shadow_xyz_listings_state.json shadow_xyz_listings_log.json shadow_xyz_listings_report.json ticker_state.json decision_history.json treasury_harvest.json treasury_proposals.json audited_trades.json portfolio_peak.json cost_log.json polymarket_shadow_log.json config/treasury_allocation.json config/sleeves.json thematic_dip_state.json thematic_dip_positions.json thematic_dip_report.json"
+STATE_FILES="shadow_book.json shadow_report.json shadow_basis_state.json shadow_basis_log.json shadow_basis_report.json shadow_xyz_funding_state.json shadow_xyz_funding_log.json shadow_xyz_funding_report.json shadow_xyz_gap_state.json shadow_xyz_gap_log.json shadow_xyz_gap_report.json shadow_xyz_listings_state.json shadow_xyz_listings_log.json shadow_xyz_listings_report.json ticker_state.json decision_history.json treasury_harvest.json treasury_proposals.json audited_trades.json portfolio_peak.json cost_log.json polymarket_shadow_log.json config/treasury_allocation.json config/sleeves.json thematic_exposure_state.json thematic_exposure_positions.json thematic_exposure_report.json thematic_wallet_peak.json positions_status.json conviction_core_state.json"
 sudo mkdir -p config
 BACKUP_DIR="state_backups/$(date -u +%Y%m%d_%H%M%S)"
 backed_up=0
-for f in $STATE_FILES config/auto_params.json config/thematic_dip_themes.json dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
+for f in $STATE_FILES config/auto_params.json config/thematic_exposure_themes.json config/conviction_core.json config/barbell_targets.json dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
     if [ -s "$f" ]; then  # -s: exists AND non-empty — never back up an already-empty file
         sudo mkdir -p "$BACKUP_DIR/$(dirname "$f")" 2>/dev/null || true
         if sudo cp "$f" "$BACKUP_DIR/$f" 2>/dev/null; then
@@ -113,8 +113,12 @@ done
 # (covers exactly the 2026-07-16 failure mode: old container gone, nothing to
 # docker cp from) before falling back to an empty touch. Either way, log it —
 # a silent touch-empty is how ~15 files vanished unnoticed that day.
+# Sinds 2026-07-30 stuurt deploy.ps1 dashboard.json/trade_log.json/active_assets.json
+# NIET meer mee (die overschreven de live boekhouding met een dev-snapshot — zie de
+# waarschuwing in deploy.ps1). Ze horen dus in dezelfde restore-uit-backup-behandeling
+# als de andere state: op de host aanwezig = leidend, ontbrekend = uit backup terug.
 LATEST_BACKUP=$(ls -1dt state_backups/*/ 2>/dev/null | head -1)
-for f in $STATE_FILES; do
+for f in $STATE_FILES dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
     if [ ! -f "$f" ]; then
         if [ -n "$LATEST_BACKUP" ] && [ -s "${LATEST_BACKUP}${f}" ]; then
             echo "⚠️  $f missing on host — restoring from backup $LATEST_BACKUP"
@@ -126,9 +130,13 @@ for f in $STATE_FILES; do
         fi
     fi
 done
-[ -f "dashboard.json" ]      || echo '{}' > dashboard.json
-[ -f "active_assets.json" ]  || echo '[]' > active_assets.json
-[ -f "pnl_snapshots.json" ]  || echo '[]' > pnl_snapshots.json
+# Vangnet: een 0-byte touch uit de lus hierboven is voor deze vier geen geldige JSON-vorm.
+# trade_log.json stond hier tot 2026-07-30 NIET bij — die kwam altijd via scp mee, en
+# zonder dat vangnet zou een ontbrekend bestand een Docker-DIRECTORY worden.
+[ -s "dashboard.json" ]      || echo '{}' > dashboard.json
+[ -s "trade_log.json" ]      || echo '[]' > trade_log.json
+[ -s "active_assets.json" ]  || echo '[]' > active_assets.json
+[ -s "pnl_snapshots.json" ]  || echo '[]' > pnl_snapshots.json
 # Recover trade_log.json from Supabase if missing or empty
 if [ ! -f "trade_log.json" ] || [ "$(cat trade_log.json)" = "[]" ] || [ "$(cat trade_log.json)" = "{}" ]; then
     echo "Recovering trade_log.json from Supabase..."
@@ -191,23 +199,36 @@ if [ ! -f "config/auto_params.json" ]; then
 }
 EOF
 fi
-# Initialise config/thematic_dip_themes.json from the freshly-pulled image if
+# Initialise config/thematic_exposure_themes.json from the freshly-pulled image if
 # missing on host (EXP-008). Unlike the plain STATE_FILES above, this file
 # ships pre-seeded (5 themes + 19 CONFIRMED tickers) — touching it empty like
 # a runtime state file would silently wipe that seed on the very first deploy
 # after this mount was added, so it's extracted from the image instead.
-if [ ! -f "config/thematic_dip_themes.json" ]; then
-    echo "Seeding config/thematic_dip_themes.json from image..."
+if [ ! -f "config/thematic_exposure_themes.json" ]; then
+    echo "Seeding config/thematic_exposure_themes.json from image..."
     sudo docker run --rm europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest \
-        cat /app/config/thematic_dip_themes.json > config/thematic_dip_themes.json 2>/dev/null \
-        || echo '{"themes":{},"tickers":{},"pending":{}}' > config/thematic_dip_themes.json
+        cat /app/config/thematic_exposure_themes.json > config/thematic_exposure_themes.json 2>/dev/null \
+        || echo '{"themes":{},"tickers":{},"pending":{}}' > config/thematic_exposure_themes.json
 fi
+# Conviction Barbell configs (2026-07-28): same reasoning as the themes file above —
+# these carry real settings (target_usd, enabled, band-parameters), NOT runtime state,
+# so they must never be touch-emptied. Seed from the image when the host copy is
+# missing; once present, the host copy wins (that's where target_usd/enabled get
+# flipped without a rebuild).
+for cfg in conviction_core barbell_targets; do
+    if [ ! -f "config/${cfg}.json" ]; then
+        echo "Seeding config/${cfg}.json from image..."
+        sudo docker run --rm europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest \
+            cat "/app/config/${cfg}.json" > "config/${cfg}.json" 2>/dev/null \
+            || echo '{}' > "config/${cfg}.json"
+    fi
+done
 # Container runs as trader (UID 1000) — ensure it can write to mounted files/dirs.
 # Use sudo: config/auto_params.json is written by the container (owned by UID 1000), so a
 # non-sudo chmod fails with "Operation not permitted". Under `set -e` that aborted the whole
 # deploy AFTER the old container was stopped but BEFORE `up`, leaving the swarm down. Keep
 # this non-fatal so a single unchmod-able file can never take production offline.
-sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json config/thematic_dip_themes.json 2>/dev/null || true
+sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json config/thematic_exposure_themes.json config/conviction_core.json config/barbell_targets.json 2>/dev/null || true
 sudo chmod 666 $STATE_FILES 2>/dev/null || true
 sudo chmod 777 logs data config
 
@@ -240,6 +261,26 @@ if [ "$HTTP_CODE" = "200" ]; then
     echo "✅ Dashboard responding (HTTP ${HTTP_CODE})"
 else
     echo "⚠️ Dashboard returned HTTP ${HTTP_CODE} (may need more startup time)"
+fi
+
+
+# 8. LIVE-verificatie: klopt de draaiende toestand met wat we denken te hebben?
+# Leest de CONTAINER, niet de repo — precies de blinde vlek die eerder stil faalde:
+# config/*.json is volume-mounted, dus een repo-wijziging bereikt productie NIET via
+# een rebuild, terwijl alle tests groen blijven. Ook: boek-vs-beurs (spook- en
+# weesposities) en of de beschermingen echt in de gedeployde code zitten.
+echo ""
+echo "=== Live verificatie ==="
+# Even wachten tot de eerste cyclus de state heeft aangeraakt.
+sleep 10
+if sudo docker exec -w /app -e PYTHONPATH=/app agent_trader_swarm \
+        python3 scripts/verify_live.py 2>&1 | grep -vE "GCPSecrets|Hyperliquid (Public|Signing)|Balance:"; then
+    echo "✅ Live verificatie geslaagd"
+else
+    echo "❌ LIVE VERIFICATIE GEFAALD — de deploy is doorgegaan maar de draaiende"
+    echo "   toestand klopt niet met de verwachting. Zie de FAIL-regels hierboven."
+    echo "   Meest voorkomende oorzaak: een volume-mounted config/*.json op de host"
+    echo "   die de nieuwe image-versie overschaduwt (in-place overschrijven op de host)."
 fi
 
 echo ""

@@ -66,10 +66,7 @@ class ProjectLead:
         self.active_assets_file = "active_assets.json"
         self.weights_file = "core/agent_weights.json"
         self.reasoning_history = []
-        self._risk_veto_alert_times: dict = {}  # ticker → last_sent datetime (1h cooldown)
         self.load_weights()
-        self._regime_dir_multipliers: dict = dict(self._DEFAULT_REGIME_DIR_MULTIPLIERS)
-        self._shadow_mult_loaded_at: datetime | None = None
         try:
             from utils.auto_params import AutoParams
             self._auto_params = AutoParams()
@@ -94,6 +91,39 @@ class ProjectLead:
         except Exception:
             return 0.40
 
+    # ── Armed / opportunity-wait mode (health review 2026-07-23) ──────────────
+    # De crypto-regels verliezen in het huidige regime; alleen LONG in BULL/VOLATILE
+    # is gevalideerd winstgevend (shadow: BULL +18.5%, VOLATILE +7.4%; RANGING/BEAR
+    # en SHORTs verliezen). Deze gate maakt de funnel "armed": hij staat live en
+    # wacht op kansen, maar handelt ALLEEN de winstgevende slice — géén verlies in
+    # ongunstige regimes. Config-gedreven (config/auto_params.json), dus tunebaar
+    # zonder redeploy; bij armed_mode_enabled=false gedraagt de funnel zich weer
+    # symmetrisch (na een gevalideerde her-tune).
+    def _get_armed_gate_config(self) -> dict:
+        # F1 (2026-07-23): de gevalideerde slice is tech_stock + LONG + equity-uptrend
+        # (XYZ100>EMA200). asset_classes filtert het universe; use_equity_gate vervangt
+        # het BTC-regime door de equity-gate voor stocks (tech volgt de equity-markt,
+        # niet BTC). Leeg asset_classes = geen asset-filter; use_equity_gate=False valt
+        # terug op de BTC-regimes-lijst.
+        cfg = {"enabled": True, "directions": ["LONG"], "regimes": ["TRENDING_BULL", "VOLATILE"],
+               "asset_classes": ["tech_stock"], "use_equity_gate": True}
+        try:
+            with open("config/auto_params.json") as f:
+                d = json.load(f)
+            if "armed_mode_enabled" in d:
+                cfg["enabled"] = bool(d["armed_mode_enabled"])
+            if isinstance(d.get("armed_allowed_directions"), list):
+                cfg["directions"] = d["armed_allowed_directions"]
+            if isinstance(d.get("armed_allowed_regimes"), list):
+                cfg["regimes"] = d["armed_allowed_regimes"]
+            if isinstance(d.get("armed_allowed_asset_classes"), list):
+                cfg["asset_classes"] = d["armed_allowed_asset_classes"]
+            if "armed_use_equity_gate" in d:
+                cfg["use_equity_gate"] = bool(d["armed_use_equity_gate"])
+        except Exception:
+            pass
+        return cfg
+
     def load_weights(self):
         self.weights = {
             "technical": 0.4,
@@ -106,87 +136,6 @@ class ProjectLead:
                     self.weights = json.load(f)
             except Exception as e:
                 self.logger.error(f"Failed to load weights: {e}")
-
-    def _load_regime_dir_multipliers(self) -> None:
-        """Recompute regime×direction threshold multipliers from shadow_report.json.
-        Cells with n >= _SHADOW_MIN_SAMPLES ALWAYS take the fresh value — including a
-        neutral 1.0, which clears a stale bootstrap default. Only cells without enough
-        fresh data keep _DEFAULT_REGIME_DIR_MULTIPLIERS.
-        Penalties are capped at ×2.0: with threshold 0.20 that is a 0.40 bar (strict but
-        reachable); ×3.0 was a de-facto hard block that sealed the funnel.
-        Called at startup and every 30 min during live operation.
-        """
-
-        def _mult(n: int, wr: float, avg_pnl: float) -> float | None:
-            if n < self._SHADOW_MIN_SAMPLES:
-                return None  # not enough data — keep bootstrap default
-            if avg_pnl < -0.30 and wr < 35:
-                return 2.0    # clearly bad edge (capped — never a de-facto block)
-            if avg_pnl < -0.10 and wr < 42:
-                return 1.50   # mediocre edge
-            if avg_pnl > 0.20 and wr > 47:
-                return 0.85   # strong edge
-            if avg_pnl > 0.05 and wr > 44:
-                return 0.90   # mild edge
-            return 1.0        # neutral — explicitly clears any stale default
-
-        try:
-            with open("shadow_report.json") as f:
-                report = json.load(f)
-            multipliers = dict(self._DEFAULT_REGIME_DIR_MULTIPLIERS)
-            for key, stats in report.get("by_regime_x_direction", {}).items():
-                parts = key.rsplit("_", 1)
-                if len(parts) != 2 or parts[1] not in ("LONG", "SHORT"):
-                    continue
-                regime_key, dir_key = parts[0], parts[1]
-                m = _mult(stats.get("n", 0), stats.get("wr", 50),
-                          stats.get("avg_pnl_pct", 0))
-                if m is None:
-                    continue
-                multipliers[(regime_key, dir_key)] = m
-
-            # TRENDING_BULL+SHORT reward disabled 2026-07-14: the shadow sample behind
-            # it (n=21, WR 61.9%) doesn't generalize to sustained bull trends. Live SHORT
-            # WR collapsed 45.8%→22.7% during 07-02/07-09 (62% TRENDING_BULL by ADX/ATR
-            # reconstruction — the strongest bull stretch the swarm had seen), while the
-            # reward pushed SHORT concentration to 95.6% of trades, crowding out LONGs
-            # that would have followed the actual trend. Floor at neutral until a larger,
-            # more diverse sample (spanning multiple distinct bull runs) rebuilds
-            # confidence — penalties on this cell (>1.0) still pass through normally.
-            if multipliers.get(("TRENDING_BULL", "SHORT"), 1.0) < 1.0:
-                multipliers[("TRENDING_BULL", "SHORT")] = 1.0
-
-            # TRENDING_BULL+LONG penalty capped at neutral 2026-07-14: symmetric fix,
-            # same root cause as the SHORT reward above. All 29 shadow observations
-            # behind this cell's ×2.0 penalty date from 07-06→07-14 — the shadow_book
-            # reset on 07-06 wiped everything older, so there is no independent window
-            # to check it against, and it's the exact same stretch that broke the SHORT
-            # reward. Only 5 live LONG trades exist since 07-02 (the penalty suppresses
-            # its own evidence). Cap at neutral until a larger, independent sample
-            # rebuilds confidence — penalties below the cap (1.0–2.0) still pass through.
-            if multipliers.get(("TRENDING_BULL", "LONG"), 1.0) > 1.0:
-                multipliers[("TRENDING_BULL", "LONG")] = 1.0
-
-            # VOLATILE+SHORT reward floored at neutral 2026-07-14: same red flag as
-            # the two TRENDING_BULL cells above, found during a systematic audit —
-            # n=21 clears the sample-size threshold, but every single observation
-            # dates from ONE calendar day (07-08), not multiple independent volatile
-            # episodes. One market event masquerading as a validated edge. Floor at
-            # neutral until the reward holds up across several distinct VOLATILE days.
-            if multipliers.get(("VOLATILE", "SHORT"), 1.0) < 1.0:
-                multipliers[("VOLATILE", "SHORT")] = 1.0
-
-            self._regime_dir_multipliers = multipliers
-            table = ", ".join(
-                f"{r}+{d}=×{m:g}" for (r, d), m in sorted(multipliers.items()) if m != 1.0
-            )
-            self.logger.info(f"[ShadowMult] Active multipliers: {table or 'none (all neutral)'}")
-        except FileNotFoundError:
-            pass  # shadow report not yet generated — defaults stay
-        except Exception as e:
-            self.logger.warning(f"[ShadowMult] Load failed: {e} — keeping current multipliers")
-        finally:
-            self._shadow_mult_loaded_at = datetime.now(timezone.utc)
 
     def _determine_strategic_weights(self, details: dict, direction: str = "LONG") -> tuple[dict, str]:
         """
@@ -254,22 +203,38 @@ class ProjectLead:
     _RANGING_SA_MIN   = 0.30   # below this → no clear catalyst in a ranging market
     _RANGING_FA_FLOOR = -0.20  # below this → fundamental red flag, not worth the risk
 
-    # Regime×direction threshold multipliers — bootstrapped from 336 shadow decisions (2026-06-22).
-    # The shadow loader overwrites these once shadow_report.json has enough samples per cell
-    # (n≥15 always wins, including neutral 1.0 — stale defaults must not linger).
-    # Multiplier >1 = raise the bar (bad edge); <1 = lower the bar (good edge).
-    # Capped at ×2.0: with threshold 0.20 that's a 0.40 bar; higher is a de-facto hard block.
-    # Applied BEFORE the SHORT ×0.60 discount so both corrections are independent.
-    _DEFAULT_REGIME_DIR_MULTIPLIERS: dict = {
-        ("VOLATILE",      "LONG"):  2.0,   # WR 22%, avg -1.30%  n=27 — panic LONGs bleed out
-        ("RANGING",       "SHORT"): 2.0,   # WR 28%, avg -0.58%  n=69 — no trend to follow
-        ("TRENDING_BEAR", "LONG"):  1.5,   # WR 36%, avg -0.40%  n=36 — fighting the trend
-        ("TRENDING_BULL", "SHORT"): 1.5,   # WR 42%, avg -0.45%  n=19 — shorting a bull
-        ("RANGING",       "LONG"):  0.90,  # WR 51%, avg +0.51%  n=86 — mean-rev LONGs work
-        ("TRENDING_BEAR", "SHORT"): 0.90,  # WR 55%, avg +0.43%  n=11 — trend shorts work
-        ("VOLATILE",      "SHORT"): 0.85,  # WR 73%, avg +1.42%  n=11 — panic shorts work
-    }
-    _SHADOW_MIN_SAMPLES = 15  # below this, shadow data is noise — keep default
+
+    def _rule_direction(self, ticker: str):
+        """G3b — authoritative direction from the proven regime-aware discrete rules
+        (core/directional_signals, backtest +44% / +15pp vs baseline). Replaces the
+        research_agent mini-backtest recency picker as the direction source for
+        momentum candidates. See docs/DIRECTIONAL_CORE_REDESIGN.md.
+
+        Returns +1 (LONG) / -1 (SHORT) / 0 (no valid setup) / None (data unavailable).
+        Cached per ticker for the 1h OHLCV TTL so it adds no extra fetch within a cycle.
+        """
+        import time as _time
+        if not hasattr(self, "_rule_dir_cache"):
+            self._rule_dir_cache = {}
+        now = _time.time()
+        hit = self._rule_dir_cache.get(ticker)
+        if hit and (now - hit[0]) < 240:
+            return hit[1]
+        try:
+            from agents.technical_analyst import get_ohlcv_df
+            from core.directional_signals import add_directional_indicators, signal_for_ticker
+            df = get_ohlcv_df(ticker, "1h", 600)
+            if df is None or len(df) < 210:
+                return None  # not enough history for EMA200 — fall back to given direction
+            di = add_directional_indicators(df)
+            if len(di) < 2:
+                return None
+            sig = signal_for_ticker(ticker, di, len(di) - 1)
+            self._rule_dir_cache[ticker] = (now, sig)
+            return sig
+        except Exception as e:
+            self.logger.warning(f"[{ticker}] rule-direction unavailable: {e}")
+            return None
 
     async def synthesize_signals_async(self, ticker: str, market_context: dict = None) -> dict:
         """
@@ -297,12 +262,6 @@ class ProjectLead:
         tech_view = {"signal": 0.0, "status": "ERROR", "timeframes": {}, "summary": "TA Failed"}
         fund_view = {"signal": 0.0, "status": "SKIPPED", "summary": "Skipped (tech pre-filter)"}
         sent_view = {"signal": 0.0, "status": "SKIPPED", "summary": "Skipped (tech pre-filter)"}
-
-        # Refresh regime×direction multipliers from shadow_report every 30 min
-        from datetime import timedelta as _td
-        if self._shadow_mult_loaded_at is None or \
-                (datetime.now(timezone.utc) - self._shadow_mult_loaded_at) > _td(minutes=30):
-            self._load_regime_dir_multipliers()
 
         # XYZ — skip analysis when the underlying market is closed (asset-class aware):
         # equities trade Mon-Fri 14:30-21:00 UTC; commodities ~24/5 (Sun 23:00–Fri 22:00,
@@ -333,6 +292,41 @@ class ProjectLead:
                     # (it compressed the window to <20h and blinded SwarmLearner).
                     "deferred": True,
                 }
+
+        # --- G3b: authoritative direction from the proven regime-aware rules ---
+        # Momentum/backtest candidates take their DIRECTION from core/directional_signals
+        # (the +44%/+15pp discrete rules), not the mini-backtest recency picker. This is
+        # the fix for the counter-trend short-bias: on the 26 losing shorts the rules said
+        # "no valid setup" (validated historically). News-sentiment & mean-reversion
+        # catalysts keep their own direction. Rule=0 → NO_GO. Data unavailable → fall back
+        # to the given direction (safe). See docs/DIRECTIONAL_CORE_REDESIGN.md.
+        if catalyst in ("TA_BACKTEST", "SWING_4H"):
+            _rule = self._rule_direction(ticker)
+            if _rule is not None:
+                if _rule == 0:
+                    self.logger.info(
+                        f"[FUNNEL] {ticker}: RULE_NO_SETUP — regime-aware rules see no valid "
+                        f"{regime} setup (direction source: directional_signals)"
+                    )
+                    return {
+                        "combined_score": 0.0,
+                        "details": {
+                            "technical": tech_view, "fundamental": fund_view,
+                            "sentiment": sent_view,
+                            "polymarket_shadow": {"signal": 0.0, "status": "SHADOW"},
+                        },
+                        "bull_case": "Skipped",
+                        "bear_case": "Skipped",
+                        "next_step": "NO_GO",
+                        "synthesis_report": "Directional rules: no valid setup at this candle.",
+                        "has_conflict": False,
+                        "rrr": "1:1.5",
+                        "stop_loss_pct": 5.0,
+                    }
+                _new_dir = "LONG" if _rule == 1 else "SHORT"
+                if _new_dir != direction:
+                    self.logger.info(f"[{ticker}] RULE_DIR override: {direction} → {_new_dir} (regime={regime})")
+                direction = _new_dir
 
         try:
             _ta = self.stock_technical_analyst if ticker.startswith('XYZ-') else self.technical_analyst
@@ -519,21 +513,50 @@ class ProjectLead:
             )
 
         # 4. Filter Noise - Skip LLM if algorithmic score is weak.
-        # SHORT signals are structurally weaker: the TA composite mixes positive (MACD/EMA/ADX)
-        # and negative (RSI/BB) indicator contributions. Apply a 60% effective threshold for SHORT
-        # so valid bear setups aren't systematically gated out.
-        # Regime-adaptive threshold: RANGING lowers the bar (SA-driven setups can pass),
-        # VOLATILE raises it (only high-conviction in choppy conditions).
+        # G3b: ONE symmetric magnitude threshold for both directions. Direction is now
+        # set by the regime-aware rules (above), so the old ×0.60 SHORT discount and the
+        # shadow-fed regime×direction multiplier table are gone — they only existed to
+        # compensate for a direction picker that chose badly, and they drove the
+        # counter-trend short-bias. The interim BULL_SHORT_STOP is likewise removed:
+        # the rules already refuse counter-trend setups. _REGIME_THRESHOLD_MULT stays as
+        # a direction-agnostic quality scalar (RANGING/VOLATILE), removal deferred to G4.
+        # ARMED GATE (F1, 2026-07-23): trade alleen de gevalideerde winstgevende slice.
+        # F0-diagnose: crypto heeft geen edge, shorts zijn dood; de edge zit in
+        # tech-stock LONGs WANNEER de equity-markt in uptrend is (XYZ100>EMA200).
+        # De funnel blijft "armed & waiting" en houdt zich koest buiten die slice.
+        _armed = self._get_armed_gate_config()
+        if _armed["enabled"]:
+            _block = None
+            if direction not in _armed["directions"]:
+                _block = f"richting {direction} niet toegestaan"
+            elif _armed["asset_classes"] and _asset_class not in _armed["asset_classes"]:
+                _block = f"asset-klasse {_asset_class} niet in {_armed['asset_classes']}"
+            elif _armed["use_equity_gate"] and _asset_class == "tech_stock":
+                try:
+                    from core.equity_regime import is_equity_bull
+                    if not is_equity_bull():
+                        _block = "equity-markt niet in uptrend (XYZ100 < EMA200)"
+                except Exception as _eg_err:
+                    _block = f"equity-gate onbepaald ({_eg_err})"  # fail-closed
+            elif not _armed["use_equity_gate"] and _armed["regimes"] and regime not in _armed["regimes"]:
+                _block = f"regime {regime} niet in {_armed['regimes']}"
+            if _block:
+                self.logger.info(f"[FUNNEL] {ticker}: ARMED_GATE — {_block}")
+                return {
+                    "combined_score": base_score,
+                    "details": details,
+                    "bull_case": "Skipped",
+                    "bear_case": "Skipped",
+                    "next_step": "NO_GO",
+                    "synthesis_report": f"Armed-mode: {_block}.",
+                    "has_conflict": False,
+                    "rrr": "1:1.5",
+                    "stop_loss_pct": 5.0,
+                }
+
         _threshold = self._get_score_threshold()
         _threshold *= self._REGIME_THRESHOLD_MULT.get(regime, 1.0)
-        _rd_mult = self._regime_dir_multipliers.get((regime, direction), 1.0)
-        _threshold *= _rd_mult
-        _effective_threshold = _threshold * 0.60 if direction == "SHORT" else _threshold
-        if _rd_mult != 1.0 or regime not in ("NEUTRAL", "RANGING", "TRENDING_BULL"):
-            self.logger.info(
-                f"[{ticker}] Regime={regime} dir={direction} → threshold={_effective_threshold:.3f} "
-                f"(regime×{self._REGIME_THRESHOLD_MULT.get(regime, 1.0)} dir×{_rd_mult})"
-            )
+        _effective_threshold = _threshold
         if abs(base_score) < _effective_threshold:
             self.logger.info(f"[FUNNEL] {ticker}: GATE_1_FAILED score={base_score:.2f} < {_effective_threshold:.3f} threshold (dir={direction})")
             return {
@@ -908,14 +931,9 @@ class ProjectLead:
             }
         _setup_tf = (market_context or {}).get(ticker, {}).get('timeframe', '1h Macro')
         MIN_CONVICTION = SETUP_MIN_CONVICTION.get(_setup_tf, SETUP_MIN_CONVICTION["1h Macro"])
-        # SHORT discount (2026-06-12): gate 1 applies a 0.60 effective threshold for
-        # SHORT (composites are structurally weaker — mixed sign conventions), and the
-        # LLM bands follow that. This gate ignored the discount, so a SHORT could pass
-        # gate 1 + get BUILD_CASE and still be bounced here below the auto-promote
-        # floor — a permanent MONITOR loop for our best-performing direction
-        # (live: SHORT PF 1.89 vs LONG 0.94 over 248 trades).
-        if direction_label == "SHORT":
-            MIN_CONVICTION = round(MIN_CONVICTION * 0.60, 3)
+        # G3b: SHORT ×0.60 conviction discount removed — symmetric bar for both
+        # directions now that direction comes from the regime-aware rules, not a
+        # picker that needed the discount to compensate.
         if next_step == "BUILD_CASE" and abs(combined_score) < MIN_CONVICTION:
             self.logger.info(
                 f"[FUNNEL] {ticker}: CONVICTION_GATE score={combined_score:.2f} < {MIN_CONVICTION} "
@@ -1152,29 +1170,6 @@ class ProjectLead:
                       final_decision = "NO_GO"
                       decision_reason = f"Risk Veto: {risk_decision.get('reason', 'High Risk')}. {reason_breakdown}"
                       self._update_reasoning_stream(f"Veto {ticker}: Risk Manager blocked")
-                      # ── Telegram alert for Risk Veto (max 1 per ticker per hour) ──
-                      try:
-                          from datetime import datetime as _dt, timezone as _tz
-                          _now = _dt.now(_tz.utc)
-                          _last = self._risk_veto_alert_times.get(ticker)
-                          if not _last or (_now - _last).total_seconds() > 3600:
-                              self._risk_veto_alert_times[ticker] = _now
-                              _veto_reason = risk_decision.get("reason", "High Risk")
-                              _free_margin = "unknown"
-                              try:
-                                  _fm = (risk_decision.get("metrics") or {}).get("free_margin_pct")
-                                  if _fm is not None:
-                                      _free_margin = f"{_fm:.1f}%"
-                              except Exception:
-                                  pass
-                              _send_telegram(
-                                  f"🚫 *Risk Manager Veto*\n"
-                                  f"Ticker: `{ticker}` | Score: `{combined_score:.2f}`\n"
-                                  f"Reden: {_veto_reason[:200]}\n"
-                                  f"Vrije marge: {_free_margin}"
-                              )
-                      except Exception as _tg_e:
-                          self.logger.warning(f"Risk veto Telegram failed: {_tg_e}")
         elif next_step == "MONITOR":
             target_entry_price = analysis.get("target_entry_price", current_price)
             # Make sure we import OpportunityManager if not injected, though it's typically handled by main.py calling add_or_update directly on its instance. 

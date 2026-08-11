@@ -43,11 +43,19 @@ services:
       - ./cost_log.json:/app/cost_log.json
       - ./polymarket_shadow_log.json:/app/polymarket_shadow_log.json
       - ./config/treasury_allocation.json:/app/config/treasury_allocation.json
-      # Thematic Dip Sleeve (EXP-008, 2026-07-16): echte posities + budget-state — moet een full redeploy overleven
-      - ./config/thematic_dip_themes.json:/app/config/thematic_dip_themes.json
-      - ./thematic_dip_state.json:/app/thematic_dip_state.json
-      - ./thematic_dip_positions.json:/app/thematic_dip_positions.json
-      - ./thematic_dip_report.json:/app/thematic_dip_report.json
+      # Thematic Exposure Sleeve (EXP-008, 2026-07-16, hernoemd van thematic_dip 2026-07-17): echte posities + budget-state — moet een full redeploy overleven
+      - ./config/thematic_exposure_themes.json:/app/config/thematic_exposure_themes.json
+      - ./thematic_exposure_state.json:/app/thematic_exposure_state.json
+      - ./thematic_exposure_positions.json:/app/thematic_exposure_positions.json
+      - ./thematic_exposure_report.json:/app/thematic_exposure_report.json
+      - ./thematic_wallet_peak.json:/app/thematic_wallet_peak.json
+      - ./positions_status.json:/app/positions_status.json
+      # Conviction Barbell (2026-07-28): groei-been crypto (spot BTC/ETH buy-and-hold).
+      # De config draagt target_usd + enabled — die MOETEN een redeploy overleven,
+      # anders valt de sleeve terug op enabled=false/target 0 uit de image.
+      - ./config/conviction_core.json:/app/config/conviction_core.json
+      - ./config/barbell_targets.json:/app/config/barbell_targets.json
+      - ./conviction_core_state.json:/app/conviction_core_state.json
     networks: [trader_net]
 
 networks:

@@ -1,7 +1,7 @@
 {
-  "_comment": "Masterplan F0 — sleeve-mapping en risicolimieten. Bron: docs/MASTERPLAN.md sectie 4. source_map wijst kapitaalbronnen (velden uit treasury_state.json) toe aan sleeves; onbekende yield-protocollen vallen terug op default_yield_sleeve. 'thematic_dip' (EXP-008, toegevoegd 2026-07-16) wordt NIET via source_map/treasury_state.json gevoed — utils/sleeve_nav.py berekent hem apart uit thematic_dip_positions.json en trekt het bedrag af van 'swarm' om dubbeltelling van HL-balans te voorkomen. max_venue_pct.hyperliquid was 40.0 (masterplan-default); bewust verhoogd naar 60.0 op 2026-07-16 (EXP-008, Bart's expliciete keuze) omdat de thematic_dip-sleeve alleen op de HL XYZ-synthetics-rails uitvoerbaar is en het budget (€1.250) niet binnen de oude 40%-cap paste. Terugbrengen naar 40.0 zodra het totaalportfolio genoeg groeit dat 40% weer voldoende ruimte geeft.",
+  "_comment": "Masterplan F0 — sleeve-mapping en risicolimieten. Bron: docs/MASTERPLAN.md sectie 4. source_map wijst kapitaalbronnen (velden uit treasury_state.json) toe aan sleeves; onbekende yield-protocollen vallen terug op default_yield_sleeve. 'thematic_exposure' (EXP-008, toegevoegd 2026-07-16, hernoemd van 'thematic_dip' op 2026-07-17) wordt NIET via source_map/treasury_state.json gevoed — utils/sleeve_nav.py berekent hem apart uit thematic_exposure_positions.json. Sinds 2026-07-18 (wallet-split) leeft dit kapitaal op een EIGEN HL-wallet zodra HL_THEMATIC_WALLET_ADDRESS gezet is (main.py) — dan telt het onder venue 'hyperliquid_thematic', apart van 'hyperliquid'. Zolang die secret nog leeg is (pre-split/nog niet gefund) deelt de sleeve nog de swarm-wallet en trekt sleeve_nav het bedrag af van 'swarm' om dubbeltelling te voorkomen (zie SleeveNAV._thematic_wallet_is_segregated). max_venue_pct.hyperliquid was 40.0 (masterplan-default); bewust verhoogd naar 60.0 op 2026-07-16 (EXP-008) omdat het thematic-budget (€1.250) toen nog meetelde op dezelfde wallet. Zodra de nieuwe wallet live+gefund is telt dat budget niet meer mee onder 'hyperliquid' — dan terugbrengen naar 40.0. max_venue_pct.hyperliquid_thematic staat op 100.0: dit is een fixed-purpose wallet zonder alternatieve venue, concentratie is hier geen zinvol risicosignaal.",
   "version": 2,
-  "sleeves": ["tradfi", "yield_core", "basis", "house", "swarm", "lab", "thematic_dip"],
+  "sleeves": ["tradfi", "yield_core", "basis", "house", "swarm", "lab", "thematic_exposure"],
   "source_map": {
     "hl_snapshot.balance": "swarm",
     "treasury_wallet_usdc": "yield_core",
@@ -22,6 +22,7 @@
   "limits": {
     "max_venue_pct": {
       "hyperliquid": 60.0,
+      "hyperliquid_thematic": 100.0,
       "gains": 40.0,
       "aave": 85.0,
       "morpho": 40.0
@@ -33,7 +34,7 @@
       "swarm": 15.0,
       "lab": 30.0,
       "tradfi": 25.0,
-      "thematic_dip": 25.0
+      "thematic_exposure": 25.0
     }
   }
 }

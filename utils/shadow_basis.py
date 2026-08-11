@@ -35,16 +35,31 @@ _STATE_FILE  = "shadow_basis_state.json"
 _LOG_FILE    = "shadow_basis_log.json"
 _REPORT_FILE = "shadow_basis_report.json"
 
-_ASSETS = {  # perp asset name -> HL spot pair API-name (verified 2026-07-05)
-    "BTC": "@142",   # UBTC/USDC
-    "ETH": "@151",   # UETH/USDC
-}
 _MIN_RATE_8H       = 0.01    # %/8h to open — mirrors FundingHarvestor
 _CLOSE_RATE_8H     = 0.003   # %/8h to close
 _MAX_HOLD_H        = 7 * 24  # basis trade can run longer than the naked harvest (hedged)
 _VIRTUAL_NOTIONAL  = 2500.0  # matches the Fase 1 test-notional target
 _MAX_BASIS_BPS     = 25.0    # spot-perp spread beyond this = hedge not tracking, close
 _MAX_LOG           = 500
+
+# Asset universe: dynamically resolved (was hardcoded BTC/ETH only, 2026-07-05
+# to 2026-07-19). Diagnosed 2026-07-19 after 14 days / 0 opens: BTC/ETH
+# funding sat at ~0.0013%/8h the whole window, ~8x under _MIN_RATE_8H — not a
+# threshold bug, the shadow clock genuinely never started. docs/MASTERPLAN.md
+# already specifies "BTC/ETH → top-10 op funding-rank" as the Fase 1 scale-out
+# — this implements that. Constraint: a basis trade needs a REAL spot market
+# to hedge against, not just a perp; only 17 of HL's 232 perps have a matching
+# USDC spot pair (checked live 2026-07-19), and several of those are too thin
+# to trust as a hedge leg (e.g. $72k/day). _MIN_DAY_VOLUME_USD filters those
+# out. Even with the full resolvable+liquid set, the best candidate that day
+# (ZEC, 0.0038%/8h) was still ~2.6x under threshold — broadening the universe
+# is the right fix per the masterplan, but may not by itself produce opens
+# soon; that's a market-conditions fact, not something to code around by
+# quietly lowering _MIN_RATE_8H (which mirrors the LIVE FundingHarvestor bar
+# on purpose — decoupling them would invalidate what this shadow engine is
+# measuring).
+_MIN_DAY_VOLUME_USD = 2_000_000.0
+_UNIVERSE_CACHE_TTL_S = 6 * 3600  # spot listings/pairs change rarely
 
 # PLACEHOLDER — HL's actual spot fee schedule is not yet confirmed (design
 # doc open item #3). Conservative estimate: 3.5 bps taker per leg, 4 legs
@@ -70,9 +85,55 @@ def _http_post(payload: dict) -> dict:
 
 class ShadowBasis:
     def __init__(self):
-        pass
+        self._universe_cache: dict = {}
+        self._universe_cache_ts: float = 0.0
 
     # ── public HL data ───────────────────────────────────────────────
+    def _get_universe(self) -> dict:
+        """Perp asset name -> HL spot pair API-name, for the liquid subset
+        that has BOTH a perp and a matching USDC spot market (needed to
+        actually hedge the basis trade — most HL perps have no spot listing
+        at all). Cached (spot listings change rarely); refetched on TTL
+        expiry or after a failed prior attempt (empty cache)."""
+        now = time.time()
+        if self._universe_cache and (now - self._universe_cache_ts) < _UNIVERSE_CACHE_TTL_S:
+            return self._universe_cache
+        try:
+            spot_meta = _http_post({"type": "spotMeta"})
+            tokens = spot_meta["tokens"]
+            usdc_idx = next(t["index"] for t in tokens if t["name"] == "USDC")
+            name_by_idx = {t["index"]: t["name"] for t in tokens}
+            spot_by_base = {}
+            for u in spot_meta["universe"]:
+                base_idx, quote_idx = u["tokens"]
+                if quote_idx == usdc_idx:
+                    base_name = name_by_idx.get(base_idx)
+                    if base_name:
+                        spot_by_base[base_name] = u["name"]
+
+            ctx = _http_post({"type": "metaAndAssetCtxs"})
+            perp_assets = [a["name"] for a in ctx[0]["universe"]]
+            result = {}
+            for perp, c in zip(perp_assets, ctx[1]):
+                if c.get("funding") is None:
+                    continue
+                if float(c.get("dayNtlVlm") or 0.0) < _MIN_DAY_VOLUME_USD:
+                    continue
+                # HL's spot-tradable wrapper for a perp asset is usually
+                # named "U<PERP>" (UBTC, UETH, USOL, ...); a few (PURR) list
+                # directly under the perp's own name.
+                spot_pair = spot_by_base.get(f"U{perp}") or spot_by_base.get(perp)
+                if spot_pair:
+                    result[perp] = spot_pair
+            if result:
+                self._universe_cache = result
+                self._universe_cache_ts = now
+                logger.info(f"[ShadowBasis] Universe refreshed ({len(result)} assets): {sorted(result.keys())}")
+            return self._universe_cache or result
+        except Exception as e:
+            logger.warning(f"ShadowBasis: universe resolve mislukt: {e}")
+            return self._universe_cache
+
     def _funding_rates(self) -> dict:
         data = _http_post({"type": "metaAndAssetCtxs"})
         assets = [a["name"] for a in data[0]["universe"]]
@@ -138,20 +199,24 @@ class ShadowBasis:
             self._maybe_open()
 
     def _maybe_open(self) -> None:
+        universe = self._get_universe()
+        if not universe:
+            return
         try:
             rates = self._funding_rates()
         except Exception as e:
             logger.debug(f"ShadowBasis: funding fetch mislukt: {e}")
             return
         candidates = [
-            (a, rates[a]) for a in _ASSETS if rates.get(a, 0.0) >= _MIN_RATE_8H
+            (a, rates[a]) for a in universe if rates.get(a, 0.0) >= _MIN_RATE_8H
         ]
         if not candidates:
             return
         asset, rate = max(candidates, key=lambda x: x[1])
+        spot_pair = universe[asset]
         try:
             perp_px = self._perp_mark_price(asset)
-            spot_px = self._spot_mid_price(_ASSETS[asset])
+            spot_px = self._spot_mid_price(spot_pair)
         except Exception as e:
             logger.debug(f"ShadowBasis: price fetch mislukt: {e}")
             return
@@ -161,6 +226,7 @@ class ShadowBasis:
         entry = {
             "status": "ACTIVE",
             "asset": asset,
+            "spot_pair": spot_pair,
             "opened_at": _now_iso(),
             "opened_ts": time.time(),
             "rate_at_open": rate,
@@ -179,10 +245,17 @@ class ShadowBasis:
 
     def _monitor(self, state: dict) -> None:
         asset = state["asset"]
+        # spot_pair persisted on the entry so an open position keeps
+        # resolving correctly even if the asset later drops out of the
+        # liquid universe filter (_get_universe) mid-hold.
+        spot_pair = state.get("spot_pair") or self._get_universe().get(asset)
+        if not spot_pair:
+            logger.warning(f"ShadowBasis: geen spot_pair voor open positie {asset} — monitor overgeslagen")
+            return
         try:
             rates = self._funding_rates()
             perp_px = self._perp_mark_price(asset)
-            spot_px = self._spot_mid_price(_ASSETS[asset])
+            spot_px = self._spot_mid_price(spot_pair)
         except Exception as e:
             logger.debug(f"ShadowBasis: monitor fetch mislukt: {e}")
             return
@@ -310,7 +383,11 @@ class ShadowBasis:
                 f"laatst gezien {state.get('last_rate', 0):.4f}%/8h)"
             )
         else:
-            lines.append(f"  Status: IDLE — wacht op funding ≥ {_MIN_RATE_8H:.3f}%/8h op BTC/ETH")
+            universe_note = (
+                f"{len(self._universe_cache)} liquide assets" if self._universe_cache
+                else "universum nog niet opgehaald"
+            )
+            lines.append(f"  Status: IDLE — wacht op funding ≥ {_MIN_RATE_8H:.3f}%/8h ({universe_note})")
 
         n = report.get("n_closed", 0)
         if n > 0:

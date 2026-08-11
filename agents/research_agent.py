@@ -379,21 +379,13 @@ class ResearchAgent:
                     best_trades = trades_short
                     best_win_rate = win_rate_short
 
-                # Macro regime override: in TRENDING_BEAR market, force SHORT when it outperforms.
-                # XYZ-* assets (stocks/commodities) are exempt — they don't correlate with BTC.
-                _is_xyz = symbol.startswith('XYZ-')
-                if regime_label in ("TRENDING_BEAR", "BEARISH") and not _is_xyz:
-                    if trades_short >= 2 and (pnl_short > pnl_long or pnl_long < 0):
-                        self.logger.info(
-                            f"Macro regime BEARISH — forcing {symbol} SHORT "
-                            f"(long PnL {pnl_long:+.1f}%, short PnL {pnl_short:+.1f}%)"
-                        )
-                        best_direction = "SHORT"
-                        best_metrics = short_metrics
-                        best_pnl = pnl_short
-                        best_trades = trades_short
-                        best_win_rate = win_rate_short
-                
+                # G3b (2026-07-21): the TRENDING_BEAR force-SHORT override was removed.
+                # Direction for momentum candidates is now set authoritatively by the
+                # regime-aware rules in ProjectLead (core/directional_signals); this
+                # recency-driven override on the OLD baseline mini-backtest only added a
+                # counter-productive directional bias. best_direction below is now just a
+                # provisional label (ProjectLead overrides it). See DIRECTIONAL_CORE_REDESIGN.md.
+
                 result_entry = {
                     "ticker": symbol,
                     "volume_m": round(volume/1e6, 1),

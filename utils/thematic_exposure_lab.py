@@ -1,16 +1,16 @@
 """
-thematic_dip_lab.py — EXP-008: Thematic Dip Sleeve.
+thematic_exposure_lab.py — EXP-008: Thematic Exposure Sleeve.
 
 Continu draaiende crash-scanner over het volledige XYZ-synthetics-universum op
 Hyperliquid. Classificeert tickers in thema's (LLM-voorgesteld). Sinds
 2026-07-16 (Bart's verzoek): "high confidence"-voorstellen worden automatisch
 CONFIRMED, geen menselijke review nodig — alleen "low confidence"/mislukte
-classificaties blijven in de review-wachtrij (config/thematic_dip_themes.json,
-via Telegram-commando's of het /thematic-dip-dashboard). Scoort sectorbrede pullbacks
+classificaties blijven in de review-wachtrij (config/thematic_exposure_themes.json,
+via Telegram-commando's of het /thematic-exposure dashboard). Scoort sectorbrede pullbacks
 (vol-genormaliseerde drawdown vanaf 252d-high + crash-snelheid + thema-breedte),
 en opent kleine, volledig gedekte (1x, isolated margin) T1-starterposities op
 de hardst geraakte, meest liquide namen binnen een vast budget. T2-T4 (verdere
-DCA-opbouw) worden alleen ECHT uitgevoerd als thematic_dip_state.json
+DCA-opbouw) worden alleen ECHT uitgevoerd als thematic_exposure_state.json
 t2_t4_enabled=true bevat — tot die tijd berekent en rapporteert de engine wel
 wat T2-T4 zou doen (zichtbaar in daily_status_text()).
 
@@ -21,14 +21,14 @@ huidige tech/AI-thema is de eerste, handmatig geverifieerde seed.
 Deze module plaatst ECHTE orders — buiten de council/ProjectLead-pipeline om,
 zelfde patroon als TreasuryAgent._open_harvest_position/_close_harvest_position
 (agents/treasury_agent.py:1224-1358). Trades worden getagd met
-"thematic_dip": True in trade_log.json zodat de auditor/weight-learning-loop
+"thematic_exposure": True in trade_log.json zodat de auditor/weight-learning-loop
 ze negeert (zelfde isolatie-patroon als "harvest": True).
 
 Files:
-  config/thematic_dip_themes.json — thema-registry + classificatie (bewerkbaar)
-  thematic_dip_state.json         — scan-cache, prijs-historie-cache, funding-historie, t2_t4_enabled-vlag
-  thematic_dip_positions.json     — cash/budget + open/gesloten posities (bron voor SleeveNAV)
-  thematic_dip_report.json        — laatste scoring-snapshot, voor dashboard/digest
+  config/thematic_exposure_themes.json — thema-registry + classificatie (bewerkbaar)
+  thematic_exposure_state.json         — scan-cache, prijs-historie-cache, funding-historie, t2_t4_enabled-vlag
+  thematic_exposure_positions.json     — cash/budget + open/gesloten posities (bron voor SleeveNAV)
+  thematic_exposure_report.json        — laatste scoring-snapshot, voor dashboard/digest
 """
 
 import json
@@ -41,15 +41,21 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
-logger = logging.getLogger("ThematicDipLab")
+logger = logging.getLogger("ThematicExposureLab")
 
-THEMES_FILE = "config/thematic_dip_themes.json"
-STATE_FILE = "thematic_dip_state.json"
-POSITIONS_FILE = "thematic_dip_positions.json"
-REPORT_FILE = "thematic_dip_report.json"
+THEMES_FILE = "config/thematic_exposure_themes.json"
+STATE_FILE = "thematic_exposure_state.json"
+POSITIONS_FILE = "thematic_exposure_positions.json"
+REPORT_FILE = "thematic_exposure_report.json"
 
 DEFAULT_BUDGET_USD = 1250.0
-MAX_CONCURRENT_NAMES = 8
+# Temporarily lowered from 8 to 4 (2026-07-18, wallet-split cutover): the new
+# segregated wallet started with $255, and at 8 names T1 = budget/8*0.20 =
+# $6.38/name — under HL's $10 min-notional, so every T1 silently skipped
+# (see _open_tranche's min_notional guard). At 4 names T1 = $12.75, clears the
+# floor. Raise back to 8 once the wallet is topped up past ~$440
+# (min budget for T1 to clear $10+$1 at 8-way split: 10/0.20*8 = $400, +buffer).
+MAX_CONCURRENT_NAMES = 4
 MIN_DAY_VOLUME_USD = 5_000_000.0
 PRICE_HISTORY_TTL_H = 24.0
 PRICE_HISTORY_PERIOD = "1y"
@@ -73,9 +79,21 @@ _NON_EQUITY_REAL_SYMBOLS = frozenset({
     # Commodities
     "CL", "BRENTOIL", "GOLD", "SILVER", "NATGAS", "COPPER", "PLATINUM",
     "PALLADIUM", "ALUMINIUM", "URANIUM", "CORN", "WHEAT", "TTF",
+    # Overige indices (H100 = GPU-huurprijs-index, geen bedrijf)
+    "H100",
 })
 
 # Crash-scoring drempels (tunable)
+# Risico-guards (F0-gevalideerd 2026-07-24, zie feedback_sleeve_validation):
+# de dip-buy-edge is echt maar regime-conditioneel + zonder downside-stop (46% van
+# de posities ging >20% onder water). Twee guards: (1) sector-circuit-breaker
+# pauzeert nieuwe dip-buys bij een STRUCTURELE sector-daling (>15% onder 60d-high;
+# NIET de equity-uptrend-gate — die schaadt de mean-reversion-edge); (2) een
+# per-positie downside-stop capt de tail. LET OP: de bear-bescherming is by-design,
+# niet gebacktest (de ~10mnd data was volledig bull).
+SLEEVE_CIRCUIT_BREAKER_DD_PCT = 15.0   # XYZ100 >dit% onder 60d-high -> pauzeer entries
+SLEEVE_MAX_DRAWDOWN_STOP_PCT = 25.0    # sluit positie bij -dit% verlies (falling-knife cap)
+
 PULLBACK_VOL_THRESHOLD = 1.5   # vol-genormaliseerde "eenheden onder het 252d-high"
 BREADTH_THRESHOLD = 0.30       # aandeel tickers in thema dat ook >= pullback-drempel scoort
 STABILIZATION_LOOKBACK = 5     # dagen — laatste close mag niet op het 5d-low liggen
@@ -84,11 +102,43 @@ STABILIZATION_LOOKBACK = 5     # dagen — laatste close mag niet op het 5d-low 
 TRANCHE_PCTS = {1: 0.20, 2: 0.30, 3: 0.30, 4: 0.20}
 
 # Executie-guards
-PRICE_SANITY_MAX_DEV_PCT = 2.0
+# Prijs-sanity: primair vergelijken we de xyz-perp-mark met een VERSE intraday-
+# referentie (strakke band). De daily yfinance-close loopt een sessie achter —
+# een live-rally zet de perp legitiem 5-8% erboven, wat de oude 2%-vs-daily-close
+# gate elke entry deed weigeren (sleeve ~3d flat, 2026-07-21). De daily-close
+# blijft als fallback (verse intraday niet beschikbaar / FX-genoteerd) met een
+# ruime glitch-band: alleen een echt kapotte mark (ordes van grootte) weren.
+PRICE_SANITY_MAX_DEV_PCT = 2.0        # (legacy) niet meer gebruikt in de guard
+PRICE_SANITY_INTRADAY_DEV_PCT = 3.0  # strakke band vs verse intraday-prijs
+PRICE_SANITY_DAILY_DEV_PCT = 12.0    # ruime glitch-band vs stale daily-close (fallback)
+PRICE_INTRADAY_TTL_S = 300           # verse intraday-referentie TTL (5 min)
 FUNDING_ALERT_ANNUALIZED_PCT = 8.0
 
 LEVERAGE = 1
 MARGIN_MODE = "isolated"
+
+# ── G0 meta-allocator: idle USDC -> xyz perp-dex sweep ──
+# XYZ-synthetics handelen op de aparte "xyz" builder perp-dex met eigen collateral.
+# USDC dat via HL "Send Tokens" of een treasury FUND_SLEEVE-transfer binnenkomt landt
+# in spot (of de main-perp), niet op de xyz-dex. Deze sweep verplaatst dat idle geld
+# met een sendAsset (HIP-3) automatisch naar de xyz-dex zodat het inzetbaar wordt.
+# Werkt alleen op een SELF-CUSTODY wallet (de sleeve's eigen key = het account);
+# op de gedeelde main-wallet (agent-key) verbiedt HL user-signed actions -> skip.
+MIN_SWEEP_USD = 10.0                   # onder HL min-notional heeft sweepen geen zin
+_SEND_ASSET_MAINNET_CHAINID = 42161    # Arbitrum One (EIP-712 domain chainId)
+_SEND_ASSET_SIG_CHAIN_ID = "0xa4b1"    # matcht domain-chainId; HL mainnet
+_SEND_ASSET_TYPES = {
+    "HyperliquidTransaction:SendAsset": [
+        {"name": "hyperliquidChain", "type": "string"},
+        {"name": "destination", "type": "string"},
+        {"name": "sourceDex", "type": "string"},
+        {"name": "destinationDex", "type": "string"},
+        {"name": "token", "type": "string"},
+        {"name": "amount", "type": "string"},
+        {"name": "fromSubAccount", "type": "string"},
+        {"name": "nonce", "type": "uint64"},
+    ],
+}
 
 
 def _now_iso():
@@ -103,10 +153,12 @@ def _finite(x, default=0.0):
         return default
 
 
-class ThematicDipLab:
+class ThematicExposureLab:
     def __init__(self, exchange_client=None):
         self.exchange_client = exchange_client
         self._llm = None
+        self._self_custody = None      # cache: True/False of de sleeve-key == het account
+        self._usdc_token = None        # cache: "USDC:0x..." token-id voor sendAsset
 
     # ── LLM ──────────────────────────────────────────────────────────────
     def _get_llm(self):
@@ -115,7 +167,7 @@ class ThematicDipLab:
                 from utils.llm_client import LLMClient
                 self._llm = LLMClient()
             except Exception as e:
-                logger.warning(f"ThematicDipLab: LLM init mislukt ({e})")
+                logger.warning(f"ThematicExposureLab: LLM init mislukt ({e})")
                 self._llm = False  # sentinel: geprobeerd en mislukt
         return self._llm if self._llm else None
 
@@ -225,7 +277,7 @@ class ThematicDipLab:
         try:
             snapshot = self._xyz_snapshot()
         except Exception as e:
-            logger.debug(f"ThematicDipLab: universe-scan mislukt: {e}")
+            logger.debug(f"ThematicExposureLab: universe-scan mislukt: {e}")
             return
         if not snapshot:
             return
@@ -246,7 +298,7 @@ class ThematicDipLab:
             state["universe_seeded"] = True
             self._save_state(state)
             logger.info(
-                f"[ThematicDipLab] Eerste scan: {len(new_tickers_raw)} tickers als baseline "
+                f"[ThematicExposureLab] Eerste scan: {len(new_tickers_raw)} tickers als baseline "
                 f"overgeslagen (geen classificatie-run)"
             )
             return
@@ -284,6 +336,31 @@ class ThematicDipLab:
         self._save_themes(themes)
         self._notify_classification_batch(results)
 
+    @staticmethod
+    def _yf_has_history(real_symbol: str) -> bool:
+        """Check of Yahoo bruikbare daily-historie heeft voor dit symbool.
+        De HL-tickercode is lang niet altijd een geldig Yahoo-symbool
+        (SOFTBANK/KIOXIA/SMSN/… — Aziatische noteringen, of indices als
+        H100): zonder deze check werd zo'n naam auto-CONFIRMED en bleef hij
+        daarna onscoorbaar. Fail-open bij lib-/netwerkfouten: een kapotte
+        check mag classificatie niet blokkeren."""
+        yf_logger = logging.getLogger("yfinance")
+        prev_level = yf_logger.level
+        try:
+            import yfinance as yf
+            yf_logger.setLevel(logging.CRITICAL)
+            df = yf.download(real_symbol, period="3mo", interval="1d", progress=False)
+        except Exception:
+            return True  # lib-/netwerkfout: fail-open
+        finally:
+            yf_logger.setLevel(prev_level)
+        if df is None or getattr(df, "empty", True):
+            return False  # onbekend symbool: yfinance geeft een lege frame terug
+        try:
+            return len(df["Close"].dropna()) >= 20
+        except Exception:
+            return False
+
     def _classify_ticker(self, ticker: str, themes: dict) -> tuple:
         real_symbol = ticker.split("-", 1)[1] if "-" in ticker else ticker
         theme_ids = list(themes.get("themes", {}).keys())
@@ -313,7 +390,7 @@ class ThematicDipLab:
         proposal = None
         if llm:
             try:
-                raw = llm.analyze_text(prompt, agent_name="ThematicDipLab", thinking=False)
+                raw = llm.analyze_text(prompt, agent_name="ThematicExposureLab", thinking=False)
                 cleaned = re.sub(r"```(?:json)?\s*|\s*```", "", raw).strip()
                 m = re.search(r"\{.*\}", cleaned, re.DOTALL)
                 if m:
@@ -321,9 +398,21 @@ class ThematicDipLab:
                     if isinstance(parsed.get("themes"), dict):
                         proposal = parsed
             except Exception as e:
-                logger.warning(f"ThematicDipLab: classificatie van {ticker} mislukt: {e}")
+                logger.warning(f"ThematicExposureLab: classificatie van {ticker} mislukt: {e}")
 
         if proposal and proposal["themes"]:
+            # Zonder Yahoo-prijshistorie kan een naam nooit scoren (en tot
+            # 2026-07-17 verwaterde hij ook de thema-breadth) — dan heeft
+            # CONFIRMED/PENDING_REVIEW geen zin. Voorstel bewaren zodat een
+            # mens alleen real_symbol (+ evt. fx_symbol) hoeft te mappen.
+            if not self._yf_has_history(real_symbol):
+                themes.setdefault("tickers", {})[ticker] = {
+                    "real_symbol": real_symbol, "themes": proposal["themes"], "status": "PENDING_MANUAL",
+                    "note": ("LLM-voorstel bewaard, maar geen yfinance-historie voor dit symbool — "
+                             "map real_symbol (+ evt. fx_symbol, bv. 'JPY=X') handmatig en zet daarna op CONFIRMED."),
+                }
+                logger.info(f"[ThematicExposureLab] {ticker}: geen yfinance-historie voor '{real_symbol}' — PENDING_MANUAL")
+                return (ticker, "PENDING_MANUAL", {})
             # Auto-confirm alleen als de LLM zelf "high" confidence rapporteert
             # (2026-07-16, op Bart's verzoek: handmatige review mag eruit voor
             # de duidelijke gevallen). Bij "low"/ontbrekend blijft een mens
@@ -336,20 +425,20 @@ class ThematicDipLab:
                 "themes": proposal["themes"],
                 "status": status,
             }
-            logger.info(f"[ThematicDipLab] {ticker}: {status} ({proposal['themes']})")
+            logger.info(f"[ThematicExposureLab] {ticker}: {status} ({proposal['themes']})")
             return (ticker, status, proposal["themes"])
         else:
             themes.setdefault("tickers", {})[ticker] = {
                 "real_symbol": real_symbol, "themes": {}, "status": "PENDING_MANUAL",
             }
-            logger.info(f"[ThematicDipLab] {ticker}: classificatie mislukt/leeg — PENDING_MANUAL")
+            logger.info(f"[ThematicExposureLab] {ticker}: classificatie mislukt/leeg — PENDING_MANUAL")
             return (ticker, "PENDING_MANUAL", {})
 
     def _notify_classification_batch(self, results: list) -> None:
         """Eén samengevoegd bericht per cyclus i.p.v. één per ticker (bug
         2026-07-16: universum-classificatie stuurde tientallen losse pushes).
         PENDING_MANUAL (geen voorstel, niets om op te reageren) wordt alleen
-        geteld, niet uitgeschreven — zichtbaar via /diplist, niet elke keer
+        geteld, niet uitgeschreven — zichtbaar via /themelist, niet elke keer
         gepusht. CONFIRMED (auto, high confidence) wordt gemeld ter info, geen
         actie nodig. Plain text (geen parse_mode) — theme-ID's als 'ai_native'
         breken Telegram's Markdown-onderstrepingsparsing anders willekeurig."""
@@ -359,58 +448,104 @@ class ThematicDipLab:
         if not auto_confirmed and not reviewable and not manual_count:
             return
 
-        lines = [f"Thematic Dip Lab — {len(results)} nieuwe ticker(s) gescand"]
+        lines = [f"Thematic Exposure Sleeve — {len(results)} nieuwe ticker(s) gescand"]
         if auto_confirmed:
             lines.append("  Auto-CONFIRMED (high confidence, telt al mee):")
             for ticker, theme_weights in auto_confirmed:
                 themes_str = ", ".join(f"{k} {v:.2f}" for k, v in theme_weights.items())
-                lines.append(f"    {ticker} -> {themes_str}  (/dipignore {ticker} om terug te draaien)")
+                lines.append(f"    {ticker} -> {themes_str}  (/themeignore {ticker} om terug te draaien)")
         for ticker, theme_weights in reviewable:
             themes_str = ", ".join(f"{k} {v:.2f}" for k, v in theme_weights.items())
             lines.append(f"  {ticker} -> {themes_str} (low confidence, review gewenst)")
-            lines.append(f"    /dipapprove {ticker}  |  /dipedit {ticker} thema:gewicht  |  /dipignore {ticker}")
+            lines.append(f"    /themeapprove {ticker}  |  /themeedit {ticker} thema:gewicht  |  /themeignore {ticker}")
         if manual_count:
-            lines.append(f"  + {manual_count} zonder voorstel (PENDING_MANUAL) — zie /diplist")
+            lines.append(f"  + {manual_count} zonder voorstel (PENDING_MANUAL) — zie /themelist")
         self._notify_telegram("\n".join(lines), plain=True)
 
     # ── prijs-historie (yfinance) ────────────────────────────────────────
-    def _fetch_price_history(self, real_symbols: list) -> dict:
-        """Batched yfinance daily OHLC, ~24h TTL-cache. Returns {real_symbol: {'closes': [...]}}"""
+    def _fetch_price_history(self, symbol_specs: dict) -> dict:
+        """Batched yfinance daily OHLC, ~24h TTL-cache.
+
+        symbol_specs: {yf_symbol: fx_symbol_of_None}. Voor buitenlandse
+        noteringen (bv. 9984.T + "JPY=X") worden de closes per dag naar USD
+        omgerekend — HL's xyz-marks zijn de lokale koers gedeeld door de
+        FX-koers (empirisch geverifieerd 2026-07-17), dus alleen USD-closes
+        geven een kloppende drawdown-score én een werkende prijs-sanity-guard.
+
+        Symbolen zonder bruikbare Yahoo-data gaan een TTL lang de NEGATIEVE
+        cache in (price_cache_failed) — zonder die cache bleef `missing`
+        permanent gevuld en werd de volledige 1y-batch elke run opnieuw
+        opgehaald, met identieke yfinance-ERRORs (→ Telegram-spam) elke ~5 min.
+
+        Returns {yf_symbol: {'closes': [USD-closes]}}."""
         state = self._load_state()
         cache = state.get("price_cache", {})
-        cache_ts = state.get("price_cache_ts", 0)
-        fresh = time.time() - cache_ts < PRICE_HISTORY_TTL_H * 3600
-        missing = [s for s in real_symbols if s not in cache]
+        now = time.time()
+        ttl_s = PRICE_HISTORY_TTL_H * 3600
+        failed = {s: ts for s, ts in state.get("price_cache_failed", {}).items() if now - ts < ttl_s}
+        fresh = now - state.get("price_cache_ts", 0) < ttl_s
+        missing = [s for s in symbol_specs if s not in cache and s not in failed]
         if fresh and not missing:
             return cache
 
+        to_fetch = {s: fx for s, fx in symbol_specs.items() if s not in failed}
+        if not to_fetch:
+            return cache
+        batch = sorted(set(to_fetch) | {fx for fx in to_fetch.values() if fx})
+
+        # yfinance logt zelf op ERROR voor elk onbekend symbool; dat is hier
+        # een verwachte, zelf-afgehandelde uitkomst (negatieve cache + eigen
+        # WARNING) — geen ERROR-spam naar het Telegram-logkanaal.
+        yf_logger = logging.getLogger("yfinance")
+        prev_level = yf_logger.level
         try:
             import yfinance as yf
+            yf_logger.setLevel(logging.CRITICAL)
             data = yf.download(
-                tickers=" ".join(real_symbols), period=PRICE_HISTORY_PERIOD, interval="1d",
+                tickers=" ".join(batch), period=PRICE_HISTORY_PERIOD, interval="1d",
                 group_by="ticker", progress=False, threads=True,
             )
         except Exception as e:
-            logger.warning(f"ThematicDipLab: yfinance batch-fetch mislukt: {e}")
+            logger.warning(f"ThematicExposureLab: yfinance batch-fetch mislukt: {e}")
             return cache
+        finally:
+            yf_logger.setLevel(prev_level)
+
+        def _close_series(sym):
+            try:
+                col = data[sym] if len(batch) > 1 else data
+                series = col["Close"].dropna()
+                return series if len(series) else None
+            except Exception:
+                return None
 
         new_cache = {}
-        for sym in real_symbols:
-            try:
-                col = data[sym] if len(real_symbols) > 1 else data
-                closes = [c for c in col["Close"].dropna().tolist() if math.isfinite(c) and c > 0]
-                if len(closes) < 20:
-                    continue
-                new_cache[sym] = {"closes": closes[-260:]}
-            except Exception:
+        newly_failed = []
+        for sym, fx_sym in to_fetch.items():
+            series = _close_series(sym)
+            if series is not None and fx_sym:
+                fx = _close_series(fx_sym)
+                # per-dag delen; pandas lijnt de datums uit, gaten vallen weg
+                series = (series / fx).dropna() if fx is not None else None
+            closes = [c for c in (series.tolist() if series is not None else [])
+                      if math.isfinite(c) and c > 0]
+            if len(closes) < 20:
+                newly_failed.append(sym)
+                failed[sym] = now
                 continue
+            new_cache[sym] = {"closes": closes[-260:]}
 
+        if newly_failed:
+            logger.warning(
+                f"ThematicExposureLab: geen bruikbare Yahoo-historie voor {sorted(newly_failed)} — "
+                f"{PRICE_HISTORY_TTL_H:.0f}h op de negatieve cache; fix real_symbol/fx_symbol in {THEMES_FILE}"
+            )
+        state["price_cache_failed"] = failed
         if new_cache:
             state["price_cache"] = new_cache
-            state["price_cache_ts"] = time.time()
-            self._save_state(state)
-            return new_cache
-        return cache  # fetch mislukt/leeg — val terug op oude cache i.p.v. alles te wissen
+            state["price_cache_ts"] = now
+        self._save_state(state)  # ook een louter-negatief resultaat persist maken
+        return new_cache or cache  # fetch mislukt/leeg — val terug op oude cache i.p.v. alles te wissen
 
     # ── crash-scoring ─────────────────────────────────────────────────────
     @staticmethod
@@ -469,12 +604,19 @@ class ThematicDipLab:
         }
 
     def _theme_breadth(self, scores: dict, themes_cfg: dict) -> dict:
-        """Per thema: aandeel geclassificeerde tickers dat >= PULLBACK_VOL_THRESHOLD scoort."""
+        """Per thema: aandeel MEETBARE tickers dat >= PULLBACK_VOL_THRESHOLD scoort.
+
+        Noemer = alleen leden mét een score (dus met prijshistorie én
+        voldoende volume). CONFIRMED leden zonder yfinance-historie telden
+        eerst wel mee in de noemer maar konden nooit een hit worden — juist
+        memory_storage (Samsung/SK Hynix/Kioxia) werd daardoor structureel
+        onder de BREADTH_THRESHOLD gedrukt (bug 2026-07-17)."""
         breadth = {}
         for theme_id in themes_cfg.get("themes", {}):
             members = [
                 t for t, cfg in themes_cfg.get("tickers", {}).items()
                 if cfg.get("status") == "CONFIRMED" and theme_id in (cfg.get("themes") or {})
+                and t in scores
             ]
             if not members:
                 breadth[theme_id] = 0.0
@@ -495,11 +637,11 @@ class ThematicDipLab:
         try:
             snapshot = self._xyz_snapshot()
         except Exception as e:
-            logger.debug(f"ThematicDipLab: scoring-snapshot mislukt: {e}")
+            logger.debug(f"ThematicExposureLab: scoring-snapshot mislukt: {e}")
             return {}
 
-        real_symbols = sorted({cfg["real_symbol"] for cfg in confirmed.values()})
-        history = self._fetch_price_history(real_symbols)
+        symbol_specs = {cfg["real_symbol"]: cfg.get("fx_symbol") for cfg in confirmed.values()}
+        history = self._fetch_price_history(symbol_specs)
 
         scores = {}
         for ticker, cfg in confirmed.items():
@@ -552,8 +694,21 @@ class ThematicDipLab:
 
     # ── T1-T4 executie (buiten de council-pipeline, zelfde patroon als
     # TreasuryAgent._open_harvest_position) ──────────────────────────────
+    @staticmethod
+    def _sleeve_entries_enabled() -> bool:
+        """Master-schakelaar voor nieuwe sleeve-entries (default True). De
+        sleeve-re-validatie zet dit op False bij edge-verval (de-risk). Bestaande
+        posities blijven altijd beheerd (exits/stops draaien door)."""
+        try:
+            with open("config/auto_params.json") as f:
+                v = json.load(f).get("sleeve_entries_enabled", True)
+                return bool(v) if v is not None else True
+        except Exception:
+            return True
+
     def _maybe_advance_tranches(self, report: dict) -> None:
         if self.exchange_client is None:
+            logger.warning("ThematicExposureLab: exchange_client is None — T1 execution disabled")
             return
         positions = self._load_positions()
         themes_cfg = self._load_themes()
@@ -564,6 +719,28 @@ class ThematicDipLab:
         # Nieuwe T1's — altijd live vanaf dag 1, ongeacht t2_t4_enabled.
         qualifying = [t for t in report.get("qualifying", []) if t not in open_tickers]
         n_slots = max(0, MAX_CONCURRENT_NAMES - len(open_tickers))
+        if qualifying:
+            logger.info(f"ThematicExposureLab: qualifying={qualifying} n_slots={n_slots} open_tickers={sorted(open_tickers)}")
+
+        # Sleeve-re-validatie kan entries autonoom pauzeren bij edge-verval (de-risk).
+        if n_slots > 0 and not self._sleeve_entries_enabled():
+            if qualifying:
+                logger.warning("ThematicExposureLab: sleeve_entries_enabled=False (re-validatie de-risk) → nieuwe dip-buys gepauzeerd")
+            n_slots = 0
+
+        # Sector-circuit-breaker: pauzeer NIEUWE dip-buys bij een structurele sector-
+        # daling. Bestaande posities blijven gewoon beheerd (exits/stops draaien door).
+        try:
+            from core.equity_regime import sector_drawdown_pct
+            _dd = sector_drawdown_pct()
+            if n_slots > 0 and _dd >= SLEEVE_CIRCUIT_BREAKER_DD_PCT:
+                if qualifying:
+                    logger.warning(f"ThematicExposureLab: SECTOR-CIRCUIT-BREAKER — XYZ100 {_dd:.1f}% "
+                                   f"onder 60d-high (>= {SLEEVE_CIRCUIT_BREAKER_DD_PCT:.0f}%) → nieuwe dip-buys gepauzeerd")
+                n_slots = 0
+        except Exception as e:
+            logger.debug(f"ThematicExposureLab: circuit-breaker-check overgeslagen: {e}")
+
         for ticker in qualifying[:n_slots]:
             self._open_tranche(ticker, 1, themes_cfg, positions, report)
 
@@ -581,6 +758,81 @@ class ThematicDipLab:
             if self._tranche_trigger(next_stage, s, pos):
                 self._open_tranche(ticker, next_stage, themes_cfg, positions, report)
 
+    @staticmethod
+    def _hl_symbol(ticker: str) -> str:
+        """Ticker keys in this module are bare (e.g. 'XYZ-NVDA'); exchange_client's
+        _normalize_symbol() expects ccxt-style 'XYZ-NVDA/USDC' — without the quote
+        suffix every lookup misses and get_market_price()/create_order() report the
+        ticker as "not listed", even though it trades fine (2026-07-17: silently
+        blocked every T1 execution since the sleeve launched 2026-07-16)."""
+        return ticker if "/" in ticker else f"{ticker}/USDC"
+
+    def _sanity_reference(self, real_symbol: str, fx_symbol: str | None):
+        """Referentieprijs voor de mark-sanity-guard.
+
+        Retourneert (price, kind, tolerance_pct):
+          - ('intraday', strakke band) — verse yfinance last_price (5min TTL-cache,
+            FX-genoteerde namen naar USD omgerekend via de FX last_price).
+          - ('yf-close', ruime band) — laatste daily-close uit price_cache; puur
+            een glitch-vangnet als de intraday-fetch faalt.
+          - (None, ...) als geen enkele referentie beschikbaar is → guard slaat over.
+        """
+        state = self._load_state()
+        cache = state.get("intraday_ref", {})
+        now = time.time()
+        cached = cache.get(real_symbol)
+        if cached and now - cached.get("ts", 0) < PRICE_INTRADAY_TTL_S:
+            px = _finite(cached.get("px"))
+            if px > 0:
+                return px, "intraday", PRICE_SANITY_INTRADAY_DEV_PCT
+
+        px = self._fetch_intraday_price(real_symbol, fx_symbol)
+        if px and px > 0:
+            cache[real_symbol] = {"px": px, "ts": now}
+            state["intraday_ref"] = cache
+            self._save_state(state)
+            return px, "intraday", PRICE_SANITY_INTRADAY_DEV_PCT
+
+        # Fallback: stale daily-close, ruime glitch-band.
+        hist = state.get("price_cache", {}).get(real_symbol)
+        if hist and hist.get("closes"):
+            last_close = _finite(hist["closes"][-1])
+            if last_close > 0:
+                return last_close, "yf-close", PRICE_SANITY_DAILY_DEV_PCT
+        return None, "", PRICE_SANITY_DAILY_DEV_PCT
+
+    @staticmethod
+    def _fetch_intraday_price(real_symbol: str, fx_symbol: str | None) -> float:
+        """Verse last_price via yfinance fast_info; FX-genoteerd naar USD gedeeld.
+        Faalt stil (0.0) — de caller valt dan terug op de daily-close."""
+        yf_logger = logging.getLogger("yfinance")
+        prev_level = yf_logger.level
+        try:
+            import yfinance as yf
+            yf_logger.setLevel(logging.CRITICAL)
+
+            def _last(sym: str) -> float:
+                try:
+                    fi = yf.Ticker(sym).fast_info
+                    return _finite(fi.get("last_price") or fi.get("lastPrice"))
+                except Exception:
+                    return 0.0
+
+            px = _last(real_symbol)
+            if px <= 0:
+                return 0.0
+            if fx_symbol:
+                fx = _last(fx_symbol)
+                if fx <= 0:
+                    return 0.0  # geen verse FX → laat fallback het overnemen
+                px = px / fx
+            return px if px > 0 else 0.0
+        except Exception as e:
+            logger.debug(f"ThematicExposureLab: intraday-prijs mislukt voor {real_symbol}: {e}")
+            return 0.0
+        finally:
+            yf_logger.setLevel(prev_level)
+
     def _open_tranche(self, ticker: str, stage: int, themes_cfg: dict, positions: dict, report: dict) -> None:
         from core.strategy_logic import detect_asset_class
         from agents.xyz_technical_analyst import _market_is_open
@@ -589,7 +841,7 @@ class ThematicDipLab:
         # verse prijsontdekking (zie shadow_xyz_lab's open-gap-tracker).
         asset_class = detect_asset_class(ticker)
         if not _market_is_open(asset_class, datetime.now(timezone.utc)):
-            logger.debug(f"ThematicDipLab: {ticker} markt gesloten — T{stage} uitgesteld")
+            logger.debug(f"ThematicExposureLab: {ticker} markt gesloten (asset_class={asset_class}) — T{stage} uitgesteld")
             return
 
         budget = _finite(positions.get("budget_usd"), DEFAULT_BUDGET_USD)
@@ -597,42 +849,46 @@ class ThematicDipLab:
         per_name_budget = budget / MAX_CONCURRENT_NAMES
         tranche_usd = per_name_budget * TRANCHE_PCTS[stage]
         if tranche_usd > cash:
-            logger.info(f"ThematicDipLab: onvoldoende cash voor T{stage} {ticker} (${tranche_usd:.2f} > ${cash:.2f})")
+            logger.info(f"ThematicExposureLab: onvoldoende cash voor T{stage} {ticker} (${tranche_usd:.2f} > ${cash:.2f})")
             return
 
         try:
-            mark_price = self.exchange_client.get_market_price(ticker)
+            mark_price = self.exchange_client.get_market_price(self._hl_symbol(ticker))
         except Exception as e:
-            logger.warning(f"ThematicDipLab: prijs ophalen mislukt voor {ticker}: {e}")
+            logger.warning(f"ThematicExposureLab: prijs ophalen mislukt voor {ticker}: {e}")
             return
         mark_price = _finite(mark_price)
         if mark_price <= 0:
             return
 
-        # Guard (b): prijs-sanity vs laatste yfinance-close
-        real_symbol = themes_cfg.get("tickers", {}).get(ticker, {}).get("real_symbol", ticker.split("-", 1)[-1])
-        hist = self._load_state().get("price_cache", {}).get(real_symbol)
-        if hist and hist.get("closes"):
-            last_close = hist["closes"][-1]
-            if last_close > 0 and abs(mark_price - last_close) / last_close * 100 > PRICE_SANITY_MAX_DEV_PCT:
+        # Guard (b): prijs-sanity — verse intraday-referentie (strak), met
+        # daily-close als ruime glitch-fallback (zie constants-blok).
+        tcfg = themes_cfg.get("tickers", {}).get(ticker, {})
+        real_symbol = tcfg.get("real_symbol", ticker.split("-", 1)[-1])
+        fx_symbol = tcfg.get("fx_symbol")
+        ref_price, ref_kind, ref_tol = self._sanity_reference(real_symbol, fx_symbol)
+        if ref_price and ref_price > 0:
+            dev = abs(mark_price - ref_price) / ref_price * 100
+            if dev > ref_tol:
                 logger.warning(
-                    f"ThematicDipLab: prijs-sanity-check faalt voor {ticker} "
-                    f"(mark={mark_price:.2f} vs yfinance-close={last_close:.2f}) — order overgeslagen"
+                    f"ThematicExposureLab: prijs-sanity-check faalt voor {ticker} "
+                    f"(mark={mark_price:.2f} vs {ref_kind}={ref_price:.2f}, "
+                    f"dev={dev:.1f}% > {ref_tol:.0f}%) — order overgeslagen"
                 )
                 return
 
         # Guard: min-notional — bewuste skip i.p.v. structurele basket-wijziging
         try:
-            min_notional = self.exchange_client.get_min_notional(ticker) or 10.0
+            min_notional = self.exchange_client.get_min_notional(self._hl_symbol(ticker)) or 10.0
         except Exception:
             min_notional = 10.0
         if tranche_usd < min_notional + 1.0:
-            logger.info(f"ThematicDipLab: T{stage} voor {ticker} (${tranche_usd:.2f}) onder min-notional — overgeslagen")
+            logger.info(f"ThematicExposureLab: T{stage} voor {ticker} (${tranche_usd:.2f}) onder min-notional — overgeslagen")
             return
 
         precision = 0.0
         try:
-            precision = self.exchange_client.get_amount_precision(ticker) or 0.0
+            precision = self.exchange_client.get_amount_precision(self._hl_symbol(ticker)) or 0.0
         except Exception:
             pass
         quantity = tranche_usd / mark_price
@@ -642,18 +898,18 @@ class ThematicDipLab:
             return
 
         order = self.exchange_client.create_order(
-            ticker, "BUY", quantity, order_type="market",
+            self._hl_symbol(ticker), "BUY", quantity, order_type="market",
             leverage=LEVERAGE, margin_mode=MARGIN_MODE,
         )
         if order is None:
-            logger.warning(f"ThematicDipLab: T{stage}-order voor {ticker} mislukt (exchange gaf None terug)")
+            logger.warning(f"ThematicExposureLab: T{stage}-order voor {ticker} mislukt (exchange gaf None terug)")
             return
 
         notional_usd = quantity * mark_price
         self._record_open_or_add(positions, ticker, stage, themes_cfg, quantity, mark_price, notional_usd)
         self._append_trade_log(ticker, quantity, mark_price, notional_usd)
         self._notify_telegram(
-            f"🟢 *Thematic Dip Lab — T{stage} {'geopend' if stage == 1 else 'bijgekocht'}*\n"
+            f"🟢 *Thematic Exposure Sleeve — T{stage} {'geopend' if stage == 1 else 'bijgekocht'}*\n"
             f"{ticker} — {quantity:.4f} @ ${mark_price:.2f} (${notional_usd:.2f}, 1x isolated)"
         )
 
@@ -691,17 +947,27 @@ class ThematicDipLab:
         self._save_positions(positions)
 
     def _append_trade_log(self, ticker: str, quantity: float, price: float, notional_usd: float) -> None:
-        """Schrijft een OPEN-record in trade_log.json, getagd 'thematic_dip': True
+        """Schrijft een OPEN-record in trade_log.json, getagd 'thematic_exposure': True
         zodat de auditor/weight-learning-loop deze trade negeert (zelfde patroon
-        als 'harvest': True — zie agents/execution_agent.py + strategy_manager.py guards)."""
+        als 'harvest': True — zie agents/execution_agent.py + strategy_manager.py guards).
+
+        ticker field uses _hl_symbol() (ccxt "XYZ-NVDA/USDC" form), not this module's
+        bare internal format — ProjectLead's duplicate-position guard
+        (project_lead.py ~1097-1110) string-matches trade_log.json's ticker field
+        against its own "TICKER/USDC" tickers to skip trading an asset it's already
+        in. Before this, that guard silently never matched thematic-exposure
+        positions, so the council could open a conflicting/stacking order on the
+        same Hyperliquid market — and since leverage/margin-mode is a per-market
+        account setting (not per-order), that could silently flip this sleeve's
+        fixed 1x isolated position to whatever the council's order used (2026-07-17)."""
         try:
             with open("trade_log.json") as f:
                 log = json.load(f)
         except Exception:
             log = []
         log.append({
-            "id": f"THEMATIC_DIP_{ticker}_{int(time.time())}",
-            "ticker": ticker,
+            "id": f"THEMATIC_EXPOSURE_{ticker}_{int(time.time())}",
+            "ticker": self._hl_symbol(ticker),
             "action": "BUY",
             "quantity": quantity,
             "entry_price": price,
@@ -710,13 +976,13 @@ class ThematicDipLab:
             "status": "OPEN",
             "pnl": 0.0,
             "analyst_signals": {},
-            "thematic_dip": True,
+            "thematic_exposure": True,
         })
         try:
             with open("trade_log.json", "w") as f:
                 json.dump(log, f, indent=1)
         except Exception as e:
-            logger.error(f"trade_log.json schrijven mislukt (thematic_dip open): {e}")
+            logger.error(f"trade_log.json schrijven mislukt (thematic_exposure open): {e}")
 
     def _close_trade_log(self, ticker: str, price: float, pnl: float) -> None:
         try:
@@ -724,8 +990,9 @@ class ThematicDipLab:
                 log = json.load(f)
         except Exception:
             return
+        hl_ticker = self._hl_symbol(ticker)
         for t in log:
-            if t.get("ticker") == ticker and t.get("status") == "OPEN" and t.get("thematic_dip"):
+            if t.get("ticker") == hl_ticker and t.get("status") == "OPEN" and t.get("thematic_exposure"):
                 t["status"] = "CLOSED"
                 t["exit_price"] = price
                 t["pnl"] = pnl
@@ -735,7 +1002,7 @@ class ThematicDipLab:
             with open("trade_log.json", "w") as f:
                 json.dump(log, f, indent=1)
         except Exception as e:
-            logger.error(f"trade_log.json schrijven mislukt (thematic_dip close): {e}")
+            logger.error(f"trade_log.json schrijven mislukt (thematic_exposure close): {e}")
 
     # ── exit-beheer (ook live vanaf dag 1 — een onbeheerde open positie is
     # onverantwoord) ───────────────────────────────────────────────────
@@ -750,7 +1017,7 @@ class ThematicDipLab:
         changed = False
         for ticker, pos in open_positions.items():
             try:
-                mark = self.exchange_client.get_market_price(ticker)
+                mark = self.exchange_client.get_market_price(self._hl_symbol(ticker))
             except Exception:
                 continue
             mark = _finite(mark)
@@ -766,7 +1033,13 @@ class ThematicDipLab:
             pos["peak_value_usd"] = max(_finite(pos.get("peak_value_usd")), pos["current_value_usd"])
 
             exit_reason, exit_fraction = None, 0.0
-            if gain_pct >= 100 and not pos.get("profit_tranche_3_done"):
+            # Downside-stop (falling-knife cap): sluit volledig bij een groot verlies.
+            # De sleeve had voorheen GEEN downside-stop → posities konden oneindig
+            # zakken (46% ging >20% onder water, ergste −44%). Capt de single-position
+            # tail; backtest: minimale edge-kost, worst −44%→−33%.
+            if gain_pct <= -SLEEVE_MAX_DRAWDOWN_STOP_PCT:
+                exit_reason, exit_fraction = f"downside-stop {SLEEVE_MAX_DRAWDOWN_STOP_PCT:.0f}%", 1.0
+            elif gain_pct >= 100 and not pos.get("profit_tranche_3_done"):
                 exit_reason, exit_fraction = "winst-tranche +100%", 0.25
                 pos["profit_tranche_3_done"] = True
             elif gain_pct >= 60 and not pos.get("profit_tranche_2_done"):
@@ -789,7 +1062,7 @@ class ThematicDipLab:
         qty_to_sell = pos["quantity"] * fraction
         precision = 0.0
         try:
-            precision = self.exchange_client.get_amount_precision(ticker) or 0.0
+            precision = self.exchange_client.get_amount_precision(self._hl_symbol(ticker)) or 0.0
         except Exception:
             pass
         if precision > 0:
@@ -798,11 +1071,11 @@ class ThematicDipLab:
             return
 
         order = self.exchange_client.create_order(
-            ticker, "SELL", qty_to_sell, order_type="market",
+            self._hl_symbol(ticker), "SELL", qty_to_sell, order_type="market",
             leverage=LEVERAGE, margin_mode=MARGIN_MODE,
         )
         if order is None:
-            logger.warning(f"ThematicDipLab: exit-order voor {ticker} mislukt ({reason})")
+            logger.warning(f"ThematicExposureLab: exit-order voor {ticker} mislukt ({reason})")
             return
 
         proceeds = qty_to_sell * mark
@@ -824,11 +1097,11 @@ class ThematicDipLab:
         # oorspronkelijke BUY-entry_price/quantity representeren dan de resterende
         # kernpositie niet meer exact, maar trade_log wordt hier uitsluitend voor
         # de auditor-isolatie gebruikt (zie guards), niet voor P&L-rapportage —
-        # die leest thematic_dip_positions.json.
+        # die leest thematic_exposure_positions.json.
 
         self._save_positions(positions)
         self._notify_telegram(
-            f"🔴 *Thematic Dip Lab — exit*\n{ticker} — {reason}\n"
+            f"🔴 *Thematic Exposure Sleeve — exit*\n{ticker} — {reason}\n"
             f"{qty_to_sell:.4f} @ ${mark:.2f} — gerealiseerd: ${realized_pnl:+.2f}"
             f"{' (volledig gesloten)' if full_close else ''}"
         )
@@ -885,7 +1158,7 @@ class ThematicDipLab:
         token = os.getenv("TELEGRAM_BOT_TOKEN", "")
         chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
         if not token or not chat_id:
-            logger.info(f"ThematicDipLab (geen Telegram):\n{text}")
+            logger.info(f"ThematicExposureLab (geen Telegram):\n{text}")
             return
         modes = (None,) if plain else ("Markdown", None)
         for parse_mode in modes:
@@ -901,7 +1174,7 @@ class ThematicDipLab:
                 with urllib.request.urlopen(req, timeout=10):
                     return
             except Exception as e:
-                logger.warning(f"ThematicDipLab: Telegram send mislukt (mode={parse_mode}): {e}")
+                logger.warning(f"ThematicExposureLab: Telegram send mislukt (mode={parse_mode}): {e}")
 
     # ── dagelijkse status (aangehaakt in de sleeve_nav-digest) ──────────────
     def daily_status_text(self) -> str:
@@ -913,7 +1186,7 @@ class ThematicDipLab:
         positions = self._load_positions()
         open_positions = {t: p for t, p in positions.get("positions", {}).items() if p.get("status") == "OPEN"}
 
-        lines = ["", "🧠 *Thematic Dip Sleeve (EXP-008)*"]
+        lines = ["", "🧠 *Thematic Exposure Sleeve (EXP-008)*"]
         active_themes = [t for t, b in (report.get("breadth_by_theme") or {}).items() if b >= BREADTH_THRESHOLD]
         lines.append(f"  Actieve thema's: {', '.join(active_themes) if active_themes else 'geen'}")
         lines.append(f"  Open T1-posities: {len(open_positions)}/{MAX_CONCURRENT_NAMES}")
@@ -935,15 +1208,121 @@ class ThematicDipLab:
         self._scan_new_tickers()
         report = self._score_and_report()
         self._manage_exits()
+        # Idle USDC (spot/main-perp) naar de xyz-dex zodat gestort/toegewezen
+        # kapitaal inzetbaar wordt, VÓÓR de entry-poging in _maybe_advance_tranches.
+        self._sweep_idle_to_xyz()
         if report:
             self._maybe_advance_tranches(report)
 
+    # ── G0 meta-allocator: idle USDC -> xyz-dex ──────────────────────────
+    def _is_self_custody(self, client, address: str) -> bool:
+        """True als de signing-key naar het account zelf derivt (geen agent-wallet).
+        Alleen dan mag HL user-signed actions (sendAsset). Resultaat gecachet."""
+        if self._self_custody is not None:
+            return self._self_custody
+        self._self_custody = False
+        try:
+            from eth_account import Account
+            pk = getattr(client, "privateKey", None)
+            if pk:
+                signer = Account.from_key(pk).address
+                self._self_custody = signer.lower() == address.lower()
+        except Exception as e:
+            logger.debug(f"ThematicExposureLab: self-custody-check faalde: {e}")
+        return self._self_custody
+
+    def _usdc_token_id(self, client) -> str | None:
+        if self._usdc_token:
+            return self._usdc_token
+        try:
+            meta = client.publicPostInfo({"type": "spotMeta"})
+            for tok in meta.get("tokens", []) or []:
+                if (tok.get("name") or "").upper() == "USDC":
+                    tid = tok.get("tokenId")
+                    if tid:
+                        self._usdc_token = f"USDC:{tid}"
+                        return self._usdc_token
+        except Exception as e:
+            logger.debug(f"ThematicExposureLab: USDC token-id resolve faalde: {e}")
+        return None
+
+    @staticmethod
+    def _idle_usdc(client, address: str, src: str) -> float:
+        """Beschikbaar USDC op een bron: 'spot' = spot-USDC totaal, '' = main-perp
+        withdrawable (de sleeve opent nooit main-dex-posities, dus dit is idle)."""
+        try:
+            if src == "spot":
+                s = client.publicPostInfo({"type": "spotClearinghouseState", "user": address})
+                for b in s.get("balances", []) or []:
+                    if b.get("coin") == "USDC":
+                        return _finite(b.get("total"))
+                return 0.0
+            r = client.publicPostInfo({"type": "clearinghouseState", "user": address})
+            return _finite(r.get("withdrawable"))
+        except Exception:
+            return 0.0
+
+    def _send_asset_to_xyz(self, client, address: str, amount: float, src: str) -> bool:
+        token = self._usdc_token_id(client)
+        if not token:
+            return False
+        nonce = client.milliseconds()
+        str_amount = client.number_to_string(amount)
+        message = {
+            "hyperliquidChain": "Mainnet", "destination": address,
+            "sourceDex": src, "destinationDex": "xyz", "token": token,
+            "amount": str_amount, "fromSubAccount": "", "nonce": nonce,
+        }
+        # Zelf signen: ccxt's sign_user_signed_action hardcodet de testnet-chainId
+        # (421614) -> HL weigert met "Mainnet and testnet require different signature".
+        domain = {
+            "chainId": _SEND_ASSET_MAINNET_CHAINID, "name": "HyperliquidSignTransaction",
+            "verifyingContract": "0x0000000000000000000000000000000000000000", "version": "1",
+        }
+        enc = client.eth_encode_structured_data(domain, _SEND_ASSET_TYPES, message)
+        signature = client.sign_message(enc, client.privateKey)
+        request = {
+            "action": {
+                "type": "sendAsset", "signatureChainId": _SEND_ASSET_SIG_CHAIN_ID,
+                "hyperliquidChain": "Mainnet", "destination": address,
+                "sourceDex": src, "destinationDex": "xyz", "token": token,
+                "amount": str_amount, "fromSubAccount": "", "nonce": nonce,
+            },
+            "nonce": nonce, "signature": signature,
+        }
+        resp = client.private_post_exchange(request)
+        return isinstance(resp, dict) and resp.get("status") == "ok"
+
+    def _sweep_idle_to_xyz(self) -> None:
+        ex = self.exchange_client
+        client = getattr(ex, "signing_client", None)
+        if client is None:
+            return
+        address = getattr(client, "walletAddress", None) or getattr(ex, "wallet_address", None)
+        if not address or not self._is_self_custody(client, address):
+            return
+        # Alleen vanuit spot: de wallet is een unified account, en HL staat sends
+        # enkel "through spot" toe (sendAsset vanuit de perp-dex → "only supports
+        # sending assets through spot"). Gestort/toegewezen kapitaal landt sowieso
+        # in spot, dus dat dekt alle funding-paden.
+        try:
+            raw = self._idle_usdc(client, address, "spot")
+            amount = math.floor(raw * 100) / 100  # 2 decimalen, niet overschrijden
+            if amount < MIN_SWEEP_USD:
+                return
+            if self._send_asset_to_xyz(client, address, amount, "spot"):
+                logger.info(f"ThematicExposureLab: ${amount:.2f} spot -> xyz-dex geswept")
+            else:
+                logger.warning(f"ThematicExposureLab: xyz-sweep ${amount:.2f} geweigerd")
+        except Exception as e:
+            logger.warning(f"ThematicExposureLab: xyz-sweep mislukt: {e}")
+
 
 # ── Review-acties (goedkeuren/corrigeren/negeren van nieuwe tickers) ──────
-# Module-level, geen ThematicDipLab-instantie nodig — enige bron van waarheid
+# Module-level, geen ThematicExposureLab-instantie nodig — enige bron van waarheid
 # voor deze drie acties, hergebruikt door zowel de Telegram-commando's
-# (agents/swarm_monitor.py: /dipapprove /dipedit /dipignore) als de
-# dashboard-API (/api/thematic-dip/*, utils/dashboard_server.py). Eerder
+# (agents/swarm_monitor.py: /themeapprove /themeedit /themeignore) als de
+# dashboard-API (/api/thematic-exposure/*, utils/dashboard_server.py). Eerder
 # stond deze logica alleen in swarm_monitor.py; nu op één plek zodat beide
 # interfaces gegarandeerd hetzelfde gedrag hebben.
 
@@ -951,7 +1330,7 @@ def approve_ticker(ticker: str) -> tuple:
     """Accepteert het bestaande LLM-voorstel zoals het is. Returns (success, message)."""
     ticker = ticker.upper()
     try:
-        data = ThematicDipLab._load_themes()
+        data = ThematicExposureLab._load_themes()
     except Exception as e:
         return False, f"Kan {THEMES_FILE} niet laden: {e}"
     entry = data.get("tickers", {}).get(ticker)
@@ -960,7 +1339,7 @@ def approve_ticker(ticker: str) -> tuple:
     if not entry.get("themes"):
         return False, f"{ticker} heeft geen thema-voorstel (classificatie mislukt) — gebruik edit om er zelf een te geven."
     entry["status"] = "CONFIRMED"
-    ThematicDipLab._save_themes(data)
+    ThematicExposureLab._save_themes(data)
     themes_str = ", ".join(f"{k} ({v:.2f})" for k, v in entry["themes"].items())
     return True, f"{ticker} CONFIRMED — {themes_str}"
 
@@ -970,7 +1349,7 @@ def edit_ticker(ticker: str, theme_spec: str) -> tuple:
     voorstel en accepteert in één stap. Returns (success, message)."""
     ticker = ticker.upper()
     try:
-        data = ThematicDipLab._load_themes()
+        data = ThematicExposureLab._load_themes()
     except Exception as e:
         return False, f"Kan {THEMES_FILE} niet laden: {e}"
     known_themes = set(data.get("themes", {}).keys())
@@ -991,7 +1370,7 @@ def edit_ticker(ticker: str, theme_spec: str) -> tuple:
     entry["themes"] = new_themes
     entry["status"] = "CONFIRMED"
     data["tickers"][ticker] = entry
-    ThematicDipLab._save_themes(data)
+    ThematicExposureLab._save_themes(data)
     themes_str = ", ".join(f"{k} ({v:.2f})" for k, v in new_themes.items())
     return True, f"{ticker} CONFIRMED (handmatig) — {themes_str}"
 
@@ -1000,12 +1379,12 @@ def ignore_ticker(ticker: str) -> tuple:
     """Returns (success, message)."""
     ticker = ticker.upper()
     try:
-        data = ThematicDipLab._load_themes()
+        data = ThematicExposureLab._load_themes()
     except Exception as e:
         return False, f"Kan {THEMES_FILE} niet laden: {e}"
     entry = data.get("tickers", {}).get(ticker)
     if not entry:
         return False, f"{ticker} niet gevonden in de thema-registry."
     entry["status"] = "IGNORED"
-    ThematicDipLab._save_themes(data)
+    ThematicExposureLab._save_themes(data)
     return True, f"{ticker} IGNORED — telt niet meer mee in scoring/executie."
