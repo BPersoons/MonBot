@@ -36,12 +36,38 @@ utils/           — shared utilities (llm_client, exchange_client, db_client, g
 integrations/    — supabase_client.py + SQL schemas
 scripts/         — deploy_update.sh, upload helpers, migration scripts
 tests/           — test suite + tests/pre_flight/ (check_imports, check_connections)
-docs/            — SOP.md
+docs/            — SOP.md, PLAN_2026-08.md (de strategische koers)
+research/        — papieren aandelenanalyse; staat LOS van de swarm (zie hieronder)
 ```
+
+## Research-lijn (`research/`) — losstaand van de swarm
+
+Sinds 2026-08-11. Papieren analyse van aandelen tegen de wereld-ETF; raakt de swarm niet aan en draait **niet** op de VM. `docs/PLAN_2026-08.md` §2 automatiseert deze cadans pas vanaf ~€100k.
+
+| Bestand | Rol |
+|---|---|
+| `README.md` | **De bron voor het raamwerk** — poorten, 6 dimensies, verdict-regels, 5 rekencontroles, divergentie-screen |
+| `ledger.json` | 20 gescoorde namen met prijs én benchmarkprijs (URTH). De enige dataset die telt |
+| `cards/<TICKER>.md` | De analyse per naam |
+| `track.py` | `meet` · `due` · `dashboard` · `check` (CI) · `fundamentals` |
+| `screen.py` | Laag-1 screen over ~299 ETF-holdings; vult de trechter |
+| `fundamentals.py` | Toetst wacht-/terugkeervoorwaarden aan kwartaalcijfers |
+| `test_ledger.py` | 485 schema- en logicacontroles; draait bij elke CI-run |
+| `metrics_history.json` | Eigen kwartaalreeks (yfinance geeft er maar ~5) |
+
+**Draait in GitHub Actions** (`.github/workflows/scorekaart.yml`), niet op de VM — `ledger.json` staat in git, dus de repo is de bron. Een kopie op de VM zou de state-duplicatie herhalen die dit project al drie keer heeft geraakt. Dagelijks 22:30 UTC prijs-triggers; maandags fundamentals + zoekronde + agenda; Telegram alléén als er actie nodig is.
+
+**Regels die niet vanzelf spreken:**
+- **Onmeetbaar ≠ gehaald.** Een metriek die niet te berekenen is geeft `onbekend`, nooit `vervuld`. Een `partial`-voorwaarde (maar één helft codeerbaar) meldt `DEELS` met "geen koopsignaal" — anders rapporteert het systeem een koopsignaal op de helft van het bewijs.
+- **Screen op de 200d-MA, niet op de 52-weeksverandering.** BLKB stond −28% over 52 weken maar +42% bóven zijn 50d-MA: de kans was al voorbij. Het 52-weekscijfer vindt, de MA bepaalt of de daling er nog ís.
+- **Tel altijd de kwartaalregels op.** Samengevatte `freeCashflow`-velden weken 45-67% af van de som van de kwartalen (LDOS, TTD, ALNY). Bij CHRW gaf `revenueGrowth` +19,3% terwijl de brutowinst 14% daalde — dáár zat de fout in de screen, niet in de kaart.
+- **Een screen-treffer is een kandidaat, geen bevinding.** AMSC kwam als treffer boven en werd op de kaart alsnog AFVALLER.
 
 ## Runtime State Files (root dir, JSON)
 
 Sinds 2026-07-06 zijn álle leer- en positie-statebestanden volume-mounted in `docker-compose.prod.yml` (shadow_book/report, shadow_basis_*, ticker_state, decision_history, treasury_harvest/proposals, audited_trades, portfolio_peak, cost_log, polymarket_shadow_log, config/treasury_allocation) — ze overleven een full redeploy. `deploy_update.sh` stap 2b migreert container-state eenmalig naar de host vóór de stop; de `STATE_FILES`-lijst daar moet synchroon blijven met de compose-mounts. Nieuwe statebestanden die een redeploy moeten overleven: voeg toe aan BEIDE.
+
+> **Drift hersteld 2026-08-11.** Die regel was 13 keer níét gevolgd: `monitor_telegram_offset`, `monitor_alert_state`, `monitoring_watchlist`, `rsi_digest_state`, `llm_usage`, `pipeline_events`, `treasury_state`, `sleeve_revalidation`, `directional_revalidation`, `learning_report`, `market_regime`, `equity_regime` en `data_cache` stonden alleen in de writable layer. Nu 45 van 45 gedekt in beide lijsten. **Audit vóór elke full deploy:** `sudo docker diff agent_trader_swarm | grep -E "^A /app/[^/]+\.json$"`.
 
 | File | Purpose |
 |---|---|
@@ -81,6 +107,12 @@ Sinds 2026-07-06 zijn álle leer- en positie-statebestanden volume-mounted in `d
 | `directional_revalidation.json` | F1 daily trailing-90d edge check. Written by `utils/directional_revalidation.py` |
 | `thematic_exposure_positions.json` | Thematic Exposure Sleeve (EXP-008) positions + cash/budget (own wallet `0xBd6c…`) |
 | `thematic_wallet_peak.json` | Thematic sleeve peak-equity tracker (SwarmMonitor Check 20) |
+| `monitor_telegram_offset.json` | Laatst verwerkte Telegram-update-id. **Verlies = oude berichten opnieuw verwerken**, inclusief `/approve` |
+| `monitor_alert_state.json` | Alarm-ontdubbeling van SwarmMonitor; verlies geeft dubbele meldingen |
+| `monitoring_watchlist.json` | Actieve watchlist van SwarmMonitor |
+| `rsi_digest_state.json` | Ontdubbeling van de RSI-digest |
+| `llm_usage.json` | Token-/aanroepteller per agent per dag (bron voor CostTracker) |
+| `sleeve_revalidation.json` | Sleeve-edge hertoetsing |
 
 ## Development Commands
 
@@ -269,6 +301,11 @@ Backtest scripts: `scripts/strategy_research.py`, `strategy_windows.py`, `strate
 - **XYZ tickers live on a separate Hyperliquid perp-dex**: raw `{"type": "metaAndAssetCtxs"}` (no `dex` param) only returns the main dex (BTC/ETH/alts, ~232 assets) — zero XYZ-* entries. XYZ synthetics need `{"type": "metaAndAssetCtxs", "dex": "xyz"}`; raw names come back as `xyz:TICKER`, normalize to `XYZ-TICKER`. `ccxt.hyperliquid().load_markets()` already handles this (enumerates `perpDexs` internally), but any raw/direct API call (like the shadow-engines) must pass `dex` explicitly. Discovered building `utils/shadow_xyz_lab.py` (2026-07-13) — first version silently returned 0 tickers.
 - **XYZ perp-dex collateral differs per wallet type (scoped 2026-08-03)**: on the **self-custody thematic wallet `0xBd6c`** the xyz builder-dex has its OWN margin pool that must be pre-funded — everything in the bullet below applies there. On the **main UNIFIED account `0x92D4` it does NOT**: opening an XYZ position draws collateral straight from the shared spot pool on demand. Verified by buying 0.186 XYZ-SMH with xyz-dex at $0.00 — the order filled, spot `total` stayed $715.27 and spot `hold` went $24.18 → $124.04. Corollary: `sendAsset` spot→xyz on the unified account is accepted by HL and even logged in `userNonFundingLedgerUpdates` (type `send`, fee 0) but is a **silent no-op** — no balance moves on either side. Don't debug that; just place the order. Also: `HyperliquidExchange._normalize_symbol()` did not resolve `XYZ-SMH` (stale market cache misses recently-listed xyz tickers) while ccxt itself knows `XYZ-SMH/USDC:USDC` — pass the explicit ccxt symbol to `signing_client` when the wrapper says "not listed on Hyperliquid".
 - **XYZ perp-dex separate collateral (self-custody wallets)**: the "xyz" builder perp-dex has its OWN margin pool; main-dex USDC does NOT count as margin there. Drain it to ~$0 and every XYZ order fails with HL `Insufficient margin — account fully allocated` while the wallet looks healthy — `create_order()` returns `None`, sleeve stalls silently (happened 2026-07-18→22, thematic opened nothing for 4 days). Per-dex balance: `client.fetch_balance(params={"dex":"xyz"})` → `info.marginSummary.accountValue`. Funding is a `sendAsset` HIP-3 transfer (user-signed EIP-712, mainnet domain chainId 42161 / signatureChainId 0xa4b1, `sourceDex`/`destinationDex`, destination = account itself). **Who can sign depends on wallet type**: the **thematic sleeve runs on a SELF-CUSTODY wallet `0xBd6c…`** (HL_THEMATIC_WALLET_ADDRESS/KEY, key derives to the account itself) — the swarm/script CAN fund it (confirmed 2026-07-23: `sendAsset` spot→xyz one hop, `status: ok`). Deposits via HL "Send Tokens" land in **spot**, not the xyz-dex — move them with sendAsset spot→xyz. The **main wallet `0x92D4…`**: its HL *order-signing* client uses an AGENT key (`HL_PRIVATE_KEY` → 0xe18f… ≠ account) which HL forbids from user-signed actions. BUT the swarm ALSO holds 0x92D4's **master key** via `HL_VAULT_PRIVATE_KEY` (derives to 0x92D4 itself; treasury uses it for Arbitrum) — so the swarm CAN sign user-signed actions for 0x92D4 (e.g. `sendAsset 0x92D4 → 0xBd6c` for autonomous sleeve-funding), just not through the default order client. Fix (thematic): `scripts/fund_xyz_dex.py` targeting the thematic wallet (`--from-dex spot`). SwarmMonitor Check 22 (`_check_thematic_xyz_collateral`, flag-only) alerts when xyz-dex < $65 while the sleeve is live.
+
+- **`requirements.txt` moet gepind blijven — ongepind brak CI én deploy (2026-08-11)**: 21 van de 22 pakketten stonden zonder versie. pip 26 gaf het op met `error: resolution-too-deep` na 6min24 — en dat brak niet alleen `ci.yml` maar ook `deploy.yml` regel 29, dus **er kon niet meer gedeployd worden**. PR's faalden er weken op zonder dat het opviel (PR #2 werd gemerged met een rode check). Fix: versies **gemeten** aan de draaiende container (`docker exec agent_trader_swarm pip freeze`), niet gekozen, en exact (`==`) vastgelegd. Resultaat: `import-check` van 6min24-fail naar 51s-pass. Bij het bijwerken van een pakket: hier verhogen, deployen, dan `check_pipeline` draaien. Voeg **nooit** een ongepind pakket toe.
+- **Statebestanden driften uit compose én `STATE_FILES` — audit met `docker diff` (2026-08-11)**: CLAUDE.md schrijft voor dat nieuwe statebestanden aan BEIDE lijsten worden toegevoegd, maar dat was 13 keer niet gebeurd. Die stonden in de **writable layer** van de container en waren dus noch gemount, noch opgenomen in de backup — een compose-recreate had ze vernietigd. Zwaarste geval: `monitor_telegram_offset.json`; zonder offset kan de bot oude Telegram-berichten opnieuw verwerken, inclusief `/approve`-commando's uit de stocks-goedkeuringsflow. **Auditcommando:** `sudo docker diff agent_trader_swarm | grep -E "^A /app/[^/]+\.json$"` — alles wat daar verschijnt hoort in de mounts én in `STATE_FILES`. Draai dit vóór elke full deploy.
+- **`docker diff` toont bind-mounts als toegevoegd — vals alarm**: na het toevoegen van de 13 mounts bleven de bestanden in `docker diff` staan als `A`. Docker vermeldt bind-mount-bestemmingen die niet in de image bestonden. Verifieer met `docker inspect --format '{{range .Mounts}}{{.Destination}}{{"\n"}}{{end}}'`, niet met `docker diff`.
+- **Hot-patch-inventaris: vergelijk inhoud, niet md5**: `docker exec md5sum` versus een Windows-checkout geeft altijd verschillen door regeleindes (LF in de container, CRLF lokaal). Vier "gewijzigde" bestanden bleken inhoudelijk identiek. Normaliseer naar LF vóór je vergelijkt, anders jaag je op spoken.
 
 ## Treasury System
 
