@@ -1,0 +1,124 @@
+{
+  "_comment": "Scorekaart-ledger. Elke regel legt vast wat we vonden, wanneer, en tegen welke prijs — inclusief de benchmarkprijs op dezelfde dag. Over 6 maanden rekent dit af of hoge scores echt aan goede uitkomsten voorafgingen. Zie research/README.md.",
+  "_poort": "6 maanden vanaf de eerste regel, minimaal 20 gescoorde namen, criterium = versla de wereld-ETF over dezelfde periode.",
+  "_benchmark": {
+    "ticker": "TODO",
+    "note": "Kies de wereld-ETF uit DeGiro's kernselectie zodra het account actief is (~2026-08-24) en vul hem hier in. Elke entry MOET benchmark_price_at_score krijgen op de scoredatum, anders is de vergelijking later niet te maken."
+  },
+  "entries": [
+    {
+      "ticker": "ASTS",
+      "name": "AST SpaceMobile",
+      "scored_at": "2026-08-10",
+      "price_at_score": 72.87,
+      "currency": "USD",
+      "market_cap_usd": 28300000000,
+      "market_cap_note": "afgeleid uit 388,12M aandelen x $72,87; bronnen geven 21,5-27,9 mrd — herleiden uit 10-Q",
+      "benchmark_price_at_score": null,
+      "gates": {
+        "survival": "PASS",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 4,
+        "margin_and_direction": null,
+        "competition": null,
+        "scalability": 3,
+        "execution": 2,
+        "valuation": 1
+      },
+      "unanalyzed": [
+        "competition",
+        "margin_and_direction (pre-revenue, n.v.t.)"
+      ],
+      "verdict": "VOLGEN",
+      "superseded_by": "2026-08-11 herscoring na Q2-cijfers",
+      "deciding_number": "aandelenaantal +51,37% in 1 jaar",
+      "wait_conditions": [
+        "verwatering onder 15%/jaar in 2 opeenvolgende kwartalen",
+        "commerciele dienst live met betalende abonnees",
+        "koers onder ~$45"
+      ],
+      "thesis_break": [
+        "commerciele start schuift voorbij midden 2027",
+        "verwatering versnelt boven +60%/jaar",
+        "operator-overeenkomsten opgezegd of niet verlengd",
+        "Starlink direct-to-cell bereikt brede commerciele dekking tegen lagere prijs eerst"
+      ],
+      "rescore_after": "2026-08-10 Q2-cijfers",
+      "card": "research/cards/ASTS.md"
+    },
+    {
+      "ticker": "ASTS",
+      "name": "AST SpaceMobile",
+      "scored_at": "2026-08-11",
+      "price_at_score": null,
+      "price_note": "TODO — koers na Q2-daling invullen",
+      "currency": "USD",
+      "benchmark_price_at_score": null,
+      "quarter": "Q2 2026",
+      "earnings_surprise": {
+        "revenue_actual_usd": 31500000,
+        "revenue_consensus_usd": 34130000,
+        "revenue_surprise_pct": -7.65,
+        "eps_actual": -0.77,
+        "eps_consensus": -0.28,
+        "classification": "MISS_BOTH_LINES"
+      },
+      "divergence_screen": "NIET_KOPEN — koers omlaag met tegengevallen kwartaal; post-earnings drift loopt door in de richting van de verrassing",
+      "gates": {
+        "survival": "FAIL",
+        "survival_detail": "10-Q H1-2026: kas+restricted $2.722,8M / burn $502,2M per kwartaal (op. kasstroom $145,2M + capex $859,2M over 6 mnd) = 5,4 kwartalen = ~1,4 jaar. Eis >=3 jaar. Geen grensgeval.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "share_classes_2026_08_06": {
+        "class_a": 299789305,
+        "class_b": 11215111,
+        "class_c": 78163078,
+        "total": 389167494,
+        "market_cap_class_a_only_usd": 21843000000,
+        "market_cap_all_classes_usd": 28358000000,
+        "note": "Verklaart de bronnen-discrepantie 21,5 vs 27,9 mrd. Voor waardering telt het totaal; B/C hebben economische claim via omwisselbare LLC-units. Class C ongewijzigd sinds 31-12-2025."
+      },
+      "funding_shift": {
+        "equity_issuance_h1_2026_usd": 85723000,
+        "equity_issuance_h1_2025_usd": 462776000,
+        "debt_proceeds_h1_2026_usd": 1060608000,
+        "debt_proceeds_h1_2025_usd": 473498000,
+        "interest_paid_h1_2026_usd": 23556000,
+        "interest_paid_h1_2025_usd": 813000,
+        "note": "Verwatering vertraagt sterk, schuld versnelt. De +51,37% aandelengroei zat in de eerdere periode. Risico verschuift van verwatering naar hefboom."
+      },
+      "scores": {
+        "role_in_chain": 4,
+        "margin_and_direction": null,
+        "competition": null,
+        "scalability": 2,
+        "execution": 2,
+        "valuation": 1
+      },
+      "unanalyzed": [
+        "competition",
+        "samenstelling pro-forma kas",
+        "oorzaak verwatering"
+      ],
+      "verdict": "AFVALLER",
+      "deciding_number": "kasruimte ~1,4 jaar (10-Q) tegen een eis van >=3 jaar — ruim, geen grensgeval",
+      "return_to_volgen_conditions": [
+        "capex structureel onder $200M per kwartaal",
+        "financiering volledige constellatie aantoonbaar rond zonder nieuwe uitgifte",
+        "koers zo ver omlaag dat de financieringsonzekerheid is ingeprijsd"
+      ],
+      "source": "10-Q, SEC, ingediend 2026-08-10, periode 2026-06-30, accession 0001193125-26-342550",
+      "method_corrections": [
+        "Kaart 1 berekende kasruimte uit nettoverlies (4,6 jaar). Fout: bij een constellatiebouwer is capex de echte burn. REGEL: burn = operationele kasstroom + capex, uit het kasstroomoverzicht.",
+        "Herscoring 11-08 gebruikte managements '>$3,7 mrd pro forma cash' uit het persbericht (1,9 jaar). Balans zegt $2,72 mrd -> 1,4 jaar. Verschil ~$1 mrd. REGEL: nooit een management-cijfer (pro forma / adjusted) voor een poortberekening; altijd balans of kasstroomoverzicht.",
+        "REGEL: marktkap over alle aandelenklassen, niet alleen de verhandelde klasse.",
+        "INGETROKKEN: het voorstel om de overlevingspoort te herformuleren naar 'kas >= katalysator + marge'. Dat kwam voort uit het foute pro-forma-getal. Op de werkelijke cijfers is er geen grensgeval en deed de poort precies wat hij moest doen."
+      ],
+      "card": "research/cards/ASTS.md"
+    }
+  ]
+}
