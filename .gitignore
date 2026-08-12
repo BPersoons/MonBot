@@ -152,3 +152,8 @@ research/dashboard.html
 
 # Wekelijkse screen-uitvoer (de melding en de kaarten zijn het resultaat)
 research/screen_result.json
+
+# Gegenereerde overzichtspagina (bouw met: python scripts/overzicht.py)
+docs/overzicht.html
+docs/overzicht_artifact.html
+nav_snapshot.json
