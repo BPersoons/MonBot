@@ -5,8 +5,15 @@
 Waarom dit bestaat: er was geen enkele plek waar het totaal stond. `treasury_state.
 total_portfolio` telde de dip-koper-sleeve en het crypto-vasthouden niet mee en
 rapporteerde daardoor ~14% te weinig ($2.644 tegen werkelijk ~$3.081, gemeten
-2026-08-12). Het kasbeheer verdeelt percentages over die noemer, dus een verkeerd
-totaal is niet alleen een rapportagefout.
+2026-08-12).
+
+⚠️ Correctie op een eerdere versie van deze tekst: hier stond dat het kasbeheer
+percentages over die noemer verdeelt en dat het dus meer dan een rapportagefout is.
+Dat klopt niet. De TreasuryAgent rekent met `hl_balance + yield_bal +
+treasury_usdc` — precies het VRIJE kapitaal, en dat is de juiste noemer voor zijn
+taak. Het crypto-potje (spot-tokens) en de dip-koper (eigen wallet, eigen budget)
+zijn al toegewezen en horen daar niet in. Deze module lost dus een rapportagegat
+op, niet een allocatiefout.
 
 ## De regel die dit bestand draagt
 
