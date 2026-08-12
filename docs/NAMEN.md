@@ -19,6 +19,18 @@ alleen risico op, geen duidelijkheid.
 | Funding Harvest | **Rente-oogst** | Kort shorten om financieringsrente te innen |
 | Sleeve | **Potje** | Een afgebakend deel van het vermogen met eigen regels |
 
+## Aankopen in stappen (de dip-koper)
+
+| Heet in de code | Is eigenlijk | Wat het doet |
+|---|---|---|
+| Tranche / T1 | **Eerste aankoop** | Wat er gekocht wordt zodra een aandeel hard genoeg gedaald is |
+| T2 (en vroeger T3, T4) | **Bijkoopstap** | Extra aankoop in dezelfde naam, alleen als hij daarna nóg 10% verder zakt |
+| `t2_t4_enabled` | **Bijkopen aan/uit** | Staat **uit**. Bijkopen op een verliezende positie is risico toevoegen |
+| `tranche_stage` | **Hoeveelste aankoop** | 1 = alleen de eerste aankoop gedaan |
+| `TRANCHE_PCTS` | **Verdeling over de stappen** | Nu 60% eerste aankoop / 40% achter de hand |
+| `MAX_CONCURRENT_NAMES` | **Aantal bedrijven tegelijk** | Nu 6 |
+| Min-notional | **Minimale ordergrootte** | Hyperliquid weigert orders onder $10 |
+
 ## Fases (op kapitaal, niet op datum)
 
 | Heet | Is | Wat er dan geldt |
