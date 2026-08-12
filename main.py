@@ -124,6 +124,34 @@ def check_system_status():
 
 
 
+class _SubsysteemUit(Exception):
+    """Bewust uitgezet, geen storing.
+
+    Bestaat zodat een uitgeschakeld subsysteem NIET in de generieke
+    `except Exception` belandt die "FAILED (non-critical)" logt. Een bewuste
+    schakelaar die eruitziet als een crash kost later een halve dag zoeken.
+    """
+
+
+def _subsysteem_aan(naam: str, standaard: bool = True) -> bool:
+    """Staat een optioneel subsysteem aan? Via auto_params, dus zonder deploy te wisselen.
+
+    PLAN_2026-08 par. 5 zet onderdelen uit die geen bestemming meer hebben nu de
+    handelsbot gepauzeerd is. Ze blijven in de code staan ("niets verwijderen —
+    uitschakelen via config"); dit is die schakelaar.
+
+    Default TRUE: ontbreekt de sleutel, dan verandert er niets.
+    """
+    try:
+        from utils.auto_params import AutoParams
+        v = AutoParams().get_candidate_value(f"subsystem_{naam}_enabled")
+        if v is not None:
+            return str(v).strip().lower() not in ("false", "0", "no", "off")
+    except Exception:
+        pass
+    return standaard
+
+
 def main():
     logger.info("🚀 Initializing Autonomous Heartbeat (Multi-Asset)...")
     logger.info("ℹ️ VERSION: RECOVERY V1")
@@ -222,8 +250,17 @@ def main():
         treasury_agent = None
 
     # --- SwarmLearner ---
+    # Diagnosticeert de beslispijplijn van de directionele trader — en die staat
+    # gepauzeerd (score_threshold 0,40): een trechteranalyse van een trechter waar
+    # niets doorheen gaat. Niet letterlijk in PLAN par. 5 genoemd, maar het onderwerp
+    # ervan is uitgezet. Herstellen: subsystem_swarm_learner_enabled=true.
     swarm_learner = None
+    _swarm_learner_aan = _subsysteem_aan("swarm_learner")
+    if not _swarm_learner_aan:
+        logger.info("   ⏸️  SwarmLearner UITGEZET via auto_params — dit is geen fout")
     try:
+        if not _swarm_learner_aan:
+            raise _SubsysteemUit()
         logger.info("   → Initializing SwarmLearner...")
         from agents.swarm_learner import SwarmLearner
         swarm_learner = SwarmLearner(
@@ -231,6 +268,8 @@ def main():
             db_client=global_db_client,
         )
         logger.info("   ✅ SwarmLearner initialized successfully")
+    except _SubsysteemUit:
+        swarm_learner = None
     except Exception as e:
         logger.error(f"   ⚠️ SwarmLearner FAILED (non-critical): {e}")
         swarm_learner = None
@@ -271,12 +310,23 @@ def main():
         shadow_basis = None
 
     # --- ShadowXyzLab (Masterplan Fase 3: XYZ-lab shadow-recorders, EXP-007) ---
+    # PLAN_2026-08 par. 5: "XYZ gap lab" staat op de lijst van wat uit gaat. Het is
+    # shadow-onderzoek naar een strategiefamilie die niet meer wordt nagestreefd; het
+    # kost cycli en geheugen en er wordt niet op gehandeld.
+    # Herstellen: subsystem_shadow_xyz_lab_enabled=true in config/auto_params.json.
     shadow_xyz_lab = None
+    _shadow_xyz_aan = _subsysteem_aan("shadow_xyz_lab")
+    if not _shadow_xyz_aan:
+        logger.info("   ⏸️  ShadowXyzLab UITGEZET via auto_params (PLAN par. 5) — dit is geen fout")
     try:
+        if not _shadow_xyz_aan:
+            raise _SubsysteemUit()
         logger.info("   → Initializing ShadowXyzLab...")
         from utils.shadow_xyz_lab import ShadowXyzLab
         shadow_xyz_lab = ShadowXyzLab()
         logger.info("   ✅ ShadowXyzLab initialized successfully")
+    except _SubsysteemUit:
+        shadow_xyz_lab = None
     except Exception as e:
         logger.error(f"   ⚠️ ShadowXyzLab FAILED (non-critical): {e}")
         shadow_xyz_lab = None
