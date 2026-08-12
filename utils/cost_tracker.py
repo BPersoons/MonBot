@@ -27,8 +27,19 @@ COST_LOG_FILE  = "cost_log.json"
 LLM_USAGE_FILE = "llm_usage.json"
 TRADE_LOG_FILE = "trade_log.json"
 
-# GCP e2-medium ~$30/month -> ~$1.00/day; override via env var
-INFRA_COST_USD_DAILY = float(os.getenv("INFRA_COST_USD_DAILY", "1.00"))
+# Infrastructuurkosten per dag. Override via env var INFRA_COST_USD_DAILY.
+#
+# Stond op 1,00 met de toelichting "GCP e2-medium ~$30/month". De VM is echter
+# een **e2-small** in europe-west1 en kost ~$160/jaar = ~$0,44/dag — de teller
+# overdreef de kosten 2,3×. Gecorrigeerd 2026-08-12, gemeten via
+# `gcloud compute instances describe` (machineType = e2-small).
+#
+# Dit is niet cosmetisch: dit getal is de noemer waartegen elke feature wordt
+# afgewogen (zie docs/PLAN_2026-08.md par. 3, memory project_product_economics).
+# Een verkeerde kostenbasis maakt elk rendement kunstmatig hopeloos.
+#
+# Bij een migratie naar e2-micro: ~$0,22. Verander dan ook deze waarde.
+INFRA_COST_USD_DAILY = float(os.getenv("INFRA_COST_USD_DAILY", "0.44"))
 
 # Hyperliquid taker fee (0.05%); two legs per closed trade
 HL_TAKER_FEE_RATE = 0.0005
