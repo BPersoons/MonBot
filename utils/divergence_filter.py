@@ -177,13 +177,100 @@ def handhaven() -> bool:
     return False
 
 
+POSITIES_BESTAND = "thematic_exposure_positions.json"
+
+
+def evalueer() -> None:
+    """Verdict naast uitkomst: had de filter mogen handhaven?
+
+    Dit is de enige vraag die telt. Een filter bouwen is makkelijk; weten of hij
+    geld verdient of kost, vergt deze vergelijking. Posities zonder stempel bij
+    aankoop worden apart gerapporteerd — daar is het oordeel van vandaag over een
+    aankoop van toen, en dat is zwakker bewijs.
+    """
+    try:
+        with open(POSITIES_BESTAND, encoding="utf-8") as fh:
+            d = json.load(fh)
+    except Exception as e:
+        print("kan %s niet lezen: %s" % (POSITIES_BESTAND, e))
+        return
+
+    cache = _cache_laden()
+    schoon, backfill, onbekend = [], [], []
+    for t, p in (d.get("positions") or {}).items():
+        cb = float(p.get("cost_basis_usd") or 0)
+        cv = float(p.get("current_value_usd") or 0)
+        dicht = str(p.get("status", "")).upper() == "CLOSED"
+        # Gesloten posities vóór 2026-08-12 hebben geen eigen realized_pnl_usd —
+        # dat werd alleen in de totaalpost geteld. Die tellen als ONBEKEND en niet
+        # als nul, anders verdunnen ze het gemiddelde met verzonnen nullen.
+        if dicht:
+            r = p.get("realized_pnl_usd")
+            if r is None:
+                onbekend.append(t)
+                continue
+            pnl = float(r)
+        else:
+            pnl = cv - cb
+        stempel = p.get("divergence_at_entry")
+        if stempel and stempel.get("ok") is not None:
+            schoon.append((t, stempel["ok"], pnl, dicht))
+        else:
+            ok, _reden, _ = beoordeel(t, cache)
+            backfill.append((t, ok, pnl, dicht))
+    _cache_opslaan(cache)
+
+    def rapport(rijen, kop, waarschuwing=""):
+        if not rijen:
+            return
+        print("\n%s" % kop)
+        if waarschuwing:
+            print("  %s" % waarschuwing)
+        for t, ok, pnl, dicht in rijen:
+            print("    %-12s filter=%-4s %-7s P&L %+7.2f" % (
+                t, "KOOP" if ok else "BLOK", "gesloten" if dicht else "open", pnl))
+        for vlag, naam in ((True, "KOOP"), (False, "BLOK")):
+            groep = [r for r in rijen if r[1] is vlag]
+            if groep:
+                som = sum(r[2] for r in groep)
+                print("  %-4s n=%d  totaal P&L %+7.2f  gemiddeld %+6.2f"
+                      % (naam, len(groep), som, som / len(groep)))
+
+    if onbekend:
+        print("Zonder resultaat-registratie (gesloten voor 2026-08-12): %s"
+              % ", ".join(onbekend))
+        print("  Die tellen NIET mee — een ontbrekend resultaat is geen nul.\n")
+    print("Divergentie-screen — verdict tegen uitkomst")
+    print("=" * 62)
+    rapport(schoon, "Met stempel bij aankoop (hard bewijs):")
+    rapport(backfill, "Zonder stempel (achteraf gemeten — zwakker bewijs):",
+            "let op: dit is het oordeel van VANDAAG over een aankoop van toen")
+
+    n = len(schoon)
+    print("\n" + "=" * 62)
+    if n < 10:
+        print("Nog %d posities met stempel nodig voor een uitspraak (nu %d)." % (10 - n, n))
+        print("Handhaven op minder is de steekproef verwarren met de uitkomst.")
+    else:
+        blok = [r for r in schoon if r[1] is False]
+        koop = [r for r in schoon if r[1] is True]
+        gb = sum(r[2] for r in blok) / len(blok) if blok else 0.0
+        gk = sum(r[2] for r in koop) / len(koop) if koop else 0.0
+        print("Gemiddelde P&L — KOOP %+.2f versus BLOK %+.2f." % (gk, gb))
+        print("Handhaven is te verdedigen zodra BLOK structureel slechter is dan KOOP.")
+
+
 if __name__ == "__main__":
     import sys
     logging.basicConfig(level=logging.INFO)
-    tickers = sys.argv[1:] or ["XYZ-MSFT", "XYZ-ORCL", "XYZ-NOW", "XYZ-NVDA", "XYZ-CRCL"]
-    cache = _cache_laden()
-    print("handhaven: %s\n" % ("JA" if handhaven() else "NEE (observatiemodus)"))
-    for t in tickers:
-        ok, reden, _ = beoordeel(t, cache)
-        print("  %-12s %-6s %s" % (t, "KOOP" if ok else "BLOK", reden))
-    _cache_opslaan(cache)
+    if "--evalueer" in sys.argv:
+        evalueer()
+    else:
+        tickers = [a for a in sys.argv[1:] if not a.startswith("--")] or \
+                  ["XYZ-MSFT", "XYZ-ORCL", "XYZ-NOW", "XYZ-NVDA", "XYZ-CRCL"]
+        cache = _cache_laden()
+        print("handhaven: %s\n" % ("JA" if handhaven() else "NEE (observatiemodus)"))
+        for t in tickers:
+            ok, reden, _ = beoordeel(t, cache)
+            print("  %-12s %-6s %s" % (t, "KOOP" if ok else "BLOK", reden))
+        _cache_opslaan(cache)

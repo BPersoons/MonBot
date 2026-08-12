@@ -857,6 +857,26 @@ class ThematicExposureLab:
         finally:
             yf_logger.setLevel(prev_level)
 
+    @staticmethod
+    def _divergence_stempel(ticker: str) -> dict:
+        """Het oordeel van de divergentie-screen op het moment van aankoop.
+
+        Waarom vastleggen en niet later opnieuw berekenen: de kwartaalcijfers
+        veranderen. Wie over een half jaar wil weten of de filter had moeten
+        handhaven, heeft het verdict NAAST de uitkomst nodig — achteraf opnieuw
+        meten geeft het oordeel van vandaag over een aankoop van toen.
+
+        Faalt de filter, dan blijft de positie gewoon doorgaan; dit is een
+        meetstempel, geen poort.
+        """
+        try:
+            from utils.divergence_filter import beoordeel
+            ok, reden, meting = beoordeel(ticker)
+            return {"divergence_at_entry": {"ok": ok, "reden": reden, "meting": meting}}
+        except Exception as e:
+            return {"divergence_at_entry": {"ok": None, "reden": f"filter faalde: {e}",
+                                            "meting": None}}
+
     def _open_tranche(self, ticker: str, stage: int, themes_cfg: dict, positions: dict, report: dict) -> None:
         from core.strategy_logic import detect_asset_class
         from agents.xyz_technical_analyst import _market_is_open
@@ -965,6 +985,12 @@ class ThematicExposureLab:
                 "current_value_usd": notional_usd,
                 "opened_at": _now_iso(),
                 "last_updated": _now_iso(),
+                # Wat vond de divergentie-screen hiervan bij AANKOOP? Vastleggen op
+                # het moment zelf, want over drie maanden zijn de kwartaalcijfers
+                # anders en is niet meer te reconstrueren wat hij toen zag.
+                # Dit is de meting die beslist of de filter ooit mag handhaven:
+                # zonder verdict-bij-entry naast de uitkomst is dat een gok.
+                **self._divergence_stempel(ticker),
             }
         positions["cash_usd"] = _finite(positions.get("cash_usd"), positions.get("budget_usd", DEFAULT_BUDGET_USD)) - notional_usd
         positions.setdefault("budget_usd", DEFAULT_BUDGET_USD)
@@ -1111,6 +1137,14 @@ class ThematicExposureLab:
         pos["current_value_usd"] = pos["quantity"] * mark
         positions["cash_usd"] = _finite(positions.get("cash_usd")) + proceeds
         positions["realized_pnl_usd"] = _finite(positions.get("realized_pnl_usd")) + realized_pnl
+
+        # Ook PER POSITIE bijhouden, niet alleen in de totaalpost. Zonder dit is
+        # een gesloten positie na afloop niet meer te beoordelen: quantity en
+        # cost_basis gaan naar 0 en het resultaat verdwijnt in één som. Daarmee
+        # was geen enkele evaluatie per naam mogelijk — ook niet of de
+        # divergentie-screen had moeten handhaven.
+        pos["realized_pnl_usd"] = _finite(pos.get("realized_pnl_usd")) + realized_pnl
+        pos["entry_cost_basis_usd"] = _finite(pos.get("entry_cost_basis_usd")) + cost_basis_sold
 
         full_close = pos["quantity"] <= max(precision, 1e-6)
         if full_close:
