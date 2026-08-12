@@ -989,6 +989,34 @@ def main():
                             for _t in (all_trades if hl_pos_map else []):
                                 if _t.get('status') not in ('OPEN', 'PLACED'):
                                     continue
+                                # Rente-oogst en dip-koper worden ELDERS beheerd en horen
+                                # hier niet thuis. Voor de dip-koper is dit geen randgeval
+                                # maar structureel: die draait op een APARTE wallet (0xBd6c),
+                                # dus zijn posities staan per definitie nooit in hl_pos_map
+                                # (dat is de hoofdwallet 0x92D4). Zonder deze regel werd elke
+                                # dip-koper-positie 5 minuten na aankoop als EXTERNAL_CLOSURE
+                                # weggeschreven, met een verzonnen exitprijs en nep-P&L,
+                                # terwijl hij gewoon open stond op de keten (gemeten
+                                # 2026-08-12: XYZ-TSLA en XYZ-INTC beide "gesloten" binnen
+                                # 6 minuten, beide aantoonbaar live).
+                                #
+                                # Twee gevolgen, waarvan het tweede het ergste:
+                                #  1. De handelshistorie van de dip-koper bestond niet — elke
+                                #     evaluatie tegen een benchmark was onmogelijk.
+                                #  2. ProjectLead's dubbele-positie-guard matcht op een OPEN
+                                #     regel in trade_log.json. Zodra die op CLOSED staat, kan
+                                #     de council een order openen op dezelfde XYZ-markt — en
+                                #     omdat leverage/margin-mode een PER-MARKT accountinstelling
+                                #     is, kantelt dat de 1x-isolated-stand van deze sleeve.
+                                #     Precies het scenario dat _append_trade_log's docstring
+                                #     beschrijft en dat deze regel moest voorkomen.
+                                #
+                                # execution_agent heeft deze guard op drie plekken (regel 153,
+                                # 284, 908); deze vierde plek was nooit meegeteld. CLAUDE.md
+                                # noemt "Pass 3 (EXTERNAL_CLOSURE sync)" met zoveel woorden —
+                                # dat sloeg op de startup-sync, niet op deze.
+                                if _t.get('harvest') or _t.get('thematic_exposure'):
+                                    continue
                                 _base = (_t.get('ticker') or '').split('/')[0].upper()
                                 if _base in hl_pos_map:
                                     continue  # still live — fine
