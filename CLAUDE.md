@@ -26,6 +26,15 @@ main.py (Heartbeat Loop, 60s cycles)
 
 Weighted scoring: `technical * w_t + fundamental * w_f + sentiment * w_s` with weights in `core/agent_weights.json`. ProjectLead uses Gemini LLM for council debate synthesis.
 
+## Namen — lees dit eerst
+
+De namen in dit project (Conviction Barbell, sleeves, EXP-008, F1, Fase A/B/C) komen uit losse experimenten en zeggen van zichzelf niets. **`docs/NAMEN.md` vertaalt ze naar gewone taal.** Gebruik in gesprek en in nieuwe documenten altijd de gewone naam; de cryptische variant blijft alleen in de code staan.
+
+De drie die het vaakst verward worden:
+- **Kopen en vasthouden** (Conviction Barbell) = crypto + thema-ETF's langdurig aanhouden. **Niet** hetzelfde als het **wereldindexfonds** (kern-ETF), dat de hele markt koopt. Ze concurreren om hetzelfde geld.
+- **Kasbeheer** (treasury) kan **geen** aandelen of ETF's kopen — het werkt alleen met USDC op Arbitrum en Hyperliquid.
+- **Handelsbot** (F1 / armed-gate trader) staat **gepauzeerd** sinds 2026-08-10 (`score_threshold` 0,40).
+
 ## Key Directories
 
 ```
