@@ -78,6 +78,27 @@ class ProjectLead:
         except:
              self.llm = None
 
+    def _council_enabled(self) -> bool:
+        """Draait de LLM-council (Fundamental/Sentiment/Polymarket) nog?
+
+        PLAN_2026-08 par. 5 zet deze laag UIT. Reden: met de handelsbot gepauzeerd
+        (score_threshold 0,40) halen kandidaten de drempel structureel nooit, dus
+        de council scoort voor de prullenbak — gemeten 2026-08-12: 623 LLM-aanroepen
+        op één dag zonder één trade. De kosten zijn verwaarloosbaar; de ruis in
+        decision_history, het schaduwboek en de meldingen is dat niet.
+
+        Via auto_params (volume-mounted, per aanroep gelezen) zodat aan/uit geen
+        deploy vergt. Default TRUE: ontbreekt de sleutel, dan verandert er niets.
+        """
+        if self._auto_params:
+            try:
+                v = self._auto_params.get_candidate_value("council_enabled")
+                if v is not None:
+                    return str(v).strip().lower() not in ("false", "0", "no", "off")
+            except Exception:
+                pass
+        return True
+
     def _get_score_threshold(self) -> float:
         # During shadow mode, use the candidate value so the test validates the proposed change
         if self._auto_params:
@@ -360,7 +381,11 @@ class ProjectLead:
             else:
                 tech_prefilter_min = min(tech_prefilter_min, self._RANGING_TECH_PREFILTER)
                 self.logger.debug(f"[{ticker}] RANGING regime: tech_prefilter relaxed to {tech_prefilter_min}")
-        if abs(tech_signal) >= tech_prefilter_min:
+        _council_on = self._council_enabled()
+        if not _council_on:
+            self.logger.info(f"[FUNNEL] {ticker}: COUNCIL_OFF — Fundamental/Sentiment overgeslagen "
+                             f"(PLAN_2026-08 par. 5; zet council_enabled=true om te herstellen)")
+        elif abs(tech_signal) >= tech_prefilter_min:
             self.logger.info(f"[{ticker}] Tech pre-filter PASSED ({tech_signal:.2f}) → launching Fundamental & Sentiment...")
             try:
                 fund_task = self.fundamental_analyst.analyze_async(ticker)
@@ -380,7 +405,7 @@ class ProjectLead:
         # --- POLYMARKET SHADOW SIGNAL (Phase 1: log only, no scoring impact) ---
         poly_shadow = {"signal": 0.0, "status": "SHADOW", "markets_matched": 0}
         try:
-            if self.polymarket_analyst:
+            if _council_on and self.polymarket_analyst:
                 poly_shadow = await self.polymarket_analyst.analyze_async(ticker)
         except Exception as e:
             self.logger.debug(f"Polymarket shadow failed for {ticker}: {e}")
