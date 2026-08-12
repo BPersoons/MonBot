@@ -7,6 +7,22 @@ from agents.sentiment_analyst import SentimentAnalyst
 import os # Added for key check
 
 class ResearchAgent:
+    def _council_enabled(self) -> bool:
+        """Zelfde schakelaar als ProjectLead (PLAN_2026-08 par. 5).
+
+        Bewust hier herhaald in plaats van geïmporteerd: de Scout mag niet van
+        ProjectLead afhangen, en het is vier regels. Default TRUE — ontbreekt de
+        sleutel, dan verandert er niets.
+        """
+        try:
+            from utils.auto_params import AutoParams
+            v = AutoParams().get_candidate_value("council_enabled")
+            if v is not None:
+                return str(v).strip().lower() not in ("false", "0", "no", "off")
+        except Exception:
+            pass
+        return True
+
     def __init__(self, db_client=None):
         self.logger = logging.getLogger("ResearchAgent")
         self.sentiment_analyst = SentimentAnalyst()
@@ -438,7 +454,7 @@ class ResearchAgent:
                         reasons.append(f"RR after costs {rr_after:.2f} < {MIN_RR_AFTER_COSTS}")
                     
                     # Discovery Expansion: Fallback to news sentiment for top 5 highest volume tokens
-                    if checked_count <= 5:
+                    if checked_count <= 5 and self._council_enabled():
                         self.logger.info(f"TA failed for {symbol}. Checking news sentiment for breakout/breakdown potential...")
                         sentiment_res = self.sentiment_analyst.analyze(symbol)
                         sig = sentiment_res.get("signal", 0.0)

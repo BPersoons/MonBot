@@ -429,7 +429,13 @@ class ProjectLead:
         active_weights, strategy_mode = self._determine_strategic_weights(details, direction=direction)
 
         # 3. Calculate Weighted Score and apply Global Macro Vibe
-        global_vibe = self.sentiment_analyst.get_global_vibe()
+        # Ook deze aanroep valt onder de council-schakelaar (PLAN par. 5): het is een
+        # LLM-call per scoringsronde, en met de bot gepauzeerd verandert een macro-vibe
+        # geen enkele uitkomst. Neutraal (0.0) laat de score ongemoeid.
+        if self._council_enabled():
+            global_vibe = self.sentiment_analyst.get_global_vibe()
+        else:
+            global_vibe = {"signal": 0.0, "status": "COUNCIL_OFF"}
         global_vibe_score = global_vibe.get("signal", 0.0)
 
         # Reload learned agent weights from disk so auditor updates take effect each cycle.
