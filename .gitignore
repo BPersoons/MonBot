@@ -56,6 +56,10 @@ new_api_key.txt
 !.claude/commands/
 .claude/commands/*
 !.claude/commands/*.md
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/*.py
+!.claude/hooks/*.sh
 
 # Junk / OS artifacts
 nul

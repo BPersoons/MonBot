@@ -35,6 +35,19 @@ De drie die het vaakst verward worden:
 - **Kasbeheer** (treasury) kan **geen** aandelen of ETF's kopen — het werkt alleen met USDC op Arbitrum en Hyperliquid.
 - **Handelsbot** (F1 / armed-gate trader) staat **gepauzeerd** sinds 2026-08-10 (`score_threshold` 0,40).
 
+## Hooks (`.claude/hooks/`)
+
+Onder versiebeheer sinds 2026-08-12; **de registratie niet** — die staat in `.claude/settings.local.json` en dat blijft lokaal. Op een nieuwe machine staan de scripts er dus wel, maar doen ze niets tot je ze registreert onder `hooks.PostToolUse`.
+
+| Hook | Matcher | Wat het doet |
+|---|---|---|
+| `check_python_syntax.py` | Edit/Write | Syntaxcheck na elke bewerking |
+| `verify_dashboard.sh` | Bash | Dashboard-controle na een herstart |
+| `remind_dashboard_update.py` | Edit/Write | Herinnert aan het masterplan-dashboard bij een `roadmap.json`-wijziging |
+| `remind_capture_learnings.py` | Bash | Herinnert na een **git commit** aan het vastleggen van learnings |
+
+Die laatste bestaat omdat elke echte les uit de sessie van 2026-08-11/12 in een commitbericht eindigde — een commit markeert het moment waarop iets is uitgezocht en afgerond. **Hij schrijft niets zelf**: het knelpunt is niet het opschrijven maar het oordelen of iets een sessie-overstijgende les is, en dat kan een script niet. "Niets vastleggen" is daarom een expliciet geldige uitkomst; automatisch memory vullen zou hem vol ruis zetten.
+
 ## Key Directories
 
 ```
