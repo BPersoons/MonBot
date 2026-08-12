@@ -142,7 +142,59 @@ class SleeveNAV:
             else:
                 sleeves["swarm"] = max(0.0, sleeves.get("swarm", 0.0) - thematic_exposure_usd)
 
+        # Conviction Core (crypto vasthouden): spot UBTC/UETH op de HOOFD-wallet.
+        # Deze viel volledig buiten de NAV. hl_snapshot.balance is USDC-equity —
+        # de Unit-tokens zitten daar NIET in, dus dit is geen dubbeltelling.
+        # Gemeten 2026-08-12: $174,37 op een gerapporteerd totaal van $2.906 (5,7%).
+        conviction_usd = self._conviction_value()
+        if conviction_usd is None:
+            # Onmeetbaar telt niet als nul: een leesfout zou hier een daling van
+            # ~6% suggereren. Liever een gat in de reeks dan een verzonnen getal —
+            # dezelfde regel die dit bestand al hanteert voor een stale bron.
+            logger.warning("Conviction Core niet te waarderen — snapshot uitgesteld")
+            return None
+        if conviction_usd > 0:
+            sleeves["conviction_core"] = sleeves.get("conviction_core", 0.0) + conviction_usd
+            venues["hyperliquid"] = venues.get("hyperliquid", 0.0) + conviction_usd
+
         return sleeves, venues
+
+    @staticmethod
+    def _conviction_value():
+        """USD-waarde van het crypto-vasthoud-potje. None = niet te bepalen.
+
+        Prijzen komen van de PERP-mark en niet van get_spot_price(): dat laatste
+        is op Hyperliquid onbetrouwbaar. ccxt mapt `BTC/USDC` naar spot-paar @50,
+        en dat is FRAC/USDC — een token van $0,024, niet Bitcoin. Zie utils/nav.py.
+        """
+        try:
+            with open("config/conviction_core.json") as f:
+                cfg = json.load(f)
+        except Exception:
+            return 0.0                      # sleeve bestaat niet → echt nul
+        if not cfg.get("enabled"):
+            return 0.0
+
+        try:
+            from utils.exchange_client import HyperliquidExchange
+            from utils.nav import _perp_marks, _VASTHOUD_COINS
+
+            ex = HyperliquidExchange()
+            holdings = ex.get_spot_holdings() or {}
+            marks = _perp_marks()
+            totaal = 0.0
+            for coin, basis in _VASTHOUD_COINS.items():
+                qty = float(holdings.get(coin, 0.0) or 0.0)
+                if qty <= 0:
+                    continue
+                prijs = marks.get(basis)
+                if not prijs:
+                    return None             # posities zonder prijs → onmeetbaar
+                totaal += qty * prijs
+            return round(totaal, 2)
+        except Exception as e:
+            logger.warning(f"Conviction-waardering faalde: {e}")
+            return None
 
     @staticmethod
     def _thematic_wallet_is_segregated() -> bool:
