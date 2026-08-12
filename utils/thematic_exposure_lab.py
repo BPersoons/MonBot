@@ -681,14 +681,14 @@ class ThematicExposureLab:
                     if not _ok:
                         if handhaven():
                             s["qualifies"] = False
-                            self.logger.info(f"[SLEEVE] {ticker} GEBLOKKEERD door divergentie-screen: {_reden}")
+                            logger.info(f"[SLEEVE] {ticker} GEBLOKKEERD door divergentie-screen: {_reden}")
                         else:
-                            self.logger.info(f"[SLEEVE] {ticker} zou geblokkeerd zijn (observatiemodus): {_reden}")
+                            logger.info(f"[SLEEVE] {ticker} zou geblokkeerd zijn (observatiemodus): {_reden}")
                 except Exception as e:
                     # Nooit de sleeve stilzetten op een storing in een extra screen.
                     s["divergence_ok"] = None
                     s["divergence_reason"] = f"filter faalde: {e}"
-                    self.logger.debug(f"divergentie-screen faalde voor {ticker}: {e}")
+                    logger.debug(f"divergentie-screen faalde voor {ticker}: {e}")
 
         report = {
             "generated_at": _now_iso(),
