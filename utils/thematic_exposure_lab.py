@@ -666,6 +666,30 @@ class ThematicExposureLab:
                 and s["stabilized"]
             )
 
+            # Divergentie-screen (PLAN_2026-08 par. 4): koopt de sleeve een dip
+            # waarbij de fundamentals NIET meezakten, of een vallend mes? Tot nu
+            # toe was de entry puur prijs (pullback_z), zonder enige toets op het
+            # bedrijf erachter. Staat standaard in OBSERVATIEMODUS: de uitslag komt
+            # in het rapport, maar blokkeert nog geen order — eerst bewijs, dan
+            # handhaven (zelfde patroon als revalidation_autopause_enabled).
+            if s["qualifies"]:
+                try:
+                    from utils.divergence_filter import beoordeel, handhaven
+                    _ok, _reden, _ = beoordeel(ticker)
+                    s["divergence_ok"] = _ok
+                    s["divergence_reason"] = _reden
+                    if not _ok:
+                        if handhaven():
+                            s["qualifies"] = False
+                            self.logger.info(f"[SLEEVE] {ticker} GEBLOKKEERD door divergentie-screen: {_reden}")
+                        else:
+                            self.logger.info(f"[SLEEVE] {ticker} zou geblokkeerd zijn (observatiemodus): {_reden}")
+                except Exception as e:
+                    # Nooit de sleeve stilzetten op een storing in een extra screen.
+                    s["divergence_ok"] = None
+                    s["divergence_reason"] = f"filter faalde: {e}"
+                    self.logger.debug(f"divergentie-screen faalde voor {ticker}: {e}")
+
         report = {
             "generated_at": _now_iso(),
             "breadth_by_theme": breadth,
