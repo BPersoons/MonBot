@@ -35,6 +35,8 @@ Voor elk onderdeel, hard:
 
 Zet dit af tegen `project_product_economics`: dit product verliest geld. Een onderdeel dat noch geld oplevert, noch een beslissing verbetert, kost netto.
 
+> ⚠️ **Maar het huidige kapitaal is een testbudget.** Het kostenpercentage is een artefact van de schaal en verdampt bij groei — zie `feedback_testbudget_niet_doorschieten_op_kosten`. Gebruik de kostenmeetlat om luie kosten op te ruimen, **niet** om te besluiten of een onderdeel mag bestaan. Vraag bij elke besparing: *blijft dit bedrag relevant bij 30× het kapitaal?* Zo niet, dan is het geen bevinding maar een afleiding.
+
 ## Stap 3 — Klopt het nog met het plan?
 
 - Welke items uit `docs/PLAN_2026-08.md` zijn besloten maar **niet uitgevoerd**? Die gaan vóór nieuwbouw.
@@ -88,7 +90,9 @@ Het onderdeel dat het minst verdient te blijven — mét reden.
 De hoogste hefboom, met bedrag of beslissing.
 ```
 
-**Sluit af met de duurste openstaande beslissing**, niet met een samenvatting.
+**Sluit af met de meest waardevolle openstaande beslissing**, niet met een samenvatting.
+
+Let op het verschil met de *duurste*: die twee zijn zelden dezelfde. Een besparing is eenmalig en schaalt niet mee; een verbetering in selectie, allocatie of hoeveelheid kapitaal aan het werk groeit mee met het vermogen. 1 procentpunt rendement is op $3k dertig dollar en op €100k duizend euro — een besparing van $73 blijft $73. Eindigen op de kostenknop voelt scherp en is meestal de makkelijke uitweg.
 
 ---
 
