@@ -186,6 +186,17 @@ if __name__ == "__main__":
         logger.error(f"Treasury check crashed: {e}")
         all_ok = False
 
+    logger.info("Checking dip-buyer tranche sizing against the live budget...")
+    try:
+        from tests.pre_flight.check_sleeve_sizing import check_sleeve_sizing
+        if not check_sleeve_sizing():
+            all_ok = False
+        else:
+            logger.info("SUCCESS: Sleeve tranche plan is executable and puts capital to work.")
+    except Exception as e:
+        logger.error(f"Sleeve sizing check crashed: {e}")
+        all_ok = False
+
     logger.info("Checking backtester signal frequency (ResearchAgent pre-screen smoke test)...")
     try:
         _bt_ok = _check_backtester_signal_frequency()

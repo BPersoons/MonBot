@@ -55,7 +55,33 @@ DEFAULT_BUDGET_USD = 1250.0
 # (see _open_tranche's min_notional guard). At 4 names T1 = $12.75, clears the
 # floor. Raise back to 8 once the wallet is topped up past ~$440
 # (min budget for T1 to clear $10+$1 at 8-way split: 10/0.20*8 = $400, +buffer).
-MAX_CONCURRENT_NAMES = 4
+#
+# ── 2026-08-12: 4 → 6, en het tranche-plan van 4 stappen naar 2 ────────────
+# Het comment hierboven redeneert correct over T1, maar de andere helft was
+# niemand opgevallen: T2-T4 zijn NOOIT uitgevoerd in het hele bestaan van de
+# sleeve. Twee redenen, die elkaar versterken:
+#
+#   1. `t2_t4_enabled` staat niet in thematic_exposure_state.json → default
+#      False (zie _maybe_advance_tranches). Sinds 2026-07-17 dus dry-run.
+#   2. Zelfs áán zou T2 niet vuren: de trigger is -10% ten opzichte van entry,
+#      en de vier open posities staan +9% tot +29%. De 80% van het budget die
+#      voor T2-T4 gereserveerd staat, is dus geconditioneerd op ONGELIJK
+#      hebben. Werkt de dip-buy-edge, dan komt dat geld nooit aan het werk.
+#
+# Netto stond 79% van het budget stil ($201 van $255, gemeten op de keten:
+# xyz-dex accountValue $263,04 / withdrawable $202,34) terwijl het INGEZETTE
+# deel +22,4% deed. Niet de edge was klein, de inzet was klein.
+#
+# Waarom 2 tranches en niet 4: het 4-stappenplan is getekend voor
+# DEFAULT_BUDGET_USD ($1.250), waar elke stap ruim boven HL's $10-minimum
+# uitkomt. Op $255 past het niet — 6 namen × 4 stappen vraagt 24 orders van
+# >=$11 = $264 aan minimum-notional alleen al. Dus: minder stappen, grotere
+# stappen. De binding is `budget / N * T1_pct >= 11`; bij N=6 en T1=0,60 wordt
+# dat $25,50 (T2 $17,00) — beide ruim boven de vloer.
+#
+# Bij een groter budget kunnen de stappen terug: op $1.250 met 8 namen is
+# {1:0,20 2:0,30 3:0,30 4:0,20} weer helemaal uitvoerbaar ($31/$47/$47/$31).
+MAX_CONCURRENT_NAMES = 6
 MIN_DAY_VOLUME_USD = 5_000_000.0
 PRICE_HISTORY_TTL_H = 24.0
 PRICE_HISTORY_PERIOD = "1y"
@@ -98,8 +124,14 @@ PULLBACK_VOL_THRESHOLD = 1.5   # vol-genormaliseerde "eenheden onder het 252d-hi
 BREADTH_THRESHOLD = 0.30       # aandeel tickers in thema dat ook >= pullback-drempel scoort
 STABILIZATION_LOOKBACK = 5     # dagen — laatste close mag niet op het 5d-low liggen
 
-# Tranche-plan (fractie van het per-naam-budget)
-TRANCHE_PCTS = {1: 0.20, 2: 0.30, 3: 0.30, 4: 0.20}
+# Tranche-plan (fractie van het per-naam-budget). Moet optellen tot 1,0 en elke
+# stap moet `budget / MAX_CONCURRENT_NAMES * pct >= min_notional + 1` halen,
+# anders slaat _open_tranche hem stil over. Zie het blok bij
+# MAX_CONCURRENT_NAMES voor waarom dit van 4 naar 2 stappen ging.
+TRANCHE_PCTS = {1: 0.60, 2: 0.40}
+# Hoogste stap — nergens hardcoderen, anders loopt TRANCHE_PCTS[stage] op een
+# KeyError zodra het plan korter wordt.
+MAX_TRANCHE_STAGE = max(TRANCHE_PCTS)
 
 # Executie-guards
 # Prijs-sanity: primair vergelijken we de xyz-perp-mark met een VERSE intraday-
@@ -705,6 +737,8 @@ class ThematicExposureLab:
     # ── tranche-triggers ─────────────────────────────────────────────────
     @staticmethod
     def _tranche_trigger(stage: int, score: dict, pos: dict) -> bool:
+        if stage not in TRANCHE_PCTS:
+            return False  # stap bestaat niet in het huidige (kortere) plan
         if stage == 2:
             entry = pos.get("avg_entry_price", 0.0)
             mark = score.get("mark_px", 0.0)
@@ -773,7 +807,7 @@ class ThematicExposureLab:
 
         for ticker in list(open_tickers):
             pos = positions.get("positions", {}).get(ticker)
-            if not pos or pos.get("tranche_stage", 1) >= 4:
+            if not pos or pos.get("tranche_stage", 1) >= MAX_TRANCHE_STAGE:
                 continue
             s = report.get("scores", {}).get(ticker)
             if not s:
@@ -886,6 +920,11 @@ class ThematicExposureLab:
         asset_class = detect_asset_class(ticker)
         if not _market_is_open(asset_class, datetime.now(timezone.utc)):
             logger.debug(f"ThematicExposureLab: {ticker} markt gesloten (asset_class={asset_class}) — T{stage} uitgesteld")
+            return
+
+        if stage not in TRANCHE_PCTS:
+            logger.warning(f"ThematicExposureLab: T{stage} bestaat niet in het tranche-plan "
+                           f"{sorted(TRANCHE_PCTS)} — {ticker} overgeslagen")
             return
 
         budget = _finite(positions.get("budget_usd"), DEFAULT_BUDGET_USD)
@@ -1189,13 +1228,17 @@ class ThematicExposureLab:
         self._save_state(state)
         return alerts
 
-    # ── T2-T4 dry-run preview (voor het dagrapport, zolang t2_t4_enabled=false) ──
+    # ── Vervolgtranche dry-run preview (zolang t2_t4_enabled=false) ──────────
+    # LET OP: deze preview heeft in het hele bestaan van de sleeve nooit een
+    # regel opgeleverd, en dat is géén bewijs dat de tranches goed staan — de
+    # trigger vraagt -10% t.o.v. entry en alle posities stonden in de plus. Een
+    # lege preview betekent hier "niet van toepassing", niet "gecontroleerd".
     def _t2_t4_preview(self, report: dict, positions: dict) -> list:
         preview = []
         if self._load_state().get("t2_t4_enabled", False):
             return preview  # dan is het geen preview meer — het gebeurt al echt
         for ticker, pos in positions.get("positions", {}).items():
-            if pos.get("status") != "OPEN" or pos.get("tranche_stage", 1) >= 4:
+            if pos.get("status") != "OPEN" or pos.get("tranche_stage", 1) >= MAX_TRANCHE_STAGE:
                 continue
             s = report.get("scores", {}).get(ticker)
             if not s:
