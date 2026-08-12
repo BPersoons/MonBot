@@ -37,10 +37,41 @@ Expected: `200`. If not 200, fetch the last 30 lines of container logs and repor
 gcloud compute ssh agent-trader-swarm-vm --zone=europe-west1-b --command='sudo docker logs agent_trader_swarm 2>&1 | tail -30'
 ```
 
-### 5. Report
-Summarize: which files were deployed, HTTP status, success/failure.
+### 5. Verify the change actually DOES something
+
+**HTTP 200 is the floor, not the proof.** Before deploying, decide what observable trace the change leaves — a log line, a field in a state file, a number that moves — and check *that*.
+
+Learned the hard way (2026-08-12): a filter added to `thematic_exposure_lab.py` used `self.logger` on a class that has a module-level `logger`. It passed `py_compile`, passed pre-flight, container ran with 0 restarts, dashboard returned **200** — and `run_cycle()` still died every cycle with `AttributeError`, taking down the only validated edge in the system. It surfaced only when checking whether the filter's verdict actually appeared in `thematic_exposure_report.json`.
+
+```bash
+# Real errors only — never grep the bare word. "critical support levels" in a news
+# headline and "All critical agents initialized" both match a naive -i "critical".
+gcloud compute ssh agent-trader-swarm-vm --zone=europe-west1-b --command='
+  sudo docker logs agent_trader_swarm --since 5m 2>&1 | grep -E " - (ERROR|CRITICAL) - |Traceback" | head -5'
+
+# Container really healthy (restarts must stay 0)
+gcloud compute ssh agent-trader-swarm-vm --zone=europe-west1-b --command='
+  sudo docker inspect --format "status={{.State.Status}} restarts={{.RestartCount}}" agent_trader_swarm'
+```
+
+Then confirm the feature's own trace. Only after that is the deploy done.
+
+### 6. Report
+Summarize: files deployed, HTTP status, restart count, error grep result, and **the observed trace proving the change works**.
 
 ## Important
+
+- **An `except` block that can itself fail is not a safety net.** The bug above escaped *through* its own handler, because the handler also called the missing `self.logger`. In an `except`, only touch things guaranteed to exist.
+- **Before any FULL deploy** (compose recreate — not this hot-patch flow), audit for state drift; files in the writable layer that aren't mounted get destroyed:
+  ```bash
+  sudo docker diff agent_trader_swarm | grep -E "^A /app/[^/]+\.json$"
+  ```
+  Everything listed belongs in BOTH the compose mounts and `STATE_FILES` in `deploy_update.sh`. On 2026-08-11 thirteen files had drifted out of both.
+- `docker cp` code only (`agents/`, `utils/`, `core/`, `main.py`). **Never** `docker cp` a state file or `config/*.json` — it lands as root and the `trader` user can no longer write it.
+- Config under `config/` is volume-mounted: edit the **host** file in `/home/bartpersoons_gmail_com/config/` **in place** (`open(path,"w")`), never via rename — the bind mount is tied to the inode.
+- ALWAYS use base64 encoding if a file contains special characters that might be corrupted by plink.exe on Windows. For standard Python files, regular scp is fine.
+- If no $ARGUMENTS are provided, list the files that have been modified in the current session (based on git diff or recent edits) and ask the user which to deploy.
+- The verify_dashboard hook will also run after the restart — that's expected and OK.
 - ALWAYS use base64 encoding if a file contains special characters that might be corrupted by plink.exe on Windows. For standard Python files, regular scp is fine.
 - If no $ARGUMENTS are provided, list the files that have been modified in the current session (based on git diff or recent edits) and ask the user which to deploy.
 - The verify_dashboard hook will also run after the restart — that's expected and OK.
