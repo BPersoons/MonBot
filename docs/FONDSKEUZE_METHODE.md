@@ -1,0 +1,108 @@
+# Fondskeuze binnen een thema — de methode en het bewijs
+
+*Vastgelegd 2026-08-18, uit een lang gesprek waarin elke stap gemeten is in
+plaats van beredeneerd. Gereedschap: `scripts/keten_overlap.py` (overlap met de
+ketenschakel) en `scripts/thema_drukte.py` (waar staat het thema in zijn cyclus).*
+
+## De vraag waar dit mee begon
+
+Een willekeurig mandje aandelen verslaat de index niet: ~4% van de aandelen
+levert álle netto vermogensgroei, de mediaan doet het slechter dan een
+spaarrekening (Bessembinder). Het *gemiddelde* van een willekeurige selectie is
+gelijk aan de index, de *mediaan* ligt eronder — je verliest waarschijnlijk, met
+een kleine kans dat je enorm wint. Bij 20 namen domineert die scheefheid.
+
+Thema's leken de tussenweg: geen losse namen, wel gerichte blootstelling. En
+thema-ETF's leken de oplossing voor het stockpicking-risico bínnen een thema.
+
+## De bevinding die alles omdraaide
+
+**De spreiding BINNEN een thema is groter dan die tussen thema's.** Drie
+onafhankelijke metingen, drie tijdshorizonnen, dezelfde richting:
+
+| Thema | Venster | Spreiding | Winnaar | Verliezer |
+|---|---|---|---|---|
+| Robotics | 12 jaar | **426pp** | ARKQ (2014, breed) +338pp | BOTZ (2016) −88pp |
+| Cloud/SaaS | 7 jaar | **129pp** | SKYY (2011, breed) +32pp | WCLD (2019, "emerging") −98pp |
+| Space | 8 maanden | **57pp** | ROKT (2018, breed) +62% | NASA (mrt 2026, puur) +5% |
+
+*(t.o.v. de wereldindex over hetzelfde venster)*
+
+**Elke keer wint het oudere, bredere fonds van het nieuwere, "zuiverdere".**
+
+En er is een mechanisme, geen toeval: een nieuw fonds wordt gelanceerd wanneer
+het thema al loopt. Het mist het eerste been per constructie en vangt de daling
+wél. Bij space is dat exact zichtbaar — NASA kwam binnen op 30 maart 2026, ving
+twee van de acht maanden stijging en alle daling.
+
+Dat sluit aan op Ben-David, Franzoni, Kim & Moussawi (*Review of Financial
+Studies*, 2023): gespecialiseerde ETF's blijven ~30% achter in hun eerste vijf
+jaar, omdat aanbieders lanceren wanneer de aandacht piekt.
+
+## Waar de waarde zit — en waar niet
+
+| | grootte van de fout | wat het vraagt |
+|---|---|---|
+| Verkeerd fonds binnen een goed thema | **57 tot 426pp** | rekenwerk op openbare holdings |
+| Te vroeg/te laat instappen | ~90pp (cloud) | een glazen bol |
+
+Fondskeuze is **narekenbaar werk waarin je vandaag gelijk of ongelijk kunt
+krijgen**. Themakeuze en timing zijn voorspellen. Steek de tijd in het eerste.
+
+Je hebt geen voorsprong op het nieuws nodig — je hebt een voorsprong nodig op
+iedereen die het etiket leest zonder het mandje te openen.
+
+## Vier regels
+
+**1. Voorkeur voor het oudere, bredere fonds** tenzij de overlapscore
+doorslaggevend anders zegt. Drie metingen, dezelfde richting.
+
+**2. Nooit een fonds waarvan de index voor het product is gemaakt.** EUDF
+(WisdomTree Europe Defence, index gemaakt voor het fonds, gelanceerd 4 maart 2025
+op de piek van het herbewapeningsverhaal) en NASA (maart 2026) zijn de
+leerboekgevallen.
+
+**3. Schrijf de uitstapvoorwaarde op vóór de aankoop.** WCLD werd gelanceerd twee
+jaar vóór de piek — vroeg genoeg — en kostte alsnog 97pp omdat er niet verkocht
+werd. Vasthouden gaf +61%, op de top verkopen +151%. **De instap was nooit het
+probleem.**
+
+**4. Controleer het mandje, niet het label.** Drie keer misgegaan:
+- Slot 1: de tolhuisjes waren ~15% van het fonds, commodity-geheugen 22%
+- QTUM ("Defiance Quantum", +417pp): ~3% écht quantum, de rest is Cloudflare,
+  Snowflake, RTX, Microsoft, Airbus, Amazon van elk ~1,4%
+- CPQ: 10,4% megacap die je in de kern al bezit — tegen 0,60% i.p.v. 0,07%
+
+## Wanneer een thema-ETF structureel niet kán bestaan
+
+Slot 3 (software-infrastructuur, tolhuisje = overstapkosten) bleef leeg, en de
+reden generaliseert:
+
+> Bedrijven **mét** overstapkosten zijn per definitie gevestigde grote namen. Die
+> zitten al in je wereldindexfonds, én worden door thema-indices juist uitgesloten
+> — want "pure play" en "emerging" is wat een thematisch fonds verkoopt.
+
+**Een switching-cost-these en de productcategorie thema-ETF zijn structureel
+onverenigbaar.** Is het tolhuisje daarentegen een *technologie* (EUV-lithografie,
+de scherpste foundry-node), dan valt het wél samen met een sector en dus met een
+ETF. Dat is waarom slot 1 kan en slot 3 niet.
+
+**Toets vooraf:** is het tolhuisje een technologie of een klantrelatie? Bij het
+eerste bestaat er een instrument, bij het tweede niet.
+
+## De onprettige consequentie
+
+Elke stap richting "zuiverdere thema-expressie" maakte het in élke meting
+slechter. Doorgetrokken wijst die pijl naar de kern. Dat betekent niet dat
+thema's niet werken — het betekent dat **de bewijslast bij de satelliet ligt en
+niet bij het indexfonds**, en dat de satelliet klein hoort te blijven tot hij die
+bewijslast heeft gedragen.
+
+## Wat hier NIET uit volgt
+
+"Koop bij een IPO-aankondiging in een thema." De space-reeks laat een perfect
+buy-the-rumour-patroon zien (+31% vanaf de aankondiging terwijl de wereldindex
+−4,6% deed; top op 27 mei, twee weken vóór de IPO van 12 juni). Maar dat is n=1.
+Cannabis had exact dezelfde vorm en staat 93% onder de top. Op één geval een
+instapregel bouwen is precies waar dit project al een keer aan onderdoor ging —
+zie memory `feedback_systematic_alpha_hard`.
