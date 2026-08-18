@@ -1,0 +1,161 @@
+{
+ "_comment": "Thema-kaarten volgens .claude/commands/thema.md. Een kaart is GEEN koopsignaal: hij bepaalt of het thema de trechter in gaat (research/screen.py UNIVERSUM). Instrument -> scripts/keten_overlap.py. Losse namen -> /scorecard.",
+ "_benchmark": {
+  "ticker": "URTH",
+  "naam": "iShares MSCI World"
+ },
+ "_rangschikking": "Primair op hardheid_geld. Dimensies worden NIET opgeteld: een gemiddelde suggereert precisie die er niet is.",
+ "kaarten": [
+  {
+   "naam": "Stroom en net",
+   "geanalyseerd_op": "2026-08-18",
+   "benchmark_prijs_bij_analyse": 211.2100067138672,
+   "benchmark_asof": "2026-08-14",
+   "keten": [
+    "opwekking",
+    "hoogspanningstransport",
+    "distributie",
+    "netapparatuur (transformatoren, schakelmateriaal, kabel)",
+    "aanleg/EPC",
+    "netbeheer"
+   ],
+   "tolhuisje_schakel": "netapparatuur + EPC-capaciteit",
+   "tolhuisje_soort": "technologie",
+   "tolhuisje_toelichting": "Transformatoren en hoogspanningsmateriaal hebben meerjarige levertijden; de capaciteit is de beperking, niet de vraag. Nutsbedrijven zijn hier de AFNEMER met gereguleerd rendement, niet de partij met prijszettingsmacht.",
+   "poorten": {
+    "vastgelegd_geld": "PASS",
+    "tolhuisje": "PASS",
+    "niet_al_in_kern": "PASS — Schneider, Eaton en ABB zitten in de wereldindex maar elk onder ~0,2%; de mand is geen verkapte kern"
+   },
+   "scores": {
+    "hardheid_geld": 5,
+    "aard_tolhuisje": 4,
+    "fase_doorbraak": 5,
+    "drukte": 2,
+    "instrumenteerbaarheid": 5
+   },
+   "score_toelichting": {
+    "hardheid_geld": "Meerjarenplannen goedgekeurd door toezichthouders, geen verwachting: $1,3-1,4 biljoen VS-nutscapex 2026-2030.",
+    "aard_tolhuisje": "Technologie/capaciteit, dus koopbaar als sector. Geen 5 omdat levertijden inhaalbaar zijn — een tekort is geen monopolie.",
+    "fase_doorbraak": "Draait op schaal, omzet groeit nu; geen pilotfase.",
+    "drukte": "GRID staat 5,6% onder zijn top en deed +9,6pp t.o.v. de wereldindex over 1 jaar. Niet extreem, maar de menigte is er.",
+    "instrumenteerbaarheid": "GRID: 42,25 van 58,54 procentpunt van de top-10 zit in de aangewezen schakel = OVERLAP 72,2%. Verreweg de hoogste die we gemeten hebben (WCLD 16,8%, CPQ 11,4%). PAVE komt op 30,7% en is dus het verkeerde instrument."
+   },
+   "bronnen": [
+    {
+     "bedrag": "$1,3-1,4 biljoen",
+     "wat": "VS-nutscapex 2026-2030",
+     "bron": "S&P Global Market Intelligence",
+     "datum": "2026-04"
+    },
+    {
+     "bedrag": "$102,2 mrd",
+     "wat": "Duke Energy capexplan",
+     "bron": "bedrijfsopgave",
+     "datum": "2026"
+    },
+    {
+     "bedrag": "$44,9 mrd",
+     "wat": "Sempra 2026-2028 (verhoogd vanaf $33,6 mrd in dec 2025)",
+     "bron": "RRA-vooruitzicht",
+     "datum": "2026"
+    },
+    {
+     "bedrag": "$35,2 mrd",
+     "wat": "Entergy 2026-2028 (verhoogd vanaf $30,7 mrd)",
+     "bron": "bedrijfsopgave",
+     "datum": "2026"
+    },
+    {
+     "bedrag": "$23 mrd",
+     "wat": "PPL capexplan, gedreven door datacentergroei",
+     "bron": "PPL Q2 2026-presentatie",
+     "datum": "2026-Q2"
+    }
+   ],
+   "verdict": "IN DE TRECHTER",
+   "actie": "Holdings van GRID toevoegen aan UNIVERSUM in research/screen.py",
+   "these_breuk": [
+    "Datacenter-capex wordt teruggeschroefd (de vraag onder de netinvestering valt weg)",
+    "Levertijden van transformatoren normaliseren -> capaciteitsknelpunt verdwijnt -> prijszettingsmacht weg",
+    "Toezichthouders keuren de capexplannen niet goed of vertragen ze (dan is het geld niet vastgelegd)"
+   ],
+   "opmerking": "Los signaal, geen onderdeel van de score: GRID deed +31,7% over 1 jaar en XLU (brede nutssector) +6,1% = 16pp ACHTER de wereldindex. 26 procentpunt verschil binnen dezelfde sector. Het geld gaat naar netinfrastructuur, niet naar nutsbedrijven."
+  },
+  {
+   "naam": "Nucleair",
+   "geanalyseerd_op": "2026-08-18",
+   "benchmark_prijs_bij_analyse": 211.2100067138672,
+   "benchmark_asof": "2026-08-14",
+   "keten": [
+    "uraniumwinning",
+    "conversie",
+    "VERRIJKING",
+    "brandstoffabricage",
+    "reactorbouw",
+    "exploitatie",
+    "afval"
+   ],
+   "tolhuisje_schakel": "verrijking (incl. HALEU voor SMR's)",
+   "tolhuisje_soort": "technologie",
+   "tolhuisje_toelichting": "Wereldwijd een handvol partijen, enorme kapitaal- en vergunningsdrempels, en HALEU is het knelpunt voor elke SMR. Mijnbouw is dat NIET: uranium is fungibel, de producent is prijsnemer, en Kazatomprom kan de markt overspoelen.",
+   "poorten": {
+    "vastgelegd_geld": "PASS — maar klein",
+    "tolhuisje": "PASS",
+    "niet_al_in_kern": "PASS — uraniumnamen zijn small caps, nauwelijks in de wereldindex"
+   },
+   "scores": {
+    "hardheid_geld": 3,
+    "aard_tolhuisje": 5,
+    "fase_doorbraak": 2,
+    "drukte": 5,
+    "instrumenteerbaarheid": 1
+   },
+   "score_toelichting": {
+    "hardheid_geld": "Wetgeving, dus hard — maar twee ordes kleiner dan defensie of AI: $2,7 mrd + $3,1 mrd tegenover EUR 381 mrd resp. $725 mrd.",
+    "aard_tolhuisje": "Verrijking is een van de zuiverste knelpunten die er zijn.",
+    "fase_doorbraak": "SMR's zijn contract- en vergunningsfase, geen schaal. UPRISE mikt op 2,5 GW in 2027, 5 GW in 2029 — dat is nog geen omzet.",
+    "drukte": "URA staat 49,0% onder zijn top, URNM 35,0%. De menigte is vertrokken. LET OP: 'menigte weg' en 'thema dood' zien er van buiten identiek uit.",
+    "instrumenteerbaarheid": "GEMETEN EN AFGEKEURD. URNM: 0,0% in de verrijkingsschakel — puur mijnbouw en fysiek uranium. URA: 6,1% (alleen Centrus 3,55%), en daarnaast 6,8% BHP en Samsung C&T die niets met uranium te maken hebben. Geen enkel fonds drukt de these uit."
+   },
+   "bronnen": [
+    {
+     "bedrag": "$2,7 mrd",
+     "wat": "DOE-toekenning verrijkingscapaciteit, incl. 3x $900 mln LEU/HALEU over 10 jaar",
+     "bron": "US Department of Energy",
+     "datum": "2026-01"
+    },
+    {
+     "bedrag": "$3,1 mrd",
+     "wat": "Overheveling uit IIJA voor max. twee SMR-plaatsingen",
+     "bron": "FY2026 Energy and Water Development Appropriations Act, P.L. 119-74",
+     "datum": "2026-01-23"
+    },
+    {
+     "bedrag": "$406 mln",
+     "wat": "VK-contract Rolls-Royce SMR, owner's engineering, looptijd tot 14 jaar",
+     "bron": "Rolls-Royce persbericht",
+     "datum": "2026-04-13"
+    },
+    {
+     "bedrag": "tot 3 GW",
+     "wat": "CEZ (Tsjechië) early works met Rolls-Royce SMR",
+     "bron": "CEZ/Rolls-Royce",
+     "datum": "2026"
+    }
+   ],
+   "verdict": "VOLGEN",
+   "wacht_voorwaarden": [
+    "Er komt een fonds dat de VERRIJKINGSschakel uitdrukt (overlap >= 25% via scripts/keten_overlap.py) — nu 0-6%",
+    "OF de vastgelegde bedragen komen op de schaal van de andere thema's (tientallen miljarden, meerjarig)",
+    "OF SMR-omzet komt van de grond: eerste eenheid in bedrijf i.p.v. in vergunningsfase"
+   ],
+   "these_breuk": [
+    "SMR-plaatsingen worden opnieuw uitgesteld (de sector heeft dat al vaker gedaan)",
+    "Verrijkingscapaciteit wordt ruim -> het knelpunt verdwijnt",
+    "Uraniumprijs zakt door aanbodherstel: de mijnbouwnamen volgen de prijs, niet de these"
+   ],
+   "opmerking": "Dit is het enige thema van de vier waar de menigte weg is EN er vastgelegd geld ligt. Het valt niet op het thema maar op het INSTRUMENT: de beschikbare fondsen kopen mijnbouw, en dat is een prijsnemer. Precies de fout die de kaart moet voorkomen."
+  }
+ ]
+}
