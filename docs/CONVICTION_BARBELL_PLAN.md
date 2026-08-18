@@ -85,7 +85,7 @@ op Tradegate = 0,2% op een slot van $500.
 |---|---|---|---|---|
 | 1 Halfgeleiders | VanEck Semiconductor UCITS | IE00BMC38736 | VVSM | 0,35% |
 | 2 Defensie | WisdomTree Europe Defence UCITS | IE0002Y8CX98 | EUDF | 0,40% |
-| 3 Software | **nog niet gekozen** — zie hieronder | — | — | — |
+| 3 Software | ❌ **LEEG — geen kandidaat haalt de toets (2026-08-18)** | — | — | — |
 | Goud | iShares Physical Gold ETC | IE00B4ND3602 | PPFB | 0,12% |
 
 **Controleer het mandje, niet het label.** Dit is deze sessie twee keer misgegaan en beide keren
@@ -122,6 +122,76 @@ tech-bear zakt een groot deel tegelijk. Goud (10%) en het veilige been (50%) doe
 binnen-crypto (0,71-0,90). Een mandje BTC+QQQ+GLD haalt echte rebalancing-premie; een mandje
 BTC+ETH+SOL niet (die bewegen als één). Getest deze sessie: binnen-crypto-barbell was slechter
 dan BTC alleen.
+
+
+### 1d. Slot 3 (software) blijft leeg — de methode één keer echt uitgevoerd (2026-08-18)
+
+Uitgevoerd met `scripts/keten_overlap.py`. Vier stappen: keten uitschrijven →
+schakel met prijszettingsmacht aanwijzen → holdings van de kandidaten overtikken
+en de overlap uitrekenen → toetsen hoe druk het thema is.
+
+**Stap 1 — de keten.** "Software-infrastructuur" is geen laag maar zeven, en de
+overstapkosten verschillen er enorm:
+
+| Schakel | Overstapkosten | Waarom |
+|---|---|---|
+| Systems of record (ERP/CRM/HR/ITSM) | **extreem** | Bedrijfsproces zit erin verweven |
+| Databases / datagravity | **extreem** | Applicaties herschrijven + egress-kosten |
+| Identity | **hoog** | Verweven met elke andere applicatie |
+| Observability | midden | Historische data plakt |
+| Security | **laag** | Rip-and-replace gebeurt continu |
+| DevOps-tooling | **laag** | Versnipperd, ontwikkelaars stappen makkelijk over |
+| AI-native applicaties | **geen** | Nog geen moat |
+
+**Stap 2-3 — de overlapscore.** Welk deel van het fonds zit in de schakels met
+hoge overstapkosten? Peildatum 2026-08-18, top-10 holdings van justETF:
+
+| | WCLD (WisdomTree) | CPQ (First Trust) |
+|---|---|---|
+| Index | BVP Nasdaq **Emerging** Cloud | ISE Cloud Computing |
+| TER | 0,40% | 0,60% |
+| **Overlapscore (hoog / gemeten)** | **16,8%** | **11,4%** |
+| Lage overstapkosten | 64,1% | 75,1% |
+| Megacap die de kern al bezit | — | **10,4%** |
+
+**Stap 4 — de drukte-toets.** Beide fondsen bestaan lang genoeg voor een uitslag,
+dus de leeftijdsproxy is niet nodig — we meten:
+
+| | aanloop tot nov 2021 | sinds die piek |
+|---|---|---|
+| WCLD | **+97,4pp** vóór | **−104,0pp** achter |
+| CPQ/SKYY | +51,3pp vóór | −26,7pp achter |
+
+Dat is het patroon uit Ben-David e.a. (*RFS* 2023) in volle omvang: het rendement
+zit vóór de instroom. WCLD staat sinds de piek **−35,9% absoluut** terwijl de
+wereldindex +68,1% deed.
+
+### Het verdict, en waarom het structureel is
+
+**Slot 3 blijft leeg. Het geld gaat naar de kern.**
+
+Geen van beide fondsen bevat één systems-of-record-bedrijf — geen SAP, Oracle,
+ServiceNow, Salesforce, Workday of Intuit. Dat is geen ongeluk maar constructie:
+een thema-ETF verkoopt op "pure play" en "emerging", en sluit de gevestigde
+partijen daarom per indexdefinitie uit.
+
+**Daaruit volgt een algemene regel voor dit hele been:** de bedrijven mét
+overstapkosten zijn per definitie gevestigde grote namen. Die zitten (a) al in het
+wereldindexfonds, en (b) worden door thema-indices juist uitgesloten. **Een
+switching-cost-these en het productcategorie thema-ETF zijn structureel
+onverenigbaar.** Waar het tolhuisje een *technologie* is (EUV, foundry-node) valt
+het wél samen met een sector en dus met een ETF — dat is waarom slot 1 wél kan en
+slot 3 niet.
+
+**En de slot-regel sluit hem sowieso:** slot 3 is 7% van het groei-been = 3,5% van
+het totaal = ~$108 bij het huidige vermogen, ruim onder de $500-drempel. Ook zonder
+deze analyse kon het slot niet open. De analyse voegt toe dat het bij méér kapitaal
+óók niet moet.
+
+**Wat er nog wél kan, later:** de these direct uitdrukken in 2-3 namen in plaats
+van via een fonds. Dat is stockpicking mét het scheefheidsprobleem, dus alleen
+verdedigbaar bij een klein aantal posities met hoge overtuiging — en pas bij
+kapitaal waar een positie van $500+ per naam kan.
 
 ## 2. Rebalancing — mechanische banden, GEEN timing
 
