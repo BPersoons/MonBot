@@ -96,6 +96,7 @@ def _esc(s):
 def bouw():
     nav = _laad("nav_snapshot.json", {})
     ledger = _laad("research/ledger.json", {"entries": []})
+    themas = _laad("research/themes.json", {"kaarten": []}).get("kaarten", [])
     actief = [e for e in ledger.get("entries", []) if not e.get("superseded_by")]
     bench_t = (ledger.get("_benchmark") or {}).get("ticker", "URTH")
 
@@ -200,12 +201,43 @@ def bouw():
         '<p class="beslis-uitleg">%s</p></div>' % (_esc(v), _esc(u))
         for v, u in BESLISSINGEN)
 
+    # ── thema's ───────────────────────────────────────────────────────────────
+    # Boven de namen, want dat is de vololgorde van de hiërarchie: een thema
+    # levert kandidaten, het is nooit zelf een koopbeslissing.
+    _rang = {"IN DE TRECHTER": 0, "VOLGEN": 1, "AFVALLER": 2}
+    themas_gesorteerd = sorted(themas, key=lambda k: (_rang.get(k.get("verdict"), 3),
+                                                      -(k.get("scores", {}).get("hardheid_geld") or 0)))
+    tk = []
+    for k in themas_gesorteerd:
+        sc = k.get("scores", {})
+        hardste = (k.get("bronnen") or [{}])[0]
+        klasse = {"IN DE TRECHTER": "goed", "VOLGEN": "neutraal"}.get(k.get("verdict"), "kritiek")
+        balk = "".join(
+            '<span class="dim"><b>%s</b><i>%s</i></span>' % (_esc(lab), sc.get(sl) or "?")
+            for lab, sl in [("geld", "hardheid_geld"), ("tolhuisje", "aard_tolhuisje"),
+                            ("fase", "fase_doorbraak"), ("drukte", "drukte"),
+                            ("instrument", "instrumenteerbaarheid")])
+        tk.append(
+            '<div class="thema">'
+            '<div class="thema-kop"><h3>%s</h3><span class="pil %s">%s</span></div>'
+            '<p class="thema-geld"><b>%s</b> — %s <span class="bron">(%s, %s)</span></p>'
+            '<p class="thema-tol">Tolhuisje: <b>%s</b> · %s</p>'
+            '<div class="dims">%s</div>'
+            '<p class="thema-actie">%s</p></div>'
+            % (_esc(k.get("naam", "?")), klasse, _esc(k.get("verdict", "?")),
+               _esc(hardste.get("bedrag", "?")), _esc(hardste.get("wat", "")),
+               _esc(hardste.get("bron", "")), _esc(hardste.get("datum", "")),
+               _esc(k.get("tolhuisje_schakel", "?")), _esc(k.get("tolhuisje_soort", "")),
+               balk,
+               _esc(k.get("actie") or (k.get("wacht_voorwaarden") or ["—"])[0])))
+    themas_html = "".join(tk) or '<p class="leeg">Nog geen thema-kaarten.</p>'
+
     html = SJABLOON
     for sleutel, waarde in [
         ("BIJGEWERKT", datetime.now(timezone.utc).strftime("%-d %B %Y, %H:%M UTC")
          if os.name != "nt" else datetime.now(timezone.utc).strftime("%d-%m-%Y %H:%M UTC")),
         ("TEGELS", tegels_html), ("POTJES", potjes_html), ("STAPPEN", stappen_html),
-        ("RIJEN", tr), ("BESLISSINGEN", beslis_html),
+        ("RIJEN", tr), ("BESLISSINGEN", beslis_html), ("THEMAS", themas_html),
         ("DAGEN", str(max(dagen, 0))),
         ("GEMREL", "%+.2f%%" % gem_rel), ("NAANTAL", str(len(gemeten))),
         ("BENCH", _esc(bench_t)),
@@ -304,6 +336,23 @@ h2{font-family:Georgia,"Iowan Old Style",serif;font-weight:normal;font-size:1.3r
   border-radius:20px;border:1px solid var(--rand);white-space:nowrap}
 .p-klaar{color:var(--goed)} .p-loopt{color:var(--letop)} .p-geblokkeerd{color:var(--kritiek)}
 .v-koopbaar{color:var(--goed)} .v-volgen{color:var(--inkt2)} .v-afvaller{color:var(--kritiek)}
+.pil.goed{color:var(--goed)} .pil.neutraal{color:var(--letop)} .pil.kritiek{color:var(--kritiek)}
+.themas{display:grid;gap:14px}
+.thema{border:1px solid var(--rand);border-radius:10px;padding:14px 16px;background:var(--paneel)}
+.thema-kop{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.thema-kop h3{margin:0;font-size:1.02rem;font-weight:650}
+.thema-geld{margin:.55rem 0 .2rem;font-size:.92rem}
+.thema-geld b{font-family:ui-monospace,Consolas,monospace}
+.thema-geld .bron{color:var(--zacht);font-size:.78rem}
+.thema-tol{margin:.1rem 0 .7rem;font-size:.88rem;color:var(--inkt2)}
+.dims{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:.6rem}
+.dim{display:flex;align-items:baseline;gap:6px;border:1px solid var(--rand);
+  border-radius:6px;padding:3px 9px;font-size:.76rem}
+.dim b{font-weight:500;color:var(--inkt2)}
+.dim i{font-style:normal;font-family:ui-monospace,Consolas,monospace;font-weight:650}
+.thema-actie{margin:0;font-size:.85rem;color:var(--inkt2);border-left:2px solid var(--rand);
+  padding-left:10px}
+.leeg{color:var(--zacht);font-size:.9rem}
 .scroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:760px}
 th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;
@@ -349,8 +398,20 @@ a{color:var(--accent)}
   <div class="stappen">{{STAPPEN}}</div>
   <div class="noot"><strong>De blokkade:</strong> al het vermogen zit in crypto, terwijl
   het plan 40% in een wereldindexfonds wil. Er is geen route van USDC naar euro's op een
-  bankrekening — geen exchange-rekening, en geen enkel onderdeel van dit systeem kan euro's
-  uitbetalen. Daar wachten zowel het indexfonds als de thema-ETF's op.</div>
+  bankrekening. Sinds 18 augustus is de opzet <strong>twee potjes naast elkaar</strong>:
+  crypto en USDC blijven staan waar ze staan, DeGiro wordt gevuld met verse euro's. Geen
+  omwisseling, geen extra rekening, en geen onomkeerbaar netwerk-risico. Wachten op het
+  paspoort.</div>
+</div>
+
+<div class="sectie">
+  <h2>Thema's</h2>
+  <p class="sectie-intro">Gerangschikt op <strong>hardheid van het geld</strong> — is er
+  budget vastgelegd, of verwacht iemand iets? Marktramingen tellen niet mee. Een thema is
+  nooit zelf een koopbeslissing: het levert kandidaten voor de namen hieronder, en het
+  instrument is daarna nog een aparte vraag. De vijf cijfers zijn 1-5, waarbij
+  <em>drukte</em> omgekeerd werkt: hoog betekent dat de menigte weg is.</p>
+  <div class="themas">{{THEMAS}}</div>
 </div>
 
 <div class="sectie">
