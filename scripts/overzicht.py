@@ -338,7 +338,7 @@ h2{font-family:Georgia,"Iowan Old Style",serif;font-weight:normal;font-size:1.3r
 .v-koopbaar{color:var(--goed)} .v-volgen{color:var(--inkt2)} .v-afvaller{color:var(--kritiek)}
 .pil.goed{color:var(--goed)} .pil.neutraal{color:var(--letop)} .pil.kritiek{color:var(--kritiek)}
 .themas{display:grid;gap:14px}
-.thema{border:1px solid var(--rand);border-radius:10px;padding:14px 16px;background:var(--paneel)}
+.thema{border:1px solid var(--rand);border-radius:10px;padding:14px 16px;background:var(--veld)}
 .thema-kop{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .thema-kop h3{margin:0;font-size:1.02rem;font-weight:650}
 .thema-geld{margin:.55rem 0 .2rem;font-size:.92rem}
@@ -387,8 +387,10 @@ a{color:var(--accent)}
 <div class="sectie">
   <h2>Waar het geld staat</h2>
   <p class="sectie-intro">Vier potjes. Het totaal werd tot 12 augustus 5,7% te laag
-  gerapporteerd doordat het crypto-potje nergens werd meegeteld — het kasbeheer verdeelde
-  zijn percentages over een noemer die niet klopte.</p>
+  gerapporteerd doordat het crypto-potje nergens werd meegeteld: ccxt noemt Bitcoin op
+  Hyperliquid bij een tickernaam die naar een heel andere munt wijst. Dat was een
+  rapportagefout en niets meer — het kasbeheer verdeelt zijn percentages over het VRIJE
+  kapitaal, en dat is de juiste noemer voor die taak.</p>
   <div class="paneel">{{POTJES}}</div>
 </div>
 

@@ -156,6 +156,155 @@
     "Uraniumprijs zakt door aanbodherstel: de mijnbouwnamen volgen de prijs, niet de these"
    ],
    "opmerking": "Dit is het enige thema van de vier waar de menigte weg is EN er vastgelegd geld ligt. Het valt niet op het thema maar op het INSTRUMENT: de beschikbare fondsen kopen mijnbouw, en dat is een prijsnemer. Precies de fout die de kaart moet voorkomen."
+  },
+  {
+   "naam": "Defensie (Europa)",
+   "geanalyseerd_op": "2026-08-18",
+   "benchmark_prijs_bij_analyse": 211.2100067138672,
+   "benchmark_asof": "2026-08-14",
+   "keten": [
+    "R&D",
+    "materialen (composieten, superlegeringen)",
+    "subsystemen (sensoren, aandrijving)",
+    "platformbouwers/primes",
+    "AFTERMARKET: onderhoud en onderdelen",
+    "operatie"
+   ],
+   "tolhuisje_schakel": "aftermarket (exclusieve onderdelen) + programma-incumbency bij de primes",
+   "tolhuisje_soort": "klantrelatie",
+   "tolhuisje_toelichting": "Zodra een platform gekozen is ligt het decennia vast: hercertificering is duurder dan doorbetalen. De zuiverste vorm zit in de aftermarket - exclusieve onderdelen die tientallen jaren na levering nog geleverd moeten worden, met de prijszetting die daarbij hoort.",
+   "heuristiek_uitzondering": "BELANGRIJK: dit is een klantrelatie-tolhuisje waar TOCH een fonds voor bestaat. De vuistregel uit FONDSKEUZE_METHODE (klantrelatie = geen instrument) klopt hier niet, omdat de SECTOR hier door de KLANT wordt gedefinieerd: alle defensiebedrijven verkopen aan overheden, dus een sectorfonds vangt de moat wel. Bij software gold dat niet, want de bedrijven met overstapkosten zijn megacaps die thema-indexen uitsluiten. De heuristiek is dus geen wet - toets hem, gebruik hem niet mechanisch.",
+   "poorten": {
+    "vastgelegd_geld": "PASS - het hardste dat we gevonden hebben",
+    "tolhuisje": "PASS",
+    "niet_al_in_kern": "PASS - geen enkele defensienaam staat in de top-12 van de wereldindex"
+   },
+   "scores": {
+    "hardheid_geld": 5,
+    "aard_tolhuisje": 4,
+    "fase_doorbraak": 5,
+    "drukte": 1,
+    "instrumenteerbaarheid": 2
+   },
+   "score_toelichting": {
+    "hardheid_geld": "NAVO-afspraak 5% BBP tegen 2035, aangenomen juni 2025 door 31 van de 32 leden. EU-budgetten 218 mrd euro (2021) naar 381 mrd euro (2025). Wetgeving, geen verwachting.",
+    "aard_tolhuisje": "Sterk maar niet absoluut: programma's worden opnieuw aanbesteed, en politieke druk op marges is reeel.",
+    "fase_doorbraak": "Draait op schaal, orderboeken groeien nu.",
+    "drukte": "ITA en XAR staan op 0,0% van hun all-time high na +26 tot +38% in een jaar. De menigte is er volledig.",
+    "instrumenteerbaarheid": "HET PROBLEEM. Het geverifieerde geld is EUROPEES, de bruikbare fondsen zijn AMERIKAANS. ITA: top-3 is GE Aerospace 22,06% + RTX 17,02% + Boeing 9,00% = 48,08%, en GE en Boeing zijn zwaar civiele luchtvaart - dat is een luchtvaartfonds met defensie erin, extreem geconcentreerd. XAR is gelijkgewogen (top-10 = 31,60%) en bevat wel de aftermarket-namen (Heico, StandardAero, VSE), dus als instrument beter, maar nog steeds VS. Het Europese fonds (EUDF/WDEF) is 4 maart 2025 gelanceerd op een index die voor het product is gemaakt, midden in het herbewapeningsverhaal, en haalde 4,9 mrd euro op: het leerboekgeval dat we al hebben afgeschreven."
+   },
+   "bronnen": [
+    {
+     "bedrag": "5% BBP tegen 2035",
+     "wat": "NAVO-afspraak, 31 van 32 leden, herziening in 2029",
+     "bron": "NAVO-top Den Haag",
+     "datum": "2025-06-25"
+    },
+    {
+     "bedrag": "218 -> 381 mrd euro",
+     "wat": "EU-defensiebudgetten 2021 naar 2025",
+     "bron": "Europees Parlement (EPRS)",
+     "datum": "2026-03"
+    },
+    {
+     "bedrag": "+90 mrd dollar",
+     "wat": "toename Europese bondgenoten + Canada in 2025 alleen, ~20% t.o.v. 2024",
+     "bron": "NAVO jaarverslag SG",
+     "datum": "2026-03-26"
+    },
+    {
+     "bedrag": "117,2 -> 162 mrd euro",
+     "wat": "Duitse defensiebegroting 2026 naar 2029 (3,2% BBP)",
+     "bron": "Duitse meerjarenbegroting",
+     "datum": "2026"
+    }
+   ],
+   "verdict": "VOLGEN",
+   "wacht_voorwaarden": [
+    "Er komt een Europees defensiefonds op een BESTAANDE index (niet een die voor het product is gemaakt), met overlap >= 40% in primes + aftermarket",
+    "OF een terugval van >= 20% vanaf de top - nu staat het er exact op",
+    "OF, bij de Amerikaanse route via XAR: eerst het Amerikaanse defensiebudget verifieren, want het geld dat ik gemeten heb is Europees en dekt dat fonds niet"
+   ],
+   "these_breuk": [
+    "Een staakt-het-vuren of politieke omslag waardoor de meerjarenbegrotingen niet worden uitgevoerd",
+    "Marges onder druk door prijsplafonds of gedwongen tweede leveranciers",
+    "De 5%-afspraak wordt bij de herziening van 2029 afgezwakt"
+   ],
+   "opmerking": "Hardste geld van alle vier, slechtste instrument. Dat is de spiegel van nucleair: daar was de menigte weg maar het fonds fout; hier is het geld het hardst maar staat de koers op zijn top en dekt geen enkel fonds de these."
+  },
+  {
+   "naam": "AI-infrastructuur",
+   "geanalyseerd_op": "2026-08-18",
+   "benchmark_prijs_bij_analyse": 211.2100067138672,
+   "benchmark_asof": "2026-08-14",
+   "keten": [
+    "EDA-software",
+    "lithografie (EUV)",
+    "foundry op de scherpste node",
+    "chipontwerp",
+    "geheugen",
+    "netwerk/optiek",
+    "stroom en koeling",
+    "datacenterbouw",
+    "hyperscalers",
+    "modellen",
+    "toepassingen"
+   ],
+   "tolhuisje_schakel": "EUV-lithografie en de scherpste foundry-node",
+   "tolhuisje_soort": "technologie",
+   "tolhuisje_toelichting": "ASML is enige leverancier van EUV; TSMC is praktisch enige aanbieder van de scherpste node; EDA is een duopolie. Dit zijn de zuiverste technologie-tolhuisjes die er in de economie bestaan.",
+   "poorten": {
+    "vastgelegd_geld": "PASS - maar zacht: capex-verwachting is door de bedrijven zelf afgegeven en kan worden ingetrokken",
+    "tolhuisje": "PASS",
+    "niet_al_in_kern": "FAIL"
+   },
+   "scores": {
+    "hardheid_geld": 3,
+    "aard_tolhuisje": 5,
+    "fase_doorbraak": 5,
+    "drukte": 1,
+    "instrumenteerbaarheid": 2
+   },
+   "score_toelichting": {
+    "hardheid_geld": "725 mrd dollar gecombineerde capex-verwachting 2026, +77% t.o.v. 410 mrd. Enorm, maar zelf afgegeven en herroepbaar - geen wetgeving, geen getekend contract.",
+    "aard_tolhuisje": "Zo zuiver als het wordt.",
+    "fase_doorbraak": "Draait op schaal, omzet groeit hard.",
+    "drukte": "SMH deed +95,3% over 1 jaar = +73,2pp t.o.v. de wereldindex, en staat 12,1% onder zijn top. Het drukste thema dat we gemeten hebben.",
+    "instrumenteerbaarheid": "SMH: van de top-10 (71,65%) zit ASML 5,10% + TSMC 9,57% = 14,67% in de aangewezen schakel = overlap 20,5%. De rest is chipontwerp en geheugen, en geheugen is een commodity. AIQ is slechter: TSMC 3,33%, en verder geheugen, Apple en Amazon."
+   },
+   "bronnen": [
+    {
+     "bedrag": "725 mrd dollar",
+     "wat": "gecombineerde capex-verwachting 2026 van Amazon, Alphabet, Microsoft en Meta (+77% t.o.v. 410 mrd)",
+     "bron": "bedrijfsopgaven via marktrapportage",
+     "datum": "2026"
+    },
+    {
+     "bedrag": "200 mrd dollar",
+     "wat": "Amazon capex 2026 (was 125 mrd)",
+     "bron": "bedrijfsopgave",
+     "datum": "2026"
+    },
+    {
+     "bedrag": "175-185 mrd dollar",
+     "wat": "Alphabet capex 2026 (was 91 mrd)",
+     "bron": "bedrijfsopgave",
+     "datum": "2026"
+    },
+    {
+     "bedrag": "110-120 mrd dollar",
+     "wat": "Microsoft capex 2026 (was 90 mrd)",
+     "bron": "bedrijfsopgave",
+     "datum": "2026"
+    }
+   ],
+   "verdict": "AFVALLER",
+   "afvalreden": "Poort 3: 25,29% van de wereldindex IS dit thema al. Gemeten in URTH: NVIDIA 5,16%, Apple 5,05%, Microsoft 3,65%, Amazon 2,93%, Alphabet 4,15%, Broadcom 1,95%, Meta 1,36%, Micron 1,03%. Een kwart van je kern. Een AI-fonds erbovenop is geen blootstelling maar CONCENTRATIE op wat je al bezit, en dan tegen 0,35-0,68% per jaar in plaats van 0,07%.",
+   "these_breuk": [
+    "Capex-verwachting wordt teruggeschroefd (het is een toezegging, geen contract)",
+    "De hyperscalers verschuiven naar eigen silicium, waardoor de chipontwerp-schakel marge verliest"
+   ],
+   "opmerking": "AFVALLER betekent hier NIET dat AI een slecht thema is. Het betekent dat je het al bezit. Wil je er meer van dan de index geeft, dan is dat een bewuste OVERWEGING - noem het dan zo, en koop hem via de schakel met het tolhuisje (ASML/TSMC), niet via een mandje dat voor 80% iets anders is."
   }
  ]
 }
