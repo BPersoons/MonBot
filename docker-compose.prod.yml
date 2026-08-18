@@ -20,6 +20,8 @@ services:
       - ./config/auto_params.json:/app/config/auto_params.json
       - ./config/sleeves.json:/app/config/sleeves.json
       # Leer- en positie-state: moet een full redeploy overleven (2026-07-06)
+      - ./divergence_cache.json:/app/divergence_cache.json
+      - ./nav.json:/app/nav.json
       - ./shadow_book.json:/app/shadow_book.json
       - ./shadow_report.json:/app/shadow_report.json
       - ./shadow_basis_state.json:/app/shadow_basis_state.json
