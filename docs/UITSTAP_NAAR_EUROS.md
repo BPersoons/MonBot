@@ -100,6 +100,18 @@ Nog **één ding**, niet drie meer — het bedrag is beslist en de exchange is g
 
 > **Het Arbitrum-USDC-stortadres van je exchange-rekening.**
 
+⚠️ **Nadrukkelijk NIET bij DeGiro.** Dat is een effectenmakelaar: die heeft geen
+crypto-stortadres, alleen een IBAN voor euro's. Deze vraag kwam op 2026-08-18 en
+het is precies het soort misverstand dat onherstelbaar geld kost.
+
+Wat er nodig is, is het stortadres van een **crypto-exchange** (Bitvavo
+geadviseerd): rekening openen → KYC → "USDC storten" → **netwerk op Arbitrum
+zetten** → het `0x…`-adres dat daar verschijnt. DeGiro komt pas drie stappen
+later in beeld, en dan met een IBAN.
+
+Hetzelfde adres op Ethereum-mainnet accepteert de storting niet en het geld is
+dan weg. Daarom eerst $20, wachten op bijschrijving, dán de rest.
+
 Dat is alles. Zodra dat er is, doe ik stap 3 en 4. Stap 1, 2, 5, 6 en 7 zijn
 onvermijdelijk handwerk — een KYC-rekening openen en een SEPA-overboeking doen kan
 en mag geen script voor je doen.
