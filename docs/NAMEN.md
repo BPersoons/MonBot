@@ -73,7 +73,7 @@ alleen risico op, geen duidelijkheid.
 | HL / Hyperliquid | De crypto-beurs waar de bot handelt |
 | XYZ-tickers | Synthetische aandelen/grondstoffen op Hyperliquid (XYZ-GOLD, XYZ-SMH) |
 | Aave / Morpho / Gains | Renteprotocollen op Arbitrum waar USDC geld verdient |
-| Off-ramp | **Uitstap naar euro's** — USDC omzetten en naar je bankrekening sturen. Bestaat nog niet |
+| Off-ramp | **Uitstap naar euro's** — USDC omzetten en naar je bank sturen. Gebouwd en nagelopen, maar **in de ijskast**: sinds 18-08 wordt DeGiro met verse euro's gevuld, dus omwisselen hoeft niet |
 | Sleeve-wallet `0xBd6c` | De aparte wallet van de dip-koper |
 | Master-wallet `0x92D4` | De hoofdwallet op Hyperliquid |
 
@@ -81,8 +81,10 @@ alleen risico op, geen duidelijkheid.
 
 **Kopen en vasthouden ≠ het wereldindexfonds.** Het eerste is een eigen keuze in een
 paar thema's; het tweede is de hele markt kopen. Ze concurreren om hetzelfde geld:
-bij $2.642 laat 60/40 geen ruimte voor $650 crypto.
+op een vermogen van ~$3.080 laat 60/40 geen ruimte voor een crypto-doel van $650.
 
 **Kasbeheer kan geen aandelen kopen.** Het werkt uitsluitend met USDC op Arbitrum en
-Hyperliquid. Voor DeGiro heb je euro's op een bankrekening nodig, en die route
-bestaat nergens in dit project.
+Hyperliquid. Voor DeGiro heb je euro's op een bankrekening nodig. Sinds 18-08 is de
+opzet **twee potjes naast elkaar**: het crypto-deel blijft staan, DeGiro wordt met
+verse euro's gevuld. Er wordt dus niets omgewisseld — en daarmee bestaat ook het
+risico niet meer om USDC op het verkeerde netwerk kwijt te raken.
