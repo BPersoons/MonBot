@@ -19,6 +19,21 @@ alleen risico op, geen duidelijkheid.
 | Funding Harvest | **Rente-oogst** | Kort shorten om financieringsrente te innen |
 | Sleeve | **Potje** | Een afgebakend deel van het vermogen met eigen regels |
 
+## Begrippen uit de thema-analyse
+
+| Term | Wat het betekent |
+|---|---|
+| **Tolhuisje** | Een plek in de keten waar iedereen langs moet en de eigenaar de prijs bepaalt, omdat er geen weg omheen is. Niet *"groeit dit?"* maar *"wie kan hier de prijs zetten?"* |
+| **Technologie-tolhuisje** | EUV-machines, de scherpste chipfabriek, uraniumverrijking. Valt samen met een sector → er bestaat een fonds voor |
+| **Klantrelatie-tolhuisje** | Overstapkosten: je haalt SAP er niet zomaar uit. Dat zijn gevestigde grote bedrijven, en juist die sluiten thema-indexen uit → géén fonds voor |
+| **Prijsnemer** | Het tegenovergestelde. Uranium is uranium; vraagt de één te veel, dan koop je bij de ander |
+| **Keten** | De schakels van grondstof tot eindklant. "AI" heeft geen marge; chips, geheugen, stroom en modellen hebben elk hun eigen |
+| **Overlapscore** | Welk deel van een fonds werkelijk in de aangewezen schakel zit. GRID: 72,2%. QTUM: ~3% écht quantum |
+| **Drukte** | Hoe vol een thema al zit. Omgekeerd: hóóg is goed, want dan is de menigte weg |
+| **Aanloop** | Wat een thema deed vóór een fonds werd gelanceerd. Hard gelopen = duur ingestapt |
+
+**Een tekort is geen monopolie.** Transformatoren hebben levertijden van jaren, maar dat komt door krappe capaciteit en niet doordat er één aanbieder is — daarom scoort dat een 4 en geen 5.
+
 ## Aankopen in stappen (de dip-koper)
 
 | Heet in de code | Is eigenlijk | Wat het doet |
