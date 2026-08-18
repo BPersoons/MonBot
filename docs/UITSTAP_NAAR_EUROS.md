@@ -3,35 +3,33 @@
 *Opgesteld 2026-08-12. De ontbrekende schakel: al het vermogen zit in crypto, terwijl
 het plan 40% in een wereldindexfonds bij DeGiro wil.*
 
-> ## ✅ BESLIST 2026-08-17 — dit gaat door
+> ## 🧊 IN DE IJSKAST — herzien 2026-08-18
 >
-> Bart heeft gekozen voor **uitstappen uit USDC**. Daarmee **vervalt** de eerdere
-> keuze dat USDC bij Hyperliquid het eindstation is (vastgelegd 2026-08-12). Dat was
-> geen vergissing maar een verschuiving: zolang er geen bestemming buiten crypto was,
-> was USDC een prima eindpunt. Nu is er één.
+> Op 17 augustus was de keuze: uitstappen uit USDC om het wereldindexfonds te
+> financieren. **Een dag later teruggedraaid, en om een goede reden:** er is ruim
+> voldoende vers geld. Daarmee is deze hele route overbodig geworden voor dit doel.
 >
-> **Het bedrag: $1.235 (≈ €1.065).** Dat is 40% van de NAV van $3.088 (gemeten
-> 2026-08-17), en het komt **volledig uit Aave** — niet uit de dip-koper en niet uit
-> het crypto-vasthoud-potje. Die twee zijn werkende onderdelen met eigen budget en
-> blijven staan; de dip-koper heeft net een voorsprong van 9pp op de wereldindex
-> laten zien en het crypto-potje staat op 1 van 8 geplande tranches.
+> **De nieuwe opzet is twee potjes naast elkaar:** crypto/USDC blijft bij
+> Hyperliquid en Aave, en DeGiro wordt gevuld met euro's van de bank. Geen
+> conversie, geen extra rekening, geen KYC bij een derde partij — en, het
+> belangrijkste, **geen onomkeerbaar risico**: de kans om USDC op het verkeerde
+> netwerk te sturen bestaat niet meer als je die stap overslaat.
 >
-> | | nu | na de uitstap |
-> |---|---|---|
-> | Aave (veilig) | $2.379 · 77% | $1.144 · 37% |
-> | Hyperliquid USDC | $270 · 9% | $270 · 9% |
-> | **Wereldindexfonds** | **$0 · 0%** | **$1.235 · 40%** |
-> | Dip-koper | $264 · 9% | $264 · 9% |
-> | Crypto vasthouden | $174 · 6% | $174 · 6% |
+> **Rekenkundig verschil, voor de volledigheid.** Uitstappen zou $1.235 binnen
+> hetzelfde totaal verschuiven. Vers geld moet ~€1.774 zijn om dezelfde 40% te
+> halen, want **nieuw geld vergroot ook de noemer**: `X = 0,4 × (3.088 + X)`.
+> Met ruim voldoende inleg is dat geen bezwaar.
 >
-> Veilig komt daarmee op 46% (Aave + Hyperliquid) in plaats van de 60% die Fase A
-> noemt. Het verschil zit in de twee experimenten, die in Fase A's tweepotjes-beeld
-> niet voorkomen. Dat is een bewuste afwijking, geen rekenfout: ze afbouwen om een
-> percentage te halen zou werkende onderdelen slopen voor een getal.
+> ### Wanneer dit document weer relevant wordt
 >
-> **Totale kosten: ~$4,40 op $1.235 = 0,35%.** Opbouw: ~$0,20 gas (twee Arbitrum-
-> transacties), ~$3,09 wisselkosten (0,25%), €1 DeGiro-handling. Ruim onder de 1%
-> waar het plan voor waarschuwt.
+> Niet voor het wereldindexfonds — wél zodra je **winst uit de crypto-kant naar de
+> aandelenkant** wil verplaatsen, of andersom. Dan is dit de brug, en hij is al
+> gebouwd en nagelopen: alle functies bestaan, de saldi zijn live uitgelezen (zie
+> onderaan). Een brug die je bouwt wanneer je hem oversteekt.
+>
+> **Blijft staan als regel voor die dag:** eerst $20 als test, wachten op
+> bijschrijving, dán de rest. En het stortadres is dat van een **crypto-exchange**
+> op het **Arbitrum-netwerk**, nooit dat van DeGiro — die heeft alleen een IBAN.
 
 Twee dingen wachten hierop:
 
