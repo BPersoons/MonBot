@@ -143,3 +143,61 @@ buy-the-rumour-patroon zien (+31% vanaf de aankondiging terwijl de wereldindex
 Cannabis had exact dezelfde vorm en staat 93% onder de top. Op één geval een
 instapregel bouwen is precies waar dit project al een keer aan onderdoor ging —
 zie memory `feedback_systematic_alpha_hard`.
+
+
+---
+
+## Nawoord 2026-08-18: twee toetsen, twee keer niets
+
+Na het terugnemen van de leeftijdsregel is ook het onderliggende **mechanisme**
+getoetst — het enige dat de eerste toets overleefde. Ben-David e.a. zeggen dat
+fondsen slecht presteren omdat ze worden gelanceerd wanneer een thema heet is.
+Dat is vooruit af te lezen: op de dag van lancering zie je wat het thema de twee
+jaar daarvoor deed.
+
+`scripts/aanloop_toets.py`, 24 fondsen over 14 thema's, uitkomst gemeten over een
+**vaste** periode van 36 maanden na lancering (relatief aan de wereldindex):
+
+| | n | gemiddeld | spreiding |
+|---|---|---|---|
+| Rustige aanloop (gem. +8%) | 12 | −0,8pp | 74 |
+| Hete aanloop (gem. +61%) | 12 | **−27,1pp** | 47 |
+| verschil | | **+26,3pp** | **t = +1,04** |
+
+Correlatie aanloop ↔ uitkomst: **−0,07** (t = −0,33).
+
+De richting klopt en de orde van grootte komt overeen met Ben-David's −30% over
+vijf jaar. Maar **de spreiding binnen elke groep is drie keer zo groot als het
+verschil ertussen**. Met twaalf waarnemingen per groep is dit niet van toeval te
+onderscheiden.
+
+> ⚠️ **Ook hier zat eerst een definitiefout in.** De eerste versie mat het
+> rendement *sinds lancering tot nu*, waardoor XSD (2006) twintig jaar
+> samengestelde groei had en MSOS (2020) zes. Dat gaf een verschil van 430,7pp
+> tussen de groepen. Met een vaste horizon blijft er 26,3pp over — de horizon
+> deed bijna al het werk. **Vergelijk nooit rendementen over ongelijke periodes.**
+
+### De echte conclusie van deze middag
+
+Twee zelfbedachte thema-regels, twee keer getoetst, twee keer niets. En dat is
+geen gebrek aan inspanning maar een **structureel gegeven**: er bestaan simpelweg
+te weinig thema-ETF's met genoeg historie om regels over thema-ETF's te toetsen.
+Bij 20 thema's en 24 bruikbare waarnemingen is elke uitkomst binnen de ruis.
+
+**Wat daaruit volgt voor hoe we verder werken:**
+
+1. **Bedenk geen eigen thema-regels meer om ze daarna te backtesten.** De data
+   kan het antwoord niet dragen. Dit is dezelfde muur als in memory
+   `feedback_systematic_alpha_hard`, nu in een andere assetklasse.
+2. **Regels mogen komen uit gepubliceerd onderzoek op grote steekproeven**
+   (Ben-David over lanceermoment, Bessembinder over scheefheid, de
+   kostenliteratuur) — niet uit onze eigen 24 waarnemingen.
+3. **Of uit logica over wat je bezít.** De mandanalyse
+   (`scripts/keten_overlap.py`) is géén bewezen voorspeller van rendement, en dat
+   moet zo genoemd worden. Het is een **controleerbare beschrijving van wat je
+   koopt** — dat QTUM ~3% quantum is, blijft waar ongeacht wat de statistiek zegt.
+   Die waarde staat los van voorspelkracht.
+
+Het onderscheid tussen "beschrijving" en "voorspeller" is de belangrijkste
+opbrengst van deze middag, en het is vandaag twee keer verschoven zonder dat
+iemand het merkte.
