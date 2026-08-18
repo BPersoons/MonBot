@@ -120,7 +120,21 @@ reden generaliseert:
 > — want "pure play" en "emerging" is wat een thematisch fonds verkoopt.
 
 **Een switching-cost-these en de productcategorie thema-ETF zijn structureel
-onverenigbaar.** Is het tolhuisje daarentegen een *technologie* (EUV-lithografie,
+onverenigbaar.**
+
+> ⚠️ **Uitzondering, gevonden 2026-08-18 bij defensie.** Die regel is een
+> vuistregel, geen wet. Bij defensie is het tolhuisje óók een klantrelatie
+> (programma-incumbency, certificering, exclusieve onderdelen in de aftermarket)
+> en tóch bestaat er een sectorfonds dat hem vangt. De reden: **de sector wordt
+> daar door de KLANT gedefinieerd** — alle defensiebedrijven verkopen aan
+> overheden, dus "defensie" en "bedrijven met deze moat" vallen samen. Bij
+> software gold dat niet, omdat de bedrijven mét overstapkosten megacaps zijn die
+> een thema-index juist uitsluit.
+>
+> **De scherpere vraag is dus niet "technologie of klantrelatie", maar: valt de
+> verzameling bedrijven mét de moat samen met een verzameling waar een index op
+> gebouwd is?** Bij een technologie meestal wel. Bij een klantrelatie meestal
+> niet — behalve als de klant zelf de sector definieert. Is het tolhuisje daarentegen een *technologie* (EUV-lithografie,
 de scherpste foundry-node), dan valt het wél samen met een sector en dus met een
 ETF. Dat is waarom slot 1 kan en slot 3 niet.
 
