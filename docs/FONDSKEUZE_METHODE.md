@@ -28,7 +28,42 @@ onafhankelijke metingen, drie tijdshorizonnen, dezelfde richting:
 
 *(t.o.v. de wereldindex over hetzelfde venster)*
 
-**Elke keer wint het oudere, bredere fonds van het nieuwere, "zuiverdere".**
+**Elke keer won het oudere, bredere fonds van het nieuwere, "zuiverdere".**
+
+> ## ❌ TERUGGENOMEN 2026-08-18 — die regel houdt geen stand
+>
+> Bovenstaande drie gevallen zijn diezelfde dag getoetst over **79 fondsparen in
+> 20 thema's** (`scripts/fondsregel_toets.py`). Uitslag:
+>
+> | eenheid | resultaat | afwijking van toeval |
+> |---|---|---|
+> | Per fondspaar | 49/79 = 62% | 2,14 standaardfouten |
+> | **Per thema** *(de juiste eenheid)* | **11/18 = 61%** | **0,94 standaardfouten** |
+>
+> Paren binnen één thema delen fondsen en zijn dus **niet onafhankelijk**: wint SMH
+> van drie andere fondsen, dan telt datzelfde fonds drie keer mee. Op themaniveau —
+> één thema, één waarneming — blijft er 0,94 standaardfouten over. **Dat is niet van
+> toeval te onderscheiden.**
+>
+> **Waarom de eerste drie gevallen misleidden.** In alle drie vergeleek ik het
+> *oudste* fonds met het *nieuwste* — precies het paar waar het effect het grootst
+> uitvalt. De volledige toets neemt óók de tussenliggende paren mee, en dan
+> verdampt het. Een leerboek-selectie-effect, en ik heb het zelf gemaakt.
+>
+> Het scherpste tegenvoorbeeld komt uit robotics, één van mijn eigen "bevestigingen":
+> **ROBO (2013) verloor 374,5pp van ARKQ (2014)** — het oudere fonds, zwaar
+> verslagen. Ik had alleen het paar ARKQ-vs-BOTZ laten zien.
+>
+> **Wat wél overeind blijft — en waarom dat iets anders is:**
+> - Ben-David e.a. gaat over fondsen die worden gelanceerd **in een piekend thema**,
+>   niet over leeftijd in het algemeen. Dat is gepubliceerd en blijft staan.
+> - De holdings-analyse (`scripts/keten_overlap.py`) rust op wat je **bezit**, niet
+>   op een statistische regelmaat. Die staat los van deze uitslag.
+> - WCLD en NASA blijven ware gevallen. Ze generaliseren alleen niet naar leeftijd.
+>
+> **Gebruik leeftijd dus niet als selectieregel.** Kijk naar het mandje en naar het
+> moment van lancering ten opzichte van de aandacht voor het thema — niet naar de
+> oprichtingsdatum op zich.
 
 En er is een mechanisme, geen toeval: een nieuw fonds wordt gelanceerd wanneer
 het thema al loopt. Het mist het eerste been per constructie en vangt de daling
@@ -54,8 +89,10 @@ iedereen die het etiket leest zonder het mandje te openen.
 
 ## Vier regels
 
-**1. Voorkeur voor het oudere, bredere fonds** tenzij de overlapscore
-doorslaggevend anders zegt. Drie metingen, dezelfde richting.
+**1.** ~~Voorkeur voor het oudere, bredere fonds.~~ **VERVALLEN** — getoetst op
+79 paren en niet van toeval te onderscheiden. Zie het kader hierboven. In plaats
+daarvan: **beoordeel op het mandje** (regel 4) en op het lanceermoment ten
+opzichte van de aandachtspiek (regel 2), niet op leeftijd.
 
 **2. Nooit een fonds waarvan de index voor het product is gemaakt.** EUDF
 (WisdomTree Europe Defence, index gemaakt voor het fonds, gelanceerd 4 maart 2025
