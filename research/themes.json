@@ -80,7 +80,27 @@
     "Levertijden van transformatoren normaliseren -> capaciteitsknelpunt verdwijnt -> prijszettingsmacht weg",
     "Toezichthouders keuren de capexplannen niet goed of vertragen ze (dan is het geld niet vastgelegd)"
    ],
-   "opmerking": "Los signaal, geen onderdeel van de score: GRID deed +31,7% over 1 jaar en XLU (brede nutssector) +6,1% = 16pp ACHTER de wereldindex. 26 procentpunt verschil binnen dezelfde sector. Het geld gaat naar netinfrastructuur, niet naar nutsbedrijven."
+   "opmerking": "Los signaal, geen onderdeel van de score: GRID deed +31,7% over 1 jaar en XLU (brede nutssector) +6,1% = 16pp ACHTER de wereldindex. 26 procentpunt verschil binnen dezelfde sector. Het geld gaat naar netinfrastructuur, niet naar nutsbedrijven.",
+   "instrument": {
+    "gemeten_op": "GRID (VS)",
+    "koopbaar": false,
+    "ucits_tweeling": {
+     "isin": "IE000J80JTL1",
+     "naam": "First Trust Nasdaq Clean Edge Smart Grid Infrastructure UCITS",
+     "ter_pct": 0.63,
+     "opgericht": "2022-04-21",
+     "omvang_eur_mrd": 2.4,
+     "noteringen": [
+      "Tradegate",
+      "Xetra",
+      "gettex",
+      "Borsa Italiana"
+     ],
+     "let_op": "Volgt de EXCLUSIONS-variant van dezelfde index -- ander mandje. De 72,2% overlap is op de VS-versie gemeten en is NIET hermeten.",
+     "overlap_hermeten": false
+    },
+    "gevonden_op": "2026-08-20"
+   }
   },
   {
    "naam": "Nucleair",
@@ -155,7 +175,14 @@
     "Verrijkingscapaciteit wordt ruim -> het knelpunt verdwijnt",
     "Uraniumprijs zakt door aanbodherstel: de mijnbouwnamen volgen de prijs, niet de these"
    ],
-   "opmerking": "Dit is het enige thema van de vier waar de menigte weg is EN er vastgelegd geld ligt. Het valt niet op het thema maar op het INSTRUMENT: de beschikbare fondsen kopen mijnbouw, en dat is een prijsnemer. Precies de fout die de kaart moet voorkomen."
+   "opmerking": "Dit is het enige thema van de vier waar de menigte weg is EN er vastgelegd geld ligt. Het valt niet op het thema maar op het INSTRUMENT: de beschikbare fondsen kopen mijnbouw, en dat is een prijsnemer. Precies de fout die de kaart moet voorkomen.",
+   "instrument": {
+    "gemeten_op": "URNM, URA (beide VS)",
+    "koopbaar": false,
+    "ucits_tweeling": null,
+    "let_op": "Het oordeel 'geen enkel fonds drukt de these uit' is uitsluitend op VS-fondsen gebaseerd. De Europese plank (o.a. Global X Uranium UCITS, VanEck Uranium and Nuclear Technologies) is NIET bekeken; die mandjes wijken af. Openstaand.",
+    "gevonden_op": "2026-08-20"
+   }
   },
   {
    "naam": "Defensie (Europa)",
@@ -230,7 +257,19 @@
     "Marges onder druk door prijsplafonds of gedwongen tweede leveranciers",
     "De 5%-afspraak wordt bij de herziening van 2029 afgezwakt"
    ],
-   "opmerking": "Hardste geld van alle vier, slechtste instrument. Dat is de spiegel van nucleair: daar was de menigte weg maar het fonds fout; hier is het geld het hardst maar staat de koers op zijn top en dekt geen enkel fonds de these."
+   "opmerking": "Hardste geld van alle vier, slechtste instrument. Dat is de spiegel van nucleair: daar was de menigte weg maar het fonds fout; hier is het geld het hardst maar staat de koers op zijn top en dekt geen enkel fonds de these.",
+   "instrument": {
+    "gemeten_op": "ITA, XAR (beide VS)",
+    "koopbaar": false,
+    "ucits_tweeling": {
+     "isin": "IE0002Y8CX98",
+     "naam": "WisdomTree Europe Defence UCITS (EUDF)",
+     "status": "AFGEWEZEN op regel 2 -- index voor het product gemaakt, gelanceerd 2025-03-04 op de piek",
+     "conflict": "Staat WEL als slot 2 in config/barbell_targets.json. Zie de openstaande beslissing.",
+     "overlap_hermeten": false
+    },
+    "gevonden_op": "2026-08-20"
+   }
   },
   {
    "naam": "AI-infrastructuur",
@@ -304,7 +343,19 @@
     "Capex-verwachting wordt teruggeschroefd (het is een toezegging, geen contract)",
     "De hyperscalers verschuiven naar eigen silicium, waardoor de chipontwerp-schakel marge verliest"
    ],
-   "opmerking": "AFVALLER betekent hier NIET dat AI een slecht thema is. Het betekent dat je het al bezit. Wil je er meer van dan de index geeft, dan is dat een bewuste OVERWEGING - noem het dan zo, en koop hem via de schakel met het tolhuisje (ASML/TSMC), niet via een mandje dat voor 80% iets anders is."
+   "opmerking": "AFVALLER betekent hier NIET dat AI een slecht thema is. Het betekent dat je het al bezit. Wil je er meer van dan de index geeft, dan is dat een bewuste OVERWEGING - noem het dan zo, en koop hem via de schakel met het tolhuisje (ASML/TSMC), niet via een mandje dat voor 80% iets anders is.",
+   "instrument": {
+    "gemeten_op": "SMH, AIQ (beide VS)",
+    "koopbaar": false,
+    "ucits_tweeling": {
+     "isin": "IE00BMC38736",
+     "naam": "VanEck Semiconductor UCITS (VVSM)",
+     "conflict": "Dit fonds IS slot 1 in config/barbell_targets.json en wordt nu overbrugd met XYZ-SMH ($100). Deze kaart komt op AFVALLER uit (poort 3 FAIL, drukte 1). Zie de openstaande beslissing.",
+     "overlap_hermeten": false
+    },
+    "gevonden_op": "2026-08-20"
+   }
   }
- ]
+ ],
+ "_instrument_waarschuwing": "De instrumenten hieronder zijn Amerikaans genoteerd en voor een Europese particulier NIET koopbaar (PRIIPs/KID, geldt bij elke broker). Dat is prima om de keten te meten en om holdings als kandidatenbron te gebruiken -- er komen namen uit, geen fonds. Maar een thema-slot vullen vraagt de UCITS-variant, EN die volgt vaak een andere indexvariant, dus de gemeten overlap draagt NIET over. Hermeten voor aankoop. Zie docs/FONDSKEUZE_METHODE.md, sectie 'Wat je kunt meten is niet wat je kunt kopen'."
 }

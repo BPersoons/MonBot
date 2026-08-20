@@ -80,6 +80,16 @@ Hoeveel van dit thema zit al in het wereldindexfonds? Is het thema in wezen mega
 
 Dimensie 4 lees je af met `scripts/thema_drukte.py`, dimensie 5 met `scripts/keten_overlap.py`. **Niet schatten wat te meten valt.**
 
+⚠️ **Dimensie 5 moet op een KOOPBAAR fonds gemeten worden.** De holdings die
+gratis en programmatisch beschikbaar zijn, zijn bijna altijd die van een
+Amerikaans fonds — en die kun je als Europese particulier niet kopen (PRIIPs,
+geldt bij élke broker). Meten op de Amerikaanse tweeling mag om de keten te
+begrijpen, maar noteer dan expliciet `instrument_koopbaar: false` en geef de
+score pas een cijfer als de UCITS-variant is hermeten. Let op: de UCITS-versie
+volgt vaak een *andere variant* van dezelfde index (bij GRID de
+Exclusions-index), dus de overlap draagt niet over. Zie
+`docs/FONDSKEUZE_METHODE.md` § "Wat je kunt meten is niet wat je kunt kopen".
+
 ⚠️ **Sentiment en media-aandacht zijn een CONTRA-indicator, geen plus.** Iedereen weet dat AI groot is; dat is de definitie van ingeprijsd. Hoge aandacht verlaagt dimensie 4 — hij verhoogt hem nooit.
 
 ## Stap 4 — rangschikken

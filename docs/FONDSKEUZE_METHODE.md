@@ -141,6 +141,62 @@ ETF. Dat is waarom slot 1 kan en slot 3 niet.
 **Toets vooraf:** is het tolhuisje een technologie of een klantrelatie? Bij het
 eerste bestaat er een instrument, bij het tweede niet.
 
+## Wat je kunt meten is niet wat je kunt kopen (2026-08-20)
+
+Elk instrument in dit document en op alle vier de thema-kaarten is **Amerikaans
+genoteerd**: GRID, ITA, XAR, URNM, URA, SMH, AIQ, en ook de historische
+vergelijkingen (WCLD, SKYY, BOTZ, ARKQ, ROBO, QTUM, PAVE, ROKT, NASA). Geen
+daarvan is voor jou koopbaar.
+
+**PRIIPs.** Sinds 2018 moet elk verpakt product dat aan een Europese particulier
+wordt verkocht een KID hebben. Amerikaanse fondshuizen maken die niet — het is
+een Europees document. Elke Europese broker handhaaft dit: DEGIRO, Interactive
+Brokers, Trade Republic, Trading 212. **Van broker wisselen lost het niet op.**
+
+### Het onderscheid dat telt: fondsen, niet aandelen
+
+PRIIPs gaat over *verpakte* producten. Losse aandelen vallen er niet onder.
+
+| | geraakt? |
+|---|---|
+| `research/ledger.json` — 20 losse namen | **nee**, gewoon koopbaar |
+| Holdings van een VS-ETF als bron voor `UNIVERSUM` in `screen.py` | **nee**, er komen namen uit |
+| Dimensie 5, instrumenteerbaarheid | **ja** |
+| Een thema-slot in `barbell_targets.json` vullen | **ja** |
+
+De onderzoekslijn staat er dus volledig buiten. Wat geraakt wordt is precies het
+deel waar een *fonds* het eindproduct is.
+
+### De val: de Europese tweeling volgt een andere index
+
+Voor stroom en net bestaat een UCITS-versie van GRID — zelfde fondshuis, zelfde
+naam:
+
+| | VS | UCITS |
+|---|---|---|
+| ISIN/ticker | GRID | `IE000J80JTL1` |
+| Index | Nasdaq OMX Clean Edge Smart Grid Infrastructure | dezelfde, **Exclusions**-variant |
+| TER | ~0,56% | **0,63%** |
+| Opgericht | 2009 | 21 april 2022 |
+| Omvang | — | €2,4 mrd |
+| Noteringen | — | Tradegate, Xetra, gettex, Borsa Italiana |
+
+Iers, herbeleggend, volledige replicatie, en opgericht ruim vóór het
+datacenter-verhaal — hij haalt regel 2. Maar het is een **Exclusions**-index:
+uitsluitingen betekent een ander mandje. **De 72,2% ketenoverlap die op de
+Amerikaanse GRID is gemeten, geldt niet automatisch voor deze.** Zelfde naam,
+zelfde huis, ander bezit — precies het geval dat regel 4 beschrijft.
+
+### De regel
+
+**Meet de keten op het fonds waarvan de holdings openbaar zijn** (meestal de
+Amerikaanse) — dat gaat over de keten begrijpen en dat mag.
+
+**Maar dimensie 5 en elk aankoopbesluit vragen het fonds dat je daadwerkelijk
+kunt kopen, met zijn eigen hermeten mandje.** Noteer de ISIN en de peildatum.
+Zonder die hermeting is een instrumenteerbaarheids-score een uitspraak over een
+fonds dat je nooit zult bezitten.
+
 ## De onprettige consequentie
 
 Elke stap richting "zuiverdere thema-expressie" maakte het in élke meting
