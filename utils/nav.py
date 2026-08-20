@@ -256,9 +256,16 @@ def _broker():
             potjes.append(_potje("broker_kas", "Kas bij de broker", round(kas_usd, 2),
                                  detail="€%.2f" % kas_eur, bron=BROKER_FILE))
 
+    # Dit bestand wordt met de HAND bijgehouden en is niet tegen de broker te
+    # verifiëren — er is geen API. De enige verdediging tegen stille veroudering is
+    # de datum zichtbaar maken, op elke plek waar het getal wordt getoond.
     bij = d.get("laatst_bijgewerkt")
-    if potjes and not bij:
-        potjes[0]["detail"] = (potjes[0]["detail"] + " · ⚠️ laatst_bijgewerkt leeg").strip(" ·")
+    from datetime import date as _date
+    stempel = ("bijgewerkt %s" % bij) if bij else "⚠️ nooit bijgewerkt"
+    if bij and bij != _date.today().isoformat():
+        stempel = "⚠️ %s — handmatig bijgehouden, controleer of dit nog klopt" % stempel
+    for p_ in potjes:
+        p_["detail"] = (p_["detail"] + " · " + stempel).strip(" ·")
     return potjes
 
 
