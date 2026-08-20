@@ -25,6 +25,41 @@ UIT = os.path.join(WORTEL, "docs", "overzicht.html")
 ARTIFACT = os.path.join(WORTEL, "docs", "overzicht_artifact.html")
 POORTDATUM = datetime(2027, 2, 10, tzinfo=timezone.utc)
 
+# De zes dimensies in gewone taal. Zonder deze vertaling leest de pagina als de
+# code i.p.v. als een oordeel — zie docs/NAMEN.md voor dezelfde regel.
+DIMS = {
+    "role_in_chain": "rol in de keten", "margin_and_direction": "marge",
+    "competition": "concurrentie", "scalability": "schaalbaarheid",
+    "execution": "uitvoering", "valuation": "waardering",
+}
+
+
+def _sterk_zwak(scores):
+    """Wat is goed aan deze naam, en wat houdt hem tegen. Afgeleid uit de
+    scores, niet met de hand geschreven — anders veroudert het stilletjes."""
+    sterk = sorted((v, DIMS.get(k, k)) for k, v in scores.items() if v is not None and v >= 4)
+    zwak = sorted((v, DIMS.get(k, k)) for k, v in scores.items() if v is not None and v <= 2)
+    if not sterk:
+        best = max(((v, DIMS.get(k, k)) for k, v in scores.items() if v is not None),
+                   default=None)
+        sterk = [best] if best else []
+    return ([n for _v, n in reversed(sterk)][:2], [n for _v, n in zwak][:2])
+
+
+def _cijferdatum(ticker):
+    """Datum van de eerstvolgende kwartaalcijfers — het moment waarop een
+    fundamentele wachtvoorwaarde überhaupt KAN omslaan."""
+    try:
+        import importlib.util
+        pad = os.path.join(WORTEL, "research", "track.py")
+        spec = importlib.util.spec_from_file_location("_tr", pad)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _cijferdatum._fn = mod.next_earnings
+    except Exception:
+        _cijferdatum._fn = lambda t: None
+    return _cijferdatum._fn(ticker)
+
 # ── Planstatus: met de hand onderhouden, want een plan is een besluit ──────────
 STAPPEN = [
     ("Handelsbot uitgezet", "klaar",
@@ -123,8 +158,27 @@ def bouw():
             "wp": wp,
             "afstand": ((wp / nu - 1) * 100) if (wp and nu) else None,
             "beslis": e.get("deciding_number", ""),
+            "partial": bool(e.get("wait_price_is_partial")),
+            "handmatig": bool(e.get("manual_only_conditions")),
+            "fund": bool(e.get("wait_fundamental")),
+            "sterk_zwak": _sterk_zwak(e["scores"]),
+            "cijfers": None,
         })
-    rijen.sort(key=lambda r: ({"KOOPBAAR": 0, "VOLGEN": 1, "AFVALLER": 2}[r["verdict"]],
+    # Sorteren op score beantwoordt de verkeerde vraag. Wat je wil weten is: hoe
+    # DICHT staat deze naam bij koopbaar. Daarom drie groepen, elk met een eigen
+    # trigger-soort, en binnen groep 1 op afstand.
+    for r in rijen:
+        if r["verdict"] == "AFVALLER":
+            r["groep"] = 3
+        elif r["afstand"] is not None:
+            r["groep"] = 1
+        else:
+            r["groep"] = 2
+    for r in rijen:
+        if r["groep"] == 2:
+            r["cijfers"] = _cijferdatum(r["t"])
+    rijen.sort(key=lambda r: (r["groep"],
+                              -(r["afstand"] if r["afstand"] is not None else -999),
                               -(r["score"] or 0)))
 
     dagen = (POORTDATUM - datetime.now(timezone.utc)).days
@@ -173,28 +227,56 @@ def bouw():
             % (staat, _esc(naam), staat, _esc(staat), _esc(uitleg), _esc(wanneer)))
 
     # ── namen ─────────────────────────────────────────────────────────────────
+    KOPPEN = {
+        1: ("Kan koopbaar worden door een koersdaling",
+            "Deze namen hebben een vooraf vastgelegde koopprijs. Zakt de koers daarheen, "
+            "dan mag je kopen — mits het oordeel op de dan geldende cijfers standhoudt."),
+        2: ("Wacht alleen op betere cijfers",
+            "Geen koopprijs; deze namen worden pas interessant als de bedrijfscijfers "
+            "verbeteren. Het eerstvolgende moment waarop dat kán blijken staat erbij."),
+        3: ("Afgevallen",
+            "Een poort faalde. Deze staan er alleen nog om het oordeel toetsbaar te houden."),
+    }
     tr = ""
+    vorige = None
     for r in rijen:
-        rend = '<span class="%s">%+.1f%%</span>' % (
-            "op" if (r["rend"] or 0) >= 0 else "neer", r["rend"]) if r["rend"] is not None else "—"
-        rel = '<span class="%s">%+.1f%%</span>' % (
-            "op" if (r["rel"] or 0) >= 0 else "neer", r["rel"]) if r["rel"] is not None else "—"
-        if r["afstand"] is None:
-            wacht = '<span class="zacht">%s</span>' % _esc(r["wacht"][:64])
-        elif r["afstand"] >= 0:
-            wacht = '<span class="geraakt">$%.0f — GERAAKT</span>' % r["wp"]
+        if r["groep"] != vorige:
+            kop, uitleg = KOPPEN[r["groep"]]
+            tr += ('<tr class="groepkop"><td colspan="5"><strong>%s</strong>'
+                   '<div class="groepuitleg">%s</div></td></tr>' % (_esc(kop), _esc(uitleg)))
+            vorige = r["groep"]
+
+        sterk, zwak = r["sterk_zwak"]
+        waarom = '<span class="op">%s</span>' % _esc(" + ".join(sterk)) if sterk else "—"
+        if zwak:
+            waarom += ' <span class="zacht">· zwak: %s</span>' % _esc(", ".join(zwak))
+
+        if r["groep"] == 3:
+            wacht, nog, wanneer = '<span class="zacht">—</span>', "—", "—"
+        elif r["afstand"] is not None:
+            if r["afstand"] >= 0:
+                wacht = '<span class="geraakt">$%.0f — GERAAKT</span>' % r["wp"]
+                nog = '<span class="geraakt">nu</span>'
+            else:
+                wacht = "onder $%.0f" % r["wp"]
+                nog = '<strong>%.0f%%</strong>' % abs(r["afstand"])
+            if r["partial"]:
+                wacht += ' <span class="zacht">(halve voorwaarde — geen koopsignaal alleen)</span>'
+            wanneer = '<span class="zacht">zodra de markt daalt</span>'
         else:
-            wacht = '<span class="zacht">$%.0f · nog %.0f%%</span>' % (r["wp"], abs(r["afstand"]))
-        tr += (
-            '<tr><td class="tk">%s<div class="volnaam">%s</div></td>'
-            '<td><span class="pil v-%s">%s</span></td>'
-            '<td class="num">%s%s</td><td class="num">%s</td><td class="num">%s</td>'
-            '<td class="num">%s</td><td class="num">%s</td><td>%s</td></tr>'
-            % (_esc(r["t"]), _esc(r["naam"][:30]), r["verdict"].lower(), r["verdict"],
-               ("%.2f" % r["score"]) if r["score"] else "—",
-               ' <span class="vraag">%d?</span>' % r["onbekend"] if r["onbekend"] else "",
-               ("%.2f" % r["p0"]) if r["p0"] else "—",
-               ("%.2f" % r["nu"]) if r["nu"] else "—", rend, rel, wacht))
+            wacht = '<span class="zacht">%s</span>' % _esc(r["wacht"][:70])
+            nog = "—"
+            wanneer = _esc(r["cijfers"] or "?")
+        if r["handmatig"]:
+            wacht += ' <span class="zacht">· deels handmatig</span>'
+
+        tr += ('<tr><td class="tk">%s<div class="volnaam">%s</div>'
+               '<div class="zacht">$%s · %s</div></td>'
+               '<td>%s</td><td>%s</td><td class="num">%s</td><td class="num">%s</td></tr>'
+               % (_esc(r["t"]), _esc(r["naam"][:28]),
+                  ("%.2f" % r["nu"]) if r["nu"] else "—",
+                  ("score %.1f" % r["score"]) if r["score"] else "niet gescoord",
+                  waarom, wacht, nog, wanneer))
 
     beslis_html = "".join(
         '<div class="beslis"><div class="beslis-vraag">%s</div>'
@@ -354,7 +436,8 @@ h2{font-family:Georgia,"Iowan Old Style",serif;font-weight:normal;font-size:1.3r
   padding-left:10px}
 .leeg{color:var(--zacht);font-size:.9rem}
 .scroll{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:760px}
+.groepkop td{padding-top:22px;padding-bottom:6px;border-bottom:2px solid currentColor;opacity:.95}.groepkop strong{font-size:15px}.groepuitleg{font-weight:400;opacity:.62;font-size:12.5px;margin-top:3px;max-width:70ch}
+  table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:760px}
 th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;
   color:var(--zacht);font-weight:600;padding:0 10px 9px;border-bottom:1px solid var(--lijn)}
 th.num,td.num{text-align:right;font-family:ui-monospace,Consolas,monospace;
@@ -418,16 +501,22 @@ a{color:var(--accent)}
 
 <div class="sectie">
   <h2>De twintig namen</h2>
-  <p class="sectie-intro">Elke naam is beoordeeld op zes dimensies, met poorten vooraf en
-  een vooraf vastgelegde koopdrempel. Vandaag is er niets koopbaar — niet vanwege de
-  kalender, maar omdat geen enkele wachtvoorwaarde geraakt is. Gemeten tegen {{BENCH}}:
-  <strong>{{GEMREL}}</strong> over {{NAANTAL}} namen, en dat is na een handvol dagen ruis,
-  geen uitkomst. Afrekenen over {{DAGEN}} dagen.</p>
+  <p class="sectie-intro">Gesorteerd op <strong>hoe dicht een naam bij koopbaar staat</strong>,
+  niet op score — dat laatste beantwoordt de verkeerde vraag. Vandaag is er niets koopbaar,
+  en dat komt niet door de kalender maar doordat geen enkele wachtvoorwaarde geraakt is.
+  De poort van februari beslist of het selectie-potje opengaat en mag meegroeien; hij is
+  <strong>geen koopverbod</strong> tot die tijd.</p>
+  <p class="sectie-intro">Gemeten tegen {{BENCH}}: <strong>{{GEMREL}}</strong> over
+  {{NAANTAL}} namen — na een handvol dagen is dat ruis, geen uitkomst. Afrekenen over
+  {{DAGEN}} dagen.</p>
   <div class="paneel scroll"><table>
-    <thead><tr><th>Naam</th><th>Oordeel</th><th class="num">Score</th>
-    <th class="num">Bij scoring</th><th class="num">Nu</th><th class="num">Rend.</th>
-    <th class="num">vs index</th><th>Koopdrempel</th></tr></thead>
+    <thead><tr><th>Naam</th><th>Waarom</th><th>Waar we op wachten</th>
+    <th class="num">Nog</th><th class="num">Wanneer</th></tr></thead>
     <tbody>{{RIJEN}}</tbody></table></div>
+  <p class="sectie-intro" style="margin-top:14px">Kopen vraagt zes voorwaarden tegelijk, vooraf
+  vastgelegd: een wachtvoorwaarde geraakt · bij een halve voorwaarde ook de handmatige helft
+  gecontroleerd · verdict opnieuw KOOPBAAR op de dán geldende cijfers · één positie van ~10% ·
+  betaald uit het veilige potje, niet uit de index · these-breuk-regels vanaf dag één.</p>
 </div>
 
 <div class="sectie">
