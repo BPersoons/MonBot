@@ -3,14 +3,14 @@
   "_deploy_note": "DIT BESTAND IS VOLUME-MOUNTED: de HOST-kopie op de VM wint van de image. Een wijziging in de repo bereikt productie dus NIET via een rebuild — schrijf hem in-place naar /home/bartpersoons_gmail_com/config/barbell_targets.json (nooit rename, bind mount). Kostte 2026-08-03 twee mislukte deploy-rondes: de code las een lege themes-lijst, waardoor de allocator-bescherming stil niets deed en de brug-positie alsnog als trade werd geadopteerd.",
   "safe_pct": 50,
   "growth_pct": 50,
-  "_growth_comment": "Percentages van het GROEI-been. Aandelen = SEMIS+DEFENSE+SOFTWARE = 30, gelijk aan het oude enkele EQUITY-slot. Losse picks (ASML/TSMC) vervallen: te duur per aandeel bij dit kapitaal en de halfgeleider-ETF dekt die these systematischer (ASML 11,5% + TSMC 9,9% als top-2).",
+  "_growth_comment": "Percentages van het GROEI-been. Aandelen = SEMIS+DEFENSE+SOFTWARE = 30, gelijk aan het oude enkele EQUITY-slot. Losse picks (ASML/TSMC) vervallen: te duur per aandeel bij dit kapitaal en de halfgeleider-ETF dekt die these systematischer (ASML 11,5% + TSMC 9,9% als top-2). | 2026-08-20: de 15% van SEMIS is naar NET (stroom en net) gegaan -- zelfde allocatie, ander thema. De som blijft 100.",
   "growth_targets_pct": {
     "BTC": 40,
-    "SEMIS": 15,
     "ETH": 10,
     "GOLD": 20,
     "DEFENSE": 8,
-    "SOFTWARE": 7
+    "SOFTWARE": 7,
+    "NET": 15
   },
   "_theme_comment": "Selectie op BOTTLENECK, niet op narratief: wie kan hier de prijs bepalen en waarom kan niemand daaromheen? Gevalideerd over 2008-2026 (scripts/theme_bottleneck_backtest.py): tolhuisje-mand CAGR 16,0% vs wereldindex 7,8% vs narratief-mand -5,0%, en de tolhuisje-mand wint in ALLE drie de deelperiodes. Narratief-thema's (zon/waterstof/batterij/EV) zijn expliciet uitgesloten: kapitaalintensief, uitwisselbaar product, geen prijszettingsmacht.",
   "themes": {
@@ -21,7 +21,7 @@
       "ticker": "VVSM",
       "ter_pct": 0.35,
       "degiro_kernselectie": true,
-      "slot_order": 1,
+      "slot_order": 99,
       "bridge": {
         "_why": "TIJDELIJK. Het DEGIRO-account kan niet geactiveerd worden (paspoort verlopen, nieuwe aangevraagd). XYZ-SMH op Hyperliquid volgt dezelfde index als VVSM — het is exact de index waarop de 18-jaars validatie draaide — dus dezelfde blootstelling in een slechtere verpakking.",
         "_risk": "Dit is een PERP, geen bezit: funding-drag (~3%/jaar, over ~6 weken ~0,4%) en liquidatierisico ook op 1x. Ruime marge aanhouden. De xyz-dex heeft een EIGEN collateral-pool — apart funden via sendAsset.",
@@ -40,7 +40,9 @@
         "close_price": 562.293,
         "_outcome": "GESLOTEN, NIET omgezet. De reden van bestaan (DEGIRO niet activeerbaar) verviel op 2026-08-20 toen de rekening openging. Niet omgezet naar VVSM omdat (a) ~$105 ver onder de eigen min_slot_usd van $500 ligt, (b) de thema-kaart AI-infrastructuur van 2026-08-18 op AFVALLER uitkomt (poort niet_al_in_kern FAIL, drukte 1 = drukste gemeten thema), en (c) de xyz-dex had withdrawable $0,00 bij 1,82x notional, wat niet de 'ruime marge' is die _risk voorschreef. Verkocht 0,186 @ 562,293 tegen entry 537,23, reduceOnly. Wil je alsnog halfgeleiders: doe dat als volwaardig slot bij EUR 25k, niet via een perp van $100.",
         "_conviction_core_note": "LET OP: de oorspronkelijke funded_by zei 'bij omzetting target_usd terugzetten op 650'. NIET DOEN. Achterhaald sinds 2026-08-12: conviction_core staat bewust op 130 (5%), want Fase A laat bij dit vermogen geen crypto-been van 550 toe. Live geverifieerd 2026-08-20: target_usd=130."
-      }
+      },
+      "actief": false,
+      "_geschrapt": "GESCHRAPT ALS SLOT op 2026-08-20. De thema-kaart AI-infrastructuur (research/themes.json, 2026-08-18) komt op AFVALLER uit: poort niet_al_in_kern FAIL -- je bezit halfgeleiders al in het wereldindexfonds -- en drukte 1, het drukste thema dat gemeten is (SMH +95,3% over 1 jaar, +73,2pp boven de wereldindex). EERLIJKE TEGENKANT: het 18-jaars bewijs waarop dit slot in juli is gekozen (SMH 21,2%/jr, wint in alle 3 deelperiodes) is NIET weerlegd -- het is overruled door twee poorten die er in juli nog niet waren. Wil je hier toch in: doe het als volwaardig slot bij EUR 25k met een verse afweging, niet door dit terug te zetten."
     },
     "DEFENSE": {
       "bottleneck": "Certificering en programma's over decennia; structureel EU-budget. Instrument dekt de these hier WEL: alleen Europese primes (Thales 12,7%, BAE 11,8%, Rheinmetall 11,2%, Airbus, Rolls-Royce, Safran). Bewust EUDF en niet VanEck DFEN: die heeft Palantir op 8,9% — een softwarebedrijf, geen defensie-prime — en is bovendien duurder (0,55%).",
@@ -64,6 +66,18 @@
       "ticker": "PPFB",
       "ter_pct": 0.12,
       "degiro_kernselectie": true
+    },
+    "NET": {
+      "bottleneck": "Netapparatuur (transformatoren, schakelmateriaal, kabel) en EPC-capaciteit. Meerjarige levertijden maken capaciteit de beperking, niet de vraag. Nutsbedrijven zijn hier de AFNEMER met gereguleerd rendement, niet de partij met prijszettingsmacht.",
+      "etf": "First Trust Nasdaq Clean Edge Smart Grid Infrastructure UCITS",
+      "isin": "IE000J80JTL1",
+      "ticker": "GRID",
+      "ter_pct": 0.63,
+      "degiro_kernselectie": null,
+      "slot_order": 1,
+      "_ketenoverlap": "74,4% (43,01 van 57,79 procentpunt van de top-10 in netapparatuur+EPC), hermeten op de UCITS-holdings per 2026-06-30, script keten_overlap.py -> net_analyse(). Iets HOGER dan de 72,2% van de Amerikaanse GRID, dus de Exclusions-variant breekt de these niet.",
+      "_waarom_slot_1": "Enige van de vier thema-kaarten dat op alle vijf dimensies redelijk scoort: hard geld 5, tolhuisje 4, fase 5, drukte 2, instrument 5. Verdict IN DE TRECHTER.",
+      "_openstaand": "TER 0,63% is negen keer het wereldindexfonds -- de bewijslast ligt bij de satelliet. En NIET GEVERIFIEERD of dit fonds in DEGIRO's kernselectie zit: verhandelbaar op Tradegate is niet hetzelfde als kernselectie. Controleer dat voor je koopt, anders is het geen EUR 1 per order."
     }
   },
   "_broker": "DEGIRO. Alle bovenstaande ISIN's staan in de ETF-kernselectie (geverifieerd 2026-07-30 tegen de lijst van 1.415 fondsen), dus EUR 1 per order op Tradegate = 0,2% op een slot van $500. Saxo was eerder in beeld voor AutoInvest bij kleine wekelijkse tranches; met de slot-regel doen we weinig, grotere orders en wint DEGIRO.",
@@ -77,5 +91,6 @@
     "toplevel_low_pct": 45,
     "min_trade_usd": 25,
     "cooldown_days": 7
-  }
+  },
+  "_slot_volgorde_besluit": "Herzien 2026-08-20. Volgorde volgt nu de thema-kaarten van 2026-08-18 in plaats van de juli-keuze: 1 stroom en net, 2 defensie, 3 software (leeg). Halfgeleiders is als slot geschrapt. LET OP bij defensie: het instrument EUDF wordt in docs/FONDSKEUZE_METHODE.md regel 2 BIJ NAAM afgewezen (index voor het product gemaakt, gelanceerd 2025-03-04 op de piek). Slot 2 heeft dus wel een thema maar nog GEEN geldig instrument. Er gaat sowieso niets open voor EUR 25k."
 }

@@ -96,8 +96,11 @@
       "gettex",
       "Borsa Italiana"
      ],
-     "let_op": "Volgt de EXCLUSIONS-variant van dezelfde index -- ander mandje. De 72,2% overlap is op de VS-versie gemeten en is NIET hermeten.",
-     "overlap_hermeten": false
+     "let_op": "HERMETEN 2026-08-20 op de eigen holdings: 43,01 van 57,79 procentpunt van de top-10 zit in netapparatuur+EPC = 74,4%. Dat is IETS HOGER dan de 72,2% op de Amerikaanse GRID — de Exclusions-variant breekt de these dus niet. Conservatief gerekend: Johnson Controls (8,72%, gebouwbeheer) valt buiten de keten maar blijft in de noemer; eruit halen zou 87,7% geven. Reproduceerbaar via scripts/keten_overlap.py -> net_analyse().",
+     "overlap_hermeten": true,
+     "overlap_pct": 74.4,
+     "overlap_peildatum_holdings": "2026-06-30",
+     "overlap_gemeten_op": "2026-08-20"
     },
     "gevonden_op": "2026-08-20"
    }

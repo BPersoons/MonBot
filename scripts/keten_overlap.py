@@ -133,6 +133,8 @@ def main():
         if onmeetbaar:
             print("    ! %.2f%% niet thuis te brengen — buiten teller EN noemer gehouden" % onmeetbaar)
 
+    net_analyse()
+
     drukte_toets()
 
     print("\n" + "=" * 78)
@@ -141,6 +143,86 @@ def main():
     print("de gevestigde partijen per indexdefinitie uit. Precies de schakel met de")
     print("hoogste overstapkosten is dus per constructie afwezig.")
 
+
+
+# ══ Tweede these: stroom en net (research/themes.json, kaart "Stroom en net") ══
+# De kaart wees als tolhuisje aan: netapparatuur + EPC-capaciteit. Nutsbedrijven
+# zijn daar expliciet de AFNEMER met gereguleerd rendement, niet de partij met
+# prijszettingsmacht — die tellen dus NIET mee in de teller.
+#
+# Waarom deze meting bestaat: de 72,2% op de kaart is gemeten op de AMERIKAANSE
+# GRID, en die kun je als Europese particulier niet kopen (PRIIPs). De UCITS-versie
+# volgt de EXCLUSIONS-variant van dezelfde index — andere index, dus de score
+# draagt niet over en moet opnieuw. Zie docs/FONDSKEUZE_METHODE.md.
+
+SCHAKELS_NET = {
+    "netapparatuur":       (HOOG,  "transformatoren, schakelmateriaal, kabel — meerjarige levertijden"),
+    "aanleg_epc":          (HOOG,  "EPC-capaciteit; de bottleneck is vakmensen, niet vraag"),
+    "netbeheer":           (LAAG,  "AFNEMER met gereguleerd rendement — geen prijszettingsmacht"),
+    "opwekking":           (LAAG,  "commodity-stroom"),
+    "gebouwautomatisering": (LAAG, "buiten de keten: HVAC/gebouwbeheer, niet het net"),
+}
+
+FONDSEN_NET = {
+    "GRID UCITS — First Trust Nasdaq Clean Edge Smart Grid Infrastructure": {
+        "isin": "IE000J80JTL1", "ter": 0.63,
+        "index": "Nasdaq OMX Clean Edge Smart Grid Infrastructure EXCLUSIONS",
+        "gelanceerd": "2022-04-21", "omvang_eur_mln": 2458, "yf": "GRID",
+        # Holdings van justETF, peildatum 2026-06-30. 109 posities; top-10 = 57,79%.
+        "holdings": [
+            ("Johnson Controls",  8.72, "gebouwautomatisering"),
+            ("Eaton",             8.51, "netapparatuur"),
+            ("Schneider Electric",8.29, "netapparatuur"),
+            ("ABB",               8.12, "netapparatuur"),
+            ("Quanta Services",   8.09, "aanleg_epc"),
+            ("National Grid",     4.11, "netbeheer"),
+            ("Prysmian",          3.87, "netapparatuur"),
+            ("nVent Electric",    3.21, "netapparatuur"),
+            ("Hubbell",           2.92, "netapparatuur"),
+            ("TERNA",             1.95, "netbeheer"),
+        ],
+    },
+}
+
+
+def net_analyse():
+    print("")
+    print("=" * 78)
+    print("KETENOVERLAP — stroom en net, de KOOPBARE (UCITS) variant")
+    print("These: tolhuisje = netapparatuur + EPC. Nutsbedrijven zijn de afnemer.")
+    print("=" * 78)
+    for naam, f in FONDSEN_NET.items():
+        gemeten = onmeetbaar = 0.0
+        per_niveau = {HOOG: 0.0, MIDDEN: 0.0, LAAG: 0.0}
+        for _n, gewicht, schakel in f["holdings"]:
+            if schakel is None or schakel not in SCHAKELS_NET:
+                onmeetbaar += gewicht
+                continue
+            per_niveau[SCHAKELS_NET[schakel][0]] += gewicht
+            gemeten += gewicht
+        print("")
+        print("%s" % naam)
+        print("  %s | index: %s" % (f["isin"], f["index"]))
+        print("  TER %.2f%% | gelanceerd %s | EUR %d mln" % (f["ter"], f["gelanceerd"], f["omvang_eur_mln"]))
+        print("  top-10 beslaat %.2f%% van het fonds" % (gemeten + onmeetbaar))
+        for n in (HOOG, LAAG):
+            print("    %-7s %5.2f%% van het fonds" % (n, per_niveau[n]))
+        score_pct = per_niveau[HOOG] / gemeten * 100 if gemeten else 0
+        print("    OVERLAPSCORE (tolhuisje / gemeten): %5.1f%%" % score_pct)
+        print("")
+        print("    Ter vergelijking, de kaart mat op de AMERIKAANSE GRID:")
+        print("      42,25 van 58,54 procentpunt = 72,2%")
+        print("      hier:  %.2f van %.2f procentpunt = %.1f%%" % (per_niveau[HOOG], gemeten + onmeetbaar, score_pct))
+        buiten_keten = sum(g for _n, g, sch in f["holdings"] if sch == "gebouwautomatisering")
+        print("")
+        print("    Conservatief gerekend: Johnson Controls (%.2f%% — gebouwbeheer/HVAC) valt" % buiten_keten)
+        print("    buiten de keten, maar blijft in de NOEMER: het is fondsgewicht dat je these")
+        print("    niet uitdrukt, en dat is een kostenpost, geen neutrale weging (regel 2).")
+        print("    Alleen hem uit de noemer halen zou %.1f%% geven — dat vleit."
+              % (per_niveau[HOOG] / (gemeten - buiten_keten) * 100 if gemeten > buiten_keten else 0))
+        print("    De nutsbedrijven (National Grid, TERNA, %.2f%%) blijven er sowieso in:"
+              % (per_niveau[LAAG] - buiten_keten))
+        print("    die zitten WEL in de keten, alleen niet in de schakel met de macht.")
 
 def drukte_toets():
     """Wat DEED het thema? Beide fondsen bestaan lang genoeg voor een uitslag.
