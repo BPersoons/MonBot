@@ -119,6 +119,7 @@ _NON_EQUITY_REAL_SYMBOLS = frozenset({
 # niet gebacktest (de ~10mnd data was volledig bull).
 SLEEVE_CIRCUIT_BREAKER_DD_PCT = 15.0   # XYZ100 >dit% onder 60d-high -> pauzeer entries
 SLEEVE_MAX_DRAWDOWN_STOP_PCT = 25.0    # sluit positie bij -dit% verlies (falling-knife cap)
+SLEEVE_MIN_TRIM_NOTIONAL_USD = 10.0    # HL weigert orders <$10; daaronder tranche BEWAREN, niet verbranden
 
 PULLBACK_VOL_THRESHOLD = 1.5   # vol-genormaliseerde "eenheden onder het 252d-high"
 BREADTH_THRESHOLD = 0.30       # aandeel tickers in thema dat ook >= pullback-drempel scoort
@@ -1121,7 +1122,7 @@ class ThematicExposureLab:
             gain_pct = (mark - entry) / entry * 100 if entry > 0 else 0.0
             pos["peak_value_usd"] = max(_finite(pos.get("peak_value_usd")), pos["current_value_usd"])
 
-            exit_reason, exit_fraction = None, 0.0
+            exit_reason, exit_fraction, tranche_vlag = None, 0.0, None
             # Downside-stop (falling-knife cap): sluit volledig bij een groot verlies.
             # De sleeve had voorheen GEEN downside-stop → posities konden oneindig
             # zakken (46% ging >20% onder water, ergste −44%). Capt de single-position
@@ -1130,24 +1131,38 @@ class ThematicExposureLab:
                 exit_reason, exit_fraction = f"downside-stop {SLEEVE_MAX_DRAWDOWN_STOP_PCT:.0f}%", 1.0
             elif gain_pct >= 100 and not pos.get("profit_tranche_3_done"):
                 exit_reason, exit_fraction = "winst-tranche +100%", 0.25
-                pos["profit_tranche_3_done"] = True
+                tranche_vlag = "profit_tranche_3_done"
             elif gain_pct >= 60 and not pos.get("profit_tranche_2_done"):
                 exit_reason, exit_fraction = "winst-tranche +60%", 0.25
-                pos["profit_tranche_2_done"] = True
+                tranche_vlag = "profit_tranche_2_done"
             elif gain_pct >= 30 and not pos.get("profit_tranche_1_done"):
                 exit_reason, exit_fraction = "winst-tranche +30%", 0.25
-                pos["profit_tranche_1_done"] = True
+                tranche_vlag = "profit_tranche_1_done"
             elif gain_pct > 0 and pos["current_value_usd"] < pos["peak_value_usd"] * 0.80:
                 exit_reason, exit_fraction = "NAV-trailing-stop -20% (na winstgevend)", 1.0
 
             if exit_reason:
-                self._close_or_trim(positions, ticker, pos, mark, exit_fraction, exit_reason)
+                # De vlag wordt pas gezet als de verkoop ECHT is gelukt. Stond hij
+                # eerder vóór de order, dan verbrandde een mislukte order de tranche
+                # permanent: XYZ-CRCL en XYZ-NOW stonden allebei op +30% met
+                # profit_tranche_1_done=true en een onaangeroerde positie, omdat 25%
+                # van ~$16 onder HL's $10-minimum lag (gevonden 2026-08-20).
+                if self._close_or_trim(positions, ticker, pos, mark,
+                                       exit_fraction, exit_reason) and tranche_vlag:
+                    pos[tranche_vlag] = True
 
         if changed:
             self._save_positions(positions)
 
     def _close_or_trim(self, positions: dict, ticker: str, pos: dict, mark: float,
-                        fraction: float, reason: str) -> None:
+                        fraction: float, reason: str) -> bool:
+        """Verkoopt (een deel van) een positie. True = er is echt verkocht.
+
+        De aanroeper mag een winst-tranche pas afvinken op True. Een deelexit die
+        onder Hyperliquid's $10-minimum uitkomt is namelijk geen fout maar een te
+        kleine positie — die tranche hoort BEWAARD te blijven tot de positie groot
+        genoeg is, niet verbrand te worden.
+        """
         qty_to_sell = pos["quantity"] * fraction
         precision = 0.0
         try:
@@ -1157,7 +1172,19 @@ class ThematicExposureLab:
         if precision > 0:
             qty_to_sell = math.floor(qty_to_sell / precision) * precision
         if qty_to_sell <= 0:
-            return
+            return False
+
+        # HL weigert alles onder $10. Bij een DEELexit is doorzetten zinloos: de
+        # order faalt gegarandeerd. Sla hem over zodat de tranche behouden blijft.
+        # Een VOLLEDIGE sluiting (fraction 1.0) proberen we wel altijd — daar is
+        # niets te bewaren en een dust-positie moet hoe dan ook weg.
+        notional = qty_to_sell * mark
+        if fraction < 1.0 and notional < SLEEVE_MIN_TRIM_NOTIONAL_USD:
+            logger.info(
+                "ThematicExposureLab: %s overgeslagen voor %s — $%.2f onder het "
+                "$%.0f-minimum van Hyperliquid; tranche blijft staan tot de positie "
+                "groot genoeg is.", reason, ticker, notional, SLEEVE_MIN_TRIM_NOTIONAL_USD)
+            return False
 
         order = self.exchange_client.create_order(
             self._hl_symbol(ticker), "SELL", qty_to_sell, order_type="market",
@@ -1165,7 +1192,7 @@ class ThematicExposureLab:
         )
         if order is None:
             logger.warning(f"ThematicExposureLab: exit-order voor {ticker} mislukt ({reason})")
-            return
+            return False
 
         proceeds = qty_to_sell * mark
         cost_basis_sold = pos["avg_entry_price"] * qty_to_sell
@@ -1202,6 +1229,7 @@ class ThematicExposureLab:
             f"{qty_to_sell:.4f} @ ${mark:.2f} — gerealiseerd: ${realized_pnl:+.2f}"
             f"{' (volledig gesloten)' if full_close else ''}"
         )
+        return True
 
     # ── funding-drag-monitor (guard c) ───────────────────────────────────
     def _check_funding_drag(self, positions: dict) -> list:

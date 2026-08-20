@@ -25,7 +25,7 @@
       "bridge": {
         "_why": "TIJDELIJK. Het DEGIRO-account kan niet geactiveerd worden (paspoort verlopen, nieuwe aangevraagd). XYZ-SMH op Hyperliquid volgt dezelfde index als VVSM — het is exact de index waarop de 18-jaars validatie draaide — dus dezelfde blootstelling in een slechtere verpakking.",
         "_risk": "Dit is een PERP, geen bezit: funding-drag (~3%/jaar, over ~6 weken ~0,4%) en liquidatierisico ook op 1x. Ruime marge aanhouden. De xyz-dex heeft een EIGEN collateral-pool — apart funden via sendAsset.",
-        "active": true,
+        "active": false,
         "venue": "hyperliquid_xyz_dex",
         "instrument": "XYZ-SMH",
         "opened": "2026-08-03",
@@ -33,7 +33,13 @@
         "converts_to": "IE00BMC38736 (VVSM) bij DEGIRO",
         "funded_by": "Conviction-core target tijdelijk verlaagd van $650 naar $550 (optie A). Bij omzetting OOK conviction_core.json target_usd terugzetten op 650.",
         "size_usd": 100,
-        "_expiry_note": "SwarmMonitor Check 23 alarmeert zodra review_by verstrijkt terwijl active=true. Bewust hard gemaakt: dit systeem heeft een geschiedenis van interim-maatregelen die stilletjes permanent werden (de gate-stapel die de counter-trend shorts erdoor duwde begon ook als tijdelijk)."
+        "_expiry_note": "SwarmMonitor Check 23 alarmeert zodra review_by verstrijkt terwijl active=true. Bewust hard gemaakt: dit systeem heeft een geschiedenis van interim-maatregelen die stilletjes permanent werden (de gate-stapel die de counter-trend shorts erdoor duwde begon ook als tijdelijk).",
+        "closed": "2026-08-20",
+        "close_order_id": "520749284558",
+        "entry_price": 537.23,
+        "close_price": 562.293,
+        "_outcome": "GESLOTEN, NIET omgezet. De reden van bestaan (DEGIRO niet activeerbaar) verviel op 2026-08-20 toen de rekening openging. Niet omgezet naar VVSM omdat (a) ~$105 ver onder de eigen min_slot_usd van $500 ligt, (b) de thema-kaart AI-infrastructuur van 2026-08-18 op AFVALLER uitkomt (poort niet_al_in_kern FAIL, drukte 1 = drukste gemeten thema), en (c) de xyz-dex had withdrawable $0,00 bij 1,82x notional, wat niet de 'ruime marge' is die _risk voorschreef. Verkocht 0,186 @ 562,293 tegen entry 537,23, reduceOnly. Wil je alsnog halfgeleiders: doe dat als volwaardig slot bij EUR 25k, niet via een perp van $100.",
+        "_conviction_core_note": "LET OP: de oorspronkelijke funded_by zei 'bij omzetting target_usd terugzetten op 650'. NIET DOEN. Achterhaald sinds 2026-08-12: conviction_core staat bewust op 130 (5%), want Fase A laat bij dit vermogen geen crypto-been van 550 toe. Live geverifieerd 2026-08-20: target_usd=130."
       }
     },
     "DEFENSE": {
@@ -41,7 +47,7 @@
       "etf": "WisdomTree Europe Defence UCITS",
       "isin": "IE0002Y8CX98",
       "ticker": "EUDF",
-      "ter_pct": 0.40,
+      "ter_pct": 0.4,
       "degiro_kernselectie": true,
       "slot_order": 2
     },
