@@ -1,0 +1,22 @@
+{
+  "_comment": "Wat er bij de broker ligt. HAND BIJGEHOUDEN — DeGiro heeft geen API. Werk dit bij na ELKE order, anders telt utils/nav.py de positie niet mee en rapporteert de overzichtspagina te laag. Prijzen komen via yfinance op 'yahoo_ticker'; lukt dat niet, dan markeert NAV zichzelf ONVOLLEDIG in plaats van stil een te laag totaal te geven.",
+  "_deploy_note": "VOLUME-MOUNTED: de HOST-kopie op de VM wint van de image. Wijzigen doe je in-place op /home/bartpersoons_gmail_com/config/broker_holdings.json — nooit via rename/os.replace, want een single-file bind mount hangt aan de inode. Zie CLAUDE.md.",
+  "_hoe_bijwerken": "Na een order: 'aantal' ophogen, 'gekocht_op' zetten, 'kas_eur' gelijktrekken met het werkelijke saldo bij de broker, en 'laatst_bijgewerkt' op vandaag. Controleer daarna met: docker exec agent_trader_swarm python -m utils.nav",
+  "broker": "DEGIRO",
+  "kas_eur": 0.0,
+  "posities": [
+    {
+      "isin": "IE0003XJA0J9",
+      "naam": "Amundi Prime All Country World",
+      "ticker": "WEBN",
+      "yahoo_ticker": "WEBN.DE",
+      "beurs_aankoop": "Tradegate",
+      "valuta": "EUR",
+      "aantal": 0,
+      "gekocht_op": null,
+      "rol": "kern",
+      "_note": "Het wereldindexfonds — 40% van Fase A. Zie docs/KERN_ETF_KEUZE.md. yahoo_ticker staat op Xetra (WEBN.DE) omdat Yahoo Tradegate niet quoteert; zelfde fonds, zelfde ISIN, verwaarloosbaar prijsverschil."
+    }
+  ],
+  "laatst_bijgewerkt": null
+}

@@ -36,6 +36,7 @@ logger = logging.getLogger("NAV")
 NAV_FILE = "nav.json"
 SLEEVE_FILE = "thematic_exposure_positions.json"
 TREASURY_STATE = "treasury_state.json"
+BROKER_FILE = "config/broker_holdings.json"
 
 # Welke spot-tokens horen bij "crypto vasthouden" (Conviction Core).
 _VASTHOUD_COINS = {"UBTC": "BTC", "UETH": "ETH"}
@@ -172,6 +173,95 @@ def _dip_koper():
                    bron=SLEEVE_FILE)]
 
 
+def _koers(ticker):
+    """Slotkoers via yfinance. None bij elke storing — de aanroeper maakt er
+    een 'fout'-potje van, want een niet-uitgelezen koers is geen nulwaarde."""
+    try:
+        import yfinance as yf
+        h = yf.Ticker(ticker).history(period="5d")["Close"]
+        return float(h.iloc[-1]) if len(h) else None
+    except Exception as e:
+        logger.warning("NAV: koers %s faalde (%s)", ticker, str(e)[:80])
+        return None
+
+
+def _broker():
+    """Wat er bij de broker ligt (DeGiro). Hand bijgehouden, want er is geen API.
+
+    Waarom dit bestand er is: zonder dit potje verdwijnt de grootste positie van
+    het hele vermogen uit de NAV. Het wereldindexfonds is 40% van Fase A en wordt
+    met euro's van de bank gekocht — geen enkele keten-uitlezing ziet dat.
+
+    Prijzen komen van yfinance. Mislukt dat, dan krijgt het potje status 'fout' en
+    markeert compute_nav() het totaal als ONVOLLEDIG. Een stil te laag totaal zou
+    hier erger zijn dan geen totaal: het is de noemer van de poort-toets.
+    """
+    if not os.path.exists(BROKER_FILE):
+        return []
+    try:
+        with open(BROKER_FILE, encoding="utf-8") as fh:
+            d = json.load(fh)
+    except Exception as e:
+        return [_potje("broker", "Broker — kern-ETF", None, status="fout",
+                       detail=str(e)[:120], bron=BROKER_FILE)]
+
+    fx_cache = {"USD": 1.0}
+
+    def _naar_usd(bedrag, valuta):
+        valuta = (valuta or "EUR").upper()
+        if valuta not in fx_cache:
+            koers = _koers("%sUSD=X" % valuta)
+            if koers is None:
+                return None
+            fx_cache[valuta] = koers
+        return bedrag * fx_cache[valuta]
+
+    potjes, per_rol = [], {}
+    for pos in d.get("posities") or []:
+        aantal = float(pos.get("aantal") or 0.0)
+        rol = pos.get("rol") or "overig"
+        bucket = per_rol.setdefault(rol, {"usd": 0.0, "regels": [], "fout": None})
+        if aantal <= 0:
+            continue
+        koers = _koers(pos.get("yahoo_ticker") or "")
+        if koers is None:
+            bucket["fout"] = "koers %s niet uitgelezen" % pos.get("ticker")
+            continue
+        waarde = _naar_usd(aantal * koers, pos.get("valuta"))
+        if waarde is None:
+            bucket["fout"] = "wisselkoers %s niet uitgelezen" % pos.get("valuta")
+            continue
+        bucket["usd"] += waarde
+        bucket["regels"].append("%s %g à %.2f %s"
+                                % (pos.get("ticker"), aantal, koers, pos.get("valuta")))
+
+    _labels = {"kern": "Kern — wereldindexfonds (broker)"}
+    for rol, b in sorted(per_rol.items()):
+        label = _labels.get(rol, "Broker — %s" % rol)
+        if b["fout"]:
+            potjes.append(_potje("broker_%s" % rol, label, None, status="fout",
+                                 detail=b["fout"], bron=BROKER_FILE))
+        else:
+            potjes.append(_potje("broker_%s" % rol, label, round(b["usd"], 2),
+                                 detail=" · ".join(b["regels"]) or "geen positie",
+                                 bron=BROKER_FILE))
+
+    kas_eur = float(d.get("kas_eur") or 0.0)
+    if kas_eur:
+        kas_usd = _naar_usd(kas_eur, "EUR")
+        if kas_usd is None:
+            potjes.append(_potje("broker_kas", "Kas bij de broker", None, status="fout",
+                                 detail="wisselkoers EUR niet uitgelezen", bron=BROKER_FILE))
+        else:
+            potjes.append(_potje("broker_kas", "Kas bij de broker", round(kas_usd, 2),
+                                 detail="€%.2f" % kas_eur, bron=BROKER_FILE))
+
+    bij = d.get("laatst_bijgewerkt")
+    if potjes and not bij:
+        potjes[0]["detail"] = (potjes[0]["detail"] + " · ⚠️ laatst_bijgewerkt leeg").strip(" ·")
+    return potjes
+
+
 def compute_nav(exchange=None):
     """Het volledige beeld. Faalt nooit in zijn geheel; markeert wat ontbreekt."""
     potjes = []
@@ -193,6 +283,7 @@ def compute_nav(exchange=None):
 
     potjes.extend(_rente_en_kas())
     potjes.extend(_dip_koper())
+    potjes.extend(_broker())
 
     gelukt = [p for p in potjes if p["status"] == "ok" and p["waarde_usd"] is not None]
     mislukt = [p for p in potjes if p["status"] != "ok"]

@@ -48,7 +48,7 @@ STATE_FILES="shadow_book.json shadow_report.json shadow_basis_state.json shadow_
 sudo mkdir -p config
 BACKUP_DIR="state_backups/$(date -u +%Y%m%d_%H%M%S)"
 backed_up=0
-for f in $STATE_FILES config/auto_params.json config/thematic_exposure_themes.json config/conviction_core.json config/barbell_targets.json dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
+for f in $STATE_FILES config/auto_params.json config/thematic_exposure_themes.json config/conviction_core.json config/barbell_targets.json config/broker_holdings.json dashboard.json trade_log.json active_assets.json pnl_snapshots.json; do
     if [ -s "$f" ]; then  # -s: exists AND non-empty — never back up an already-empty file
         sudo mkdir -p "$BACKUP_DIR/$(dirname "$f")" 2>/dev/null || true
         if sudo cp "$f" "$BACKUP_DIR/$f" 2>/dev/null; then
@@ -215,7 +215,7 @@ fi
 # so they must never be touch-emptied. Seed from the image when the host copy is
 # missing; once present, the host copy wins (that's where target_usd/enabled get
 # flipped without a rebuild).
-for cfg in conviction_core barbell_targets; do
+for cfg in conviction_core barbell_targets broker_holdings; do
     if [ ! -f "config/${cfg}.json" ]; then
         echo "Seeding config/${cfg}.json from image..."
         sudo docker run --rm europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest \
@@ -228,7 +228,7 @@ done
 # non-sudo chmod fails with "Operation not permitted". Under `set -e` that aborted the whole
 # deploy AFTER the old container was stopped but BEFORE `up`, leaving the swarm down. Keep
 # this non-fatal so a single unchmod-able file can never take production offline.
-sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json config/thematic_exposure_themes.json config/conviction_core.json config/barbell_targets.json 2>/dev/null || true
+sudo chmod 666 dashboard.json trade_log.json active_assets.json pnl_snapshots.json config/auto_params.json config/thematic_exposure_themes.json config/conviction_core.json config/barbell_targets.json config/broker_holdings.json 2>/dev/null || true
 sudo chmod 666 $STATE_FILES 2>/dev/null || true
 sudo chmod 777 logs data config
 

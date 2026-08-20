@@ -57,6 +57,7 @@ services:
       # anders valt de sleeve terug op enabled=false/target 0 uit de image.
       - ./config/conviction_core.json:/app/config/conviction_core.json
       - ./config/barbell_targets.json:/app/config/barbell_targets.json
+      - ./config/broker_holdings.json:/app/config/broker_holdings.json
       - ./conviction_core_state.json:/app/conviction_core_state.json
       # Drift hersteld 2026-08-11: deze 13 stonden in de schrijflaag van de container
       # en waren noch gemount, noch opgenomen in STATE_FILES van deploy_update.sh —
