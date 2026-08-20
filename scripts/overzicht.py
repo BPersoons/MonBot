@@ -298,14 +298,15 @@ def bouw():
     # dat is de vraag die je stelt ("waar gaat het geld heen"), niet op verdict.
     barbell = _laad("config/barbell_targets.json", {"themes": {}}).get("themes", {})
     broker = _laad("config/broker_holdings.json", {"posities": []}).get("posities", [])
-    thema_posities = {p.get("rol"): p for p in broker if p.get("rol") not in (None, "kern")
-                      and (p.get("aantal") or 0) > 0}
+    # Matchen op ISIN, niet op rol: de positie heeft rol "thema" terwijl de slot-
+    # sleutel "NET" heet, en dan vindt de lookup niets terwijl er wel geld in zit.
+    bezit_isins = {p.get("isin") for p in broker if (p.get("aantal") or 0) > 0}
 
     def _status(kaart):
         """Wat is de STAND van dit thema: staat er geld in, ligt het klaar, of niet?"""
         sleutel = kaart.get("barbell_slot")
         slot = barbell.get(sleutel) if sleutel else None
-        if slot and thema_posities.get(sleutel):
+        if slot and slot.get("isin") in bezit_isins:
             return ("POSITIE", "goed", 0, slot)
         if slot and slot.get("testpositie"):
             return ("TESTPOSITIE KLAAR", "goed", 1, slot)
