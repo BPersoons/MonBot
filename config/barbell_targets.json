@@ -73,11 +73,11 @@
       "isin": "IE000J80JTL1",
       "ticker": "GRID",
       "ter_pct": 0.63,
-      "degiro_kernselectie": null,
+      "degiro_kernselectie": true,
       "slot_order": 1,
       "_ketenoverlap": "74,4% (43,01 van 57,79 procentpunt van de top-10 in netapparatuur+EPC), hermeten op de UCITS-holdings per 2026-06-30, script keten_overlap.py -> net_analyse(). Iets HOGER dan de 72,2% van de Amerikaanse GRID, dus de Exclusions-variant breekt de these niet.",
       "_waarom_slot_1": "Enige van de vier thema-kaarten dat op alle vijf dimensies redelijk scoort: hard geld 5, tolhuisje 4, fase 5, drukte 2, instrument 5. Verdict IN DE TRECHTER.",
-      "_openstaand": "TER 0,63% is negen keer het wereldindexfonds -- de bewijslast ligt bij de satelliet. En NIET GEVERIFIEERD of dit fonds in DEGIRO's kernselectie zit: verhandelbaar op Tradegate is niet hetzelfde als kernselectie. Controleer dat voor je koopt, anders is het geen EUR 1 per order."
+      "_openstaand": "TER 0,63% is negen keer het wereldindexfonds -- de bewijslast ligt bij de satelliet. Kernselectie GEVERIFIEERD 2026-08-20 (badge in DEGIRO), dus EUR 1 per order op Tradegate. LET OP bij aankoop: de share class heet 'A USD'. Dat is de FONDSvaluta, niet per se de NOTERINGSvaluta -- koop de in euro's genoteerde regel en controleer dat AutoFX EUR 0,00 is, zoals bij WEBN. Een USD-regel kost 0,25% per transactie."
     }
   },
   "_broker": "DEGIRO. Alle bovenstaande ISIN's staan in de ETF-kernselectie (geverifieerd 2026-07-30 tegen de lijst van 1.415 fondsen), dus EUR 1 per order op Tradegate = 0,2% op een slot van $500. Saxo was eerder in beeld voor AutoInvest bij kleine wekelijkse tranches; met de slot-regel doen we weinig, grotere orders en wint DEGIRO.",
