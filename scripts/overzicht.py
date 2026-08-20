@@ -72,29 +72,37 @@ STAPPEN = [
      "20 van 20 namen gescoord; de meting draait vanzelf in GitHub Actions.",
      "2026-08-11"),
     ("Kostenbasis verlagen", "loopt",
-     "Container gebruikt 252-292 MiB, niet de 595 waar het plan mee rekende. "
-     "24-uursmeting loopt; e2-micro scheelt ~$80/jaar.", "meting tot 2026-08-13"),
-    ("Wereldindexfonds kopen", "geblokkeerd",
-     "40% van het plan staat op nul. Er is geen route van USDC naar euro's — geen "
-     "exchange-rekening, en geen enkel onderdeel van dit systeem kan euro's uitbetalen.",
-     "wacht op een keuze"),
+     "Container gebruikt 252-292 MiB, niet de 595 waar het plan mee rekende. e2-micro "
+     "mag, ~$73/jaar. Lage prioriteit: dit is een testbudget, en $73 blijft $73 terwijl "
+     "1 procentpunt rendement met het vermogen meegroeit.", "geen datum"),
+    ("Wereldindexfonds gekocht", "klaar",
+     "156 WEBN à €12,782 op Tradegate, €1 kosten, geen valutakosten. 43% van het "
+     "vermogen. Gefinancierd met verse euro's van de bank — crypto en USDC bleven staan.",
+     "2026-08-20"),
+    ("Thema-slot 1 klaargezet", "loopt",
+     "Stroom en net, GRID UCITS (IE000J80JTL1), ketenoverlap 74,4% hermeten op de "
+     "koopbare variant, kernselectie bevestigd. Halfgeleiders is als slot geschrapt: "
+     "die zit al in het wereldindexfonds. Gaat open bij €25k.", "wacht op kapitaal"),
     ("Poort: versla de wereldindex", "loopt",
      "20 namen gescoord met prijs én benchmarkprijs. Afrekenen rond 10 februari 2027.",
      "2027-02-10"),
 ]
 
 BESLISSINGEN = [
-    ("Bij welke exchange stap je uit naar euro's?",
-     "Zonder dit blijven het wereldindexfonds én de thema-ETF's staan — van die laatste "
-     "zijn de ISIN's al gekozen maar is nooit iets gekocht. Advies: Bitvavo (euro's als "
-     "basisvaluta, SEPA gratis)."),
+    ("Welk fonds voor het defensie-slot?",
+     "Slot 2 heeft wél een thema maar géén geldig instrument. EUDF staat in de config, "
+     "maar de eigen fondskeuze-methode wijst hem bij naam af: de index is voor het "
+     "product gemaakt en het fonds is gelanceerd op de piek van het herbewapenings"
+     "verhaal. Geen haast — er gaat niets open vóór €25k."),
     ("Mag de divergentie-screen gaan blokkeren?",
      "Staat op observeren. Op de huidige, zeer kleine steekproef zou hij de twee best "
      "presterende posities hebben tegengehouden. Pas beslissen bij ≥10 gestempelde "
      "posities."),
-    ("Migreren naar een kleinere VM?",
-     "Beslissend voor de kostenhorde: ~$80/jaar is 2,6 procentpunt. Wacht op de "
-     "24-uursmeting."),
+    ("Mag de dip-koper meer geld inzetten?",
+     "Hij staat vol (6 posities) met $151 kas stil, en tranche 2 is uitgezet — dat geld "
+     "kan langs geen enkele route ingezet worden. Openzetten is nu NIET verstandig: "
+     "gerealiseerd staat op −$5,16 en alle winst is nog ongerealiseerd. Opnieuw meten "
+     "als er meer gesloten posities zijn."),
 ]
 
 
@@ -190,8 +198,9 @@ def bouw():
     tegels = [
         ("Vermogen", "$%s" % format(round(nav.get("totaal_usd", 0)), ",d").replace(",", "."),
          "compleet gemeten" if nav.get("compleet") else "ONVOLLEDIG — ondergrens", "neutraal"),
-        ("Netto per jaar", "−$103",
-         "$57 rente tegen $160 infrastructuur", "kritiek"),
+        ("Kostenhorde", "%.1f%%" % (160.0 / max(nav.get("totaal_usd", 0), 1) * 100),
+         "$160/jaar infrastructuur — was 5,2% op $3.081, en dat cijfer daalt "
+         "met elke euro erbij", "letop" if 160.0 / max(nav.get("totaal_usd", 1), 1) < 0.04 else "kritiek"),
         ("Namen gescoord", "%d / 20" % len(rijen), "poort-eis gehaald", "goed"),
         ("Wachtvoorwaarde geraakt", str(len(geraakt)),
          ", ".join(r["t"] for r in geraakt) if geraakt else "vandaag koop je niets", "neutraal"),
@@ -392,7 +401,7 @@ h2{font-family:Georgia,"Iowan Old Style",serif;font-weight:normal;font-size:1.3r
 .tegel-kop{font-size:.7rem;text-transform:uppercase;letter-spacing:.09em;color:var(--zacht)}
 .tegel-getal{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:1.85rem;
   margin:.3rem 0 .15rem;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.t-goed{color:var(--goed)} .t-kritiek{color:var(--kritiek)} .t-neutraal{color:var(--inkt)}
+.t-goed{color:var(--goed)} .t-kritiek{color:var(--kritiek)} .t-neutraal{color:var(--inkt)} .t-letop{color:var(--letop)}
 .tegel-sub{font-size:.8rem;color:var(--inkt2);line-height:1.4}
 .paneel{background:var(--veld);border:1px solid var(--rand);border-radius:3px;padding:20px 22px}
 .potje{margin-bottom:1.15rem}
@@ -469,11 +478,11 @@ a{color:var(--accent)}
 
 <div class="sectie">
   <h2>Waar het geld staat</h2>
-  <p class="sectie-intro">Vier potjes. Het totaal werd tot 12 augustus 5,7% te laag
-  gerapporteerd doordat het crypto-potje nergens werd meegeteld: ccxt noemt Bitcoin op
-  Hyperliquid bij een tickernaam die naar een heel andere munt wijst. Dat was een
-  rapportagefout en niets meer — het kasbeheer verdeelt zijn percentages over het VRIJE
-  kapitaal, en dat is de juiste noemer voor die taak.</p>
+  <p class="sectie-intro">Sinds 20 augustus staat het grootste deel niet meer in crypto:
+  het wereldindexfonds is 43% en Aave 44%. Het broker-potje wordt <strong>met de hand
+  bijgehouden</strong> — DeGiro heeft geen API, dus er is geen manier om het tegen de
+  broker te controleren. Lukt de koersuitlezing niet, dan meldt de meting zichzelf als
+  ONVOLLEDIG in plaats van stil een te laag totaal te geven.</p>
   <div class="paneel">{{POTJES}}</div>
 </div>
 
@@ -481,12 +490,13 @@ a{color:var(--accent)}
   <h2>Het plan</h2>
   <p class="sectie-intro">Zes stappen. Drie klaar, twee lopen, één zit vast.</p>
   <div class="stappen">{{STAPPEN}}</div>
-  <div class="noot"><strong>De blokkade:</strong> al het vermogen zit in crypto, terwijl
-  het plan 40% in een wereldindexfonds wil. Er is geen route van USDC naar euro's op een
-  bankrekening. Sinds 18 augustus is de opzet <strong>twee potjes naast elkaar</strong>:
-  crypto en USDC blijven staan waar ze staan, DeGiro wordt gevuld met verse euro's. Geen
-  omwisseling, geen extra rekening, en geen onomkeerbaar netwerk-risico. Wachten op het
-  paspoort.</div>
+  <div class="noot"><strong>De blokkade is weg.</strong> Tot 20 augustus stond 40% van
+  het plan op nul omdat er geen route van USDC naar euro's was. Die vraag bleek al
+  beslist: <strong>twee potjes naast elkaar</strong> — crypto en USDC blijven staan,
+  DeGiro wordt gevuld met verse euro's van de bank. Geen omwisseling, geen extra
+  rekening, geen onomkeerbaar netwerk-risico. Wat overbleef was het paspoort, en dat is
+  opgelost. <strong>Wat nu telt is inleg:</strong> 1 procentpunt rendement is $54, de
+  vaste kosten zijn $160 per jaar. Elke euro erbij doet meer dan elke analyse.</div>
 </div>
 
 <div class="sectie">
