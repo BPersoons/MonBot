@@ -79,7 +79,7 @@
       "_waarom_slot_1": "Enige van de vier thema-kaarten dat op alle vijf dimensies redelijk scoort: hard geld 5, tolhuisje 4, fase 5, drukte 2, instrument 5. Verdict IN DE TRECHTER.",
       "_openstaand": "TER 0,63% is negen keer het wereldindexfonds -- de bewijslast ligt bij de satelliet. Kernselectie GEVERIFIEERD 2026-08-20 (badge in DEGIRO), dus EUR 1 per order op Tradegate. LET OP bij aankoop: de share class heet 'A USD'. Dat is de FONDSvaluta, niet per se de NOTERINGSvaluta -- koop de in euro's genoteerde regel en controleer dat AutoFX EUR 0,00 is, zoals bij WEBN. Een USD-regel kost 0,25% per transactie.",
       "testpositie": {
-        "status": "VOORWAARDEN VASTGELEGD — nog niet gekocht",
+        "status": "GEKOCHT 2026-08-20 — 4 st à €54,10",
         "vastgelegd_op": "2026-08-20",
         "wat_dit_is": "Een UITVOERINGStest. Dit opent het thema-potje NIET; dat blijft op EUR 25k.",
         "omvang_eur": 250,
@@ -101,7 +101,10 @@
         },
         "aandachtspunt_bij_kopen": "Share class heet 'A USD'. Dat is de FONDSvaluta, niet per se de NOTERINGSvaluta. Koop de in euro's genoteerde regel op Tradegate en controleer dat AutoFX EUR 0,00 toont, zoals bij WEBN. Een USD-regel kost 0,25% per transactie.",
         "eerlijk_over_het_moment": "GRID staat +28,6% over 12 maanden tegen +21,6% voor de wereldindex, en 9,5% onder zijn top. Je koopt iets dat al gelopen heeft — precies wat drukte 2 op de thema-kaart betekent. Dat is geen reden om het niet te doen bij deze omvang, wel om het niet groter te maken.",
-        "herzien_bij": "EUR 25k — dan gaat het slot pas echt open, en dan opnieuw beoordelen. Niet doorrollen omdat er nu eenmaal al iets staat."
+        "herzien_bij": "EUR 25k — dan gaat het slot pas echt open, en dan opnieuw beoordelen. Niet doorrollen omdat er nu eenmaal al iets staat.",
+        "werkelijke_omvang_eur": 216.4,
+        "gefinancierd_uit": "De KERN-ETF: 20 WEBN verkocht à €12,74. Dat ging in tegen plan-regel 5 ('gefinancierd uit het veilige potje, NIET uit de kern-ETF'). Bezwaren waren gemaakt, Bart heeft anders besloten. Gevolg: kern van 43% naar 37,3%. Herstelregel: de volgende storting gaat EERST naar WEBN tot de kern weer op 40% staat (~€150).",
+        "uitslag": "GEEN AutoFX — de instrumentregel noteert in EUR op Tradegate ondanks de share-class-naam 'A USD'. Les: de naam van de share class zegt niets over de noteringsvaluta; controleer de instrumentregel, niet de fondsnaam."
       }
     }
   },
