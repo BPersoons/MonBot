@@ -63,7 +63,14 @@
         }
       ],
       "_note": "Thema-slot 1, stroom en net. TESTPOSITIE -- dit opent het thema-potje NIET; dat blijft op EUR 25k. Voorwaarden in config/barbell_targets.json onder themes.NET.testpositie: geen timingregel bij instap, geen koersstop bij uitstap, alleen these-breuk.",
-      "_autofx_onbevestigd": "De koers staat in EUR (54,10) en GRID.DE noteert rond EUR 54, dus het LIJKT de euro-regel. Maar AutoFX is niet AFGELEZEN van het transactiedetail, en dat was juist de test. Open de transactie in DEGIRO en controleer of er EUR 0,00 staat. Niet aannemen."
+      "_testuitslag": {
+        "gemeten_op": "2026-08-20",
+        "autofx": "GEEN — de instrumentregel noteert in EUR op Tradegate (TDG | GRID | IE000J80JTL1 | EUR), ook al heet de share class 'A USD'. Geen valuta-omzetting in de transactie, dus geen AutoFX.",
+        "les": "De naam van de share class zegt NIETS over de noteringsvaluta. Een USD-share-class is gewoon in euro's te kopen als de beurs een euro-regel voert. Controleer de instrumentregel, niet de fondsnaam — zelfde soort fout als 'controleer het mandje, niet het label'.",
+        "spread_bij_meting": "bied 54,18 / laat 54,26 = 0,08 op ~54,2 = 0,15%",
+        "wrijving_totaal": "EUR 1 commissie op EUR 216 = 0,46%, plus een halve spread ~0,07% = ~0,53%. Dat is de reden dat min_slot_usd op 500 staat: bij EUR 500 zakt de commissie naar 0,20%.",
+        "nog_te_toetsen": "Tweede positie in twee rollen in NAV: WERKT (kern 37,3% + thema 4,7%, eigen labels, eigen datumstempel)."
+      }
     }
   ],
   "laatst_bijgewerkt": "2026-08-20",

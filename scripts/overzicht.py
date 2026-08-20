@@ -361,7 +361,10 @@ def bouw():
             t = slot["testpositie"]
             test = ('<p class="thema-test"><strong>Testpositie €%s — %s</strong><br>'
                     'Instap: geen timingregel, bewust. Verkoop: geen koersstop, alleen these-breuk. '
-                    'Dit opent het thema-potje NIET; dat blijft op €25k.</p>'
+                    'Dit opent het thema-potje NIET; dat blijft op €25k.<br>'
+                    '<strong>Testuitslag:</strong> geen AutoFX — de regel noteert in EUR op '
+                    'Tradegate, ook al heet de share class 'A USD'. De naam van de share class '
+                    'zegt niets over de noteringsvaluta.</p>'
                     % (t.get("omvang_eur", "?"), _esc(t.get("status", ""))))
 
         tk.append(
