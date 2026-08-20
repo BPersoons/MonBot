@@ -3,7 +3,7 @@
   "_deploy_note": "VOLUME-MOUNTED: de HOST-kopie op de VM wint van de image. Wijzigen doe je in-place op /home/bartpersoons_gmail_com/config/broker_holdings.json — nooit via rename/os.replace, want een single-file bind mount hangt aan de inode. Zie CLAUDE.md.",
   "_hoe_bijwerken": "Na een order: 'aantal' ophogen, 'gekocht_op' zetten, 'kas_eur' gelijktrekken met het werkelijke saldo bij de broker, en 'laatst_bijgewerkt' op vandaag. Controleer daarna met: docker exec agent_trader_swarm python -m utils.nav",
   "broker": "DEGIRO",
-  "kas_eur": 0.0,
+  "kas_eur": 5.01,
   "posities": [
     {
       "isin": "IE0003XJA0J9",
@@ -12,11 +12,24 @@
       "yahoo_ticker": "WEBN.DE",
       "beurs_aankoop": "Tradegate",
       "valuta": "EUR",
-      "aantal": 0,
-      "gekocht_op": null,
+      "aantal": 156,
+      "gekocht_op": "2026-08-20",
       "rol": "kern",
-      "_note": "Het wereldindexfonds — 40% van Fase A. Zie docs/KERN_ETF_KEUZE.md. yahoo_ticker staat op Xetra (WEBN.DE) omdat Yahoo Tradegate niet quoteert; zelfde fonds, zelfde ISIN, verwaarloosbaar prijsverschil."
+      "_note": "Het wereldindexfonds — 40% van Fase A. Zie docs/KERN_ETF_KEUZE.md. yahoo_ticker staat op Xetra (WEBN.DE) omdat Yahoo Tradegate niet quoteert; zelfde fonds, zelfde ISIN, verwaarloosbaar prijsverschil.",
+      "gemiddelde_koers_eur": 12.782,
+      "kostprijs_eur": 1994.99,
+      "_transacties": [
+        {
+          "datum": "2026-08-20",
+          "id": "540775928",
+          "aantal": 156,
+          "koers_eur": 12.782,
+          "kosten_eur": 1.0,
+          "totaal_eur": 1994.99,
+          "beurs": "XGAT (Tradegate)"
+        }
+      ]
     }
   ],
-  "laatst_bijgewerkt": null
+  "laatst_bijgewerkt": "2026-08-20"
 }
