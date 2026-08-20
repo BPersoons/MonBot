@@ -293,33 +293,91 @@ def bouw():
         for v, u in BESLISSINGEN)
 
     # ── thema's ───────────────────────────────────────────────────────────────
-    # Boven de namen, want dat is de vololgorde van de hiërarchie: een thema
-    # levert kandidaten, het is nooit zelf een koopbeslissing.
-    _rang = {"IN DE TRECHTER": 0, "VOLGEN": 1, "AFVALLER": 2}
-    themas_gesorteerd = sorted(themas, key=lambda k: (_rang.get(k.get("verdict"), 3),
-                                                      -(k.get("scores", {}).get("hardheid_geld") or 0)))
+    # Boven de namen, want dat is de volgorde van de hiërarchie: een thema levert
+    # kandidaten, het is nooit zelf een koopbeslissing. Gerangschikt op SLOT —
+    # dat is de vraag die je stelt ("waar gaat het geld heen"), niet op verdict.
+    barbell = _laad("config/barbell_targets.json", {"themes": {}}).get("themes", {})
+    broker = _laad("config/broker_holdings.json", {"posities": []}).get("posities", [])
+    thema_posities = {p.get("rol"): p for p in broker if p.get("rol") not in (None, "kern")
+                      and (p.get("aantal") or 0) > 0}
+
+    def _status(kaart):
+        """Wat is de STAND van dit thema: staat er geld in, ligt het klaar, of niet?"""
+        sleutel = kaart.get("barbell_slot")
+        slot = barbell.get(sleutel) if sleutel else None
+        if slot and thema_posities.get(sleutel):
+            return ("POSITIE", "goed", 0, slot)
+        if slot and slot.get("testpositie"):
+            return ("TESTPOSITIE KLAAR", "goed", 1, slot)
+        if slot and slot.get("actief") is False:
+            return ("GESCHRAPT ALS SLOT", "kritiek", 8, slot)
+        if slot and slot.get("slot_order"):
+            return ("SLOT %d · WACHT OP KAPITAAL" % slot["slot_order"], "neutraal",
+                    1 + slot["slot_order"], slot)
+        return ("GEEN SLOT", "neutraal", 7, None)
+
+    verrijkt = []
+    for k in themas:
+        label, klasse, orde, slot = _status(k)
+        verrijkt.append((orde, -(k.get("scores", {}).get("hardheid_geld") or 0), k, label, klasse, slot))
+    verrijkt.sort(key=lambda x: (x[0], x[1]))
+
     tk = []
-    for k in themas_gesorteerd:
+    for _o, _h, k, label, klasse, slot in verrijkt:
         sc = k.get("scores", {})
         hardste = (k.get("bronnen") or [{}])[0]
-        klasse = {"IN DE TRECHTER": "goed", "VOLGEN": "neutraal"}.get(k.get("verdict"), "kritiek")
         balk = "".join(
             '<span class="dim"><b>%s</b><i>%s</i></span>' % (_esc(lab), sc.get(sl) or "?")
             for lab, sl in [("geld", "hardheid_geld"), ("tolhuisje", "aard_tolhuisje"),
                             ("fase", "fase_doorbraak"), ("drukte", "drukte"),
                             ("instrument", "instrumenteerbaarheid")])
+
+        # Het instrument is een APARTE vraag van het thema — dat onderscheid is in
+        # dit project al een keer misgegaan, dus het staat er expliciet bij.
+        inst = k.get("instrument") or {}
+        tw = inst.get("ucits_tweeling") or {}
+        # VOLGORDE: een afgewezen fonds wint van een ingevuld slot. Anders leest de
+        # pagina alsof defensie een instrument heeft, terwijl regel 2 EUDF bij naam
+        # afwijst — en dan draagt het dashboard een bewering die het plan tegenspreekt.
+        if tw.get("status", "").startswith("AFGEWEZEN"):
+            fonds = ('<span class="neer">geen geldig fonds</span> — %s staat in de config '
+                     'maar is afgewezen op regel 2 (index voor het product gemaakt, '
+                     'gelanceerd op de piek)' % _esc(slot.get("ticker", "?") if slot else "?"))
+        elif slot and slot.get("actief") is False:
+            fonds = ('<span class="zacht">%s — niet meer in gebruik; dit slot is geschrapt</span>'
+                     % _esc(slot.get("ticker", "?")))
+        elif slot and slot.get("isin"):
+            fonds = "%s · %s · %.2f%%/jr" % (_esc(slot.get("ticker", "?")),
+                                             _esc(slot["isin"]), slot.get("ter_pct", 0))
+            if tw.get("overlap_hermeten"):
+                fonds += ' · <span class="op">ketenoverlap %.1f%%</span>' % tw.get("overlap_pct", 0)
+            elif tw.get("isin"):
+                fonds += ' · <span class="zacht">overlap nog niet hermeten</span>'
+        else:
+            fonds = '<span class="zacht">geen koopbaar fonds aangewezen</span>'
+
+        test = ""
+        if slot and slot.get("testpositie"):
+            t = slot["testpositie"]
+            test = ('<p class="thema-test"><strong>Testpositie €%s — %s</strong><br>'
+                    'Instap: geen timingregel, bewust. Verkoop: geen koersstop, alleen these-breuk. '
+                    'Dit opent het thema-potje NIET; dat blijft op €25k.</p>'
+                    % (t.get("omvang_eur", "?"), _esc(t.get("status", ""))))
+
         tk.append(
             '<div class="thema">'
             '<div class="thema-kop"><h3>%s</h3><span class="pil %s">%s</span></div>'
             '<p class="thema-geld"><b>%s</b> — %s <span class="bron">(%s, %s)</span></p>'
             '<p class="thema-tol">Tolhuisje: <b>%s</b> · %s</p>'
             '<div class="dims">%s</div>'
+            '<p class="thema-fonds">Fonds: %s</p>'
+            '%s'
             '<p class="thema-actie">%s</p></div>'
-            % (_esc(k.get("naam", "?")), klasse, _esc(k.get("verdict", "?")),
+            % (_esc(k.get("naam", "?")), klasse, _esc(label),
                _esc(hardste.get("bedrag", "?")), _esc(hardste.get("wat", "")),
                _esc(hardste.get("bron", "")), _esc(hardste.get("datum", "")),
                _esc(k.get("tolhuisje_schakel", "?")), _esc(k.get("tolhuisje_soort", "")),
-               balk,
+               balk, fonds, test,
                _esc(k.get("actie") or (k.get("wacht_voorwaarden") or ["—"])[0])))
     themas_html = "".join(tk) or '<p class="leeg">Nog geen thema-kaarten.</p>'
 
@@ -443,6 +501,15 @@ h2{font-family:Georgia,"Iowan Old Style",serif;font-weight:normal;font-size:1.3r
 .dim i{font-style:normal;font-family:ui-monospace,Consolas,monospace;font-weight:650}
 .thema-actie{margin:0;font-size:.85rem;color:var(--inkt2);border-left:2px solid var(--rand);
   padding-left:10px}
+.thema-fonds{margin:.1rem 0 .6rem;font-size:.84rem;color:var(--inkt2)}
+.thema-test{margin:.2rem 0 .7rem;font-size:.84rem;color:var(--inkt2);background:var(--accent-zacht);
+  border-radius:6px;padding:9px 12px}
+.nu{background:var(--veld);border:1px solid var(--rand);border-left:3px solid var(--accent);
+  border-radius:3px;padding:16px 20px;margin-top:1.6rem}
+.nu h2{font-size:1.08rem;margin:0 0 .5rem}
+.nu ol{margin:0;padding-left:1.25rem}
+.nu li{margin-bottom:.4rem;font-size:.92rem;color:var(--inkt2)}
+.nu li strong{color:var(--inkt)}
 .leeg{color:var(--zacht);font-size:.9rem}
 .scroll{overflow-x:auto}
 .groepkop td{padding-top:22px;padding-bottom:6px;border-bottom:2px solid currentColor;opacity:.95}.groepkop strong{font-size:15px}.groepuitleg{font-weight:400;opacity:.62;font-size:12.5px;margin-top:3px;max-width:70ch}
@@ -476,6 +543,18 @@ a{color:var(--accent)}
 
 <div class="tegels">{{TEGELS}}</div>
 
+<div class="nu">
+  <h2>Wat nu telt</h2>
+  <ol>
+    <li><strong>Inleg.</strong> Eén procentpunt rendement is $54; de vaste kosten zijn $160 per
+    jaar. Elke euro erbij verlaagt de horde en doet meer dan elke analyse die er nog ligt.</li>
+    <li><strong>Eén order kan vandaag:</strong> de testpositie van €250 in slot 1 (stroom en net).
+    Voorwaarden staan vast — het test de uitvoering, niet de selectie.</li>
+    <li><strong>De rest wacht op iets buiten ons:</strong> de twintig namen op kwartaalcijfers
+    (eind oktober), de thema-slots op €25k, de poort op februari 2027.</li>
+  </ol>
+</div>
+
 <div class="sectie">
   <h2>Waar het geld staat</h2>
   <p class="sectie-intro">Sinds 20 augustus staat het grootste deel niet meer in crypto:
@@ -501,11 +580,15 @@ a{color:var(--accent)}
 
 <div class="sectie">
   <h2>Thema's</h2>
-  <p class="sectie-intro">Gerangschikt op <strong>hardheid van het geld</strong> — is er
-  budget vastgelegd, of verwacht iemand iets? Marktramingen tellen niet mee. Een thema is
-  nooit zelf een koopbeslissing: het levert kandidaten voor de namen hieronder, en het
-  instrument is daarna nog een aparte vraag. De vijf cijfers zijn 1-5, waarbij
-  <em>drukte</em> omgekeerd werkt: hoog betekent dat de menigte weg is.</p>
+  <p class="sectie-intro">Gerangschikt op <strong>waar het geld heen gaat</strong>: eerst wat
+  een positie heeft of klaarstaat, dan de slots die op kapitaal wachten, dan de rest. De
+  volgorde van de slots volgt de kaarten hieronder — hardheid van het geld weegt het zwaarst,
+  want dat is de enige dimensie die niets voorspelt.</p>
+  <p class="sectie-intro">Twee dingen die je uit elkaar moet houden. Een <strong>thema</strong>
+  is nooit zelf een koopbeslissing — het levert kandidaten voor de namen hieronder. Het
+  <strong>fonds</strong> is daarna een aparte vraag, en die is twee keer anders uitgevallen dan
+  het thema deed vermoeden. De vijf cijfers zijn 1-5, waarbij <em>drukte</em> omgekeerd werkt:
+  hoog betekent dat de menigte weg is, dus laag is een waarschuwing.</p>
   <div class="themas">{{THEMAS}}</div>
 </div>
 

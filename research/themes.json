@@ -103,7 +103,8 @@
      "overlap_gemeten_op": "2026-08-20"
     },
     "gevonden_op": "2026-08-20"
-   }
+   },
+   "barbell_slot": "NET"
   },
   {
    "naam": "Nucleair",
@@ -185,7 +186,8 @@
     "ucits_tweeling": null,
     "let_op": "Het oordeel 'geen enkel fonds drukt de these uit' is uitsluitend op VS-fondsen gebaseerd. De Europese plank (o.a. Global X Uranium UCITS, VanEck Uranium and Nuclear Technologies) is NIET bekeken; die mandjes wijken af. Openstaand.",
     "gevonden_op": "2026-08-20"
-   }
+   },
+   "barbell_slot": null
   },
   {
    "naam": "Defensie (Europa)",
@@ -272,7 +274,8 @@
      "overlap_hermeten": false
     },
     "gevonden_op": "2026-08-20"
-   }
+   },
+   "barbell_slot": "DEFENSE"
   },
   {
    "naam": "AI-infrastructuur",
@@ -357,8 +360,10 @@
      "overlap_hermeten": false
     },
     "gevonden_op": "2026-08-20"
-   }
+   },
+   "barbell_slot": "SEMIS"
   }
  ],
- "_instrument_waarschuwing": "De instrumenten hieronder zijn Amerikaans genoteerd en voor een Europese particulier NIET koopbaar (PRIIPs/KID, geldt bij elke broker). Dat is prima om de keten te meten en om holdings als kandidatenbron te gebruiken -- er komen namen uit, geen fonds. Maar een thema-slot vullen vraagt de UCITS-variant, EN die volgt vaak een andere indexvariant, dus de gemeten overlap draagt NIET over. Hermeten voor aankoop. Zie docs/FONDSKEUZE_METHODE.md, sectie 'Wat je kunt meten is niet wat je kunt kopen'."
+ "_instrument_waarschuwing": "De instrumenten hieronder zijn Amerikaans genoteerd en voor een Europese particulier NIET koopbaar (PRIIPs/KID, geldt bij elke broker). Dat is prima om de keten te meten en om holdings als kandidatenbron te gebruiken -- er komen namen uit, geen fonds. Maar een thema-slot vullen vraagt de UCITS-variant, EN die volgt vaak een andere indexvariant, dus de gemeten overlap draagt NIET over. Hermeten voor aankoop. Zie docs/FONDSKEUZE_METHODE.md, sectie 'Wat je kunt meten is niet wat je kunt kopen'.",
+ "_koppeling": "barbell_slot verbindt een thema-kaart met het slot in config/barbell_targets.json. Null = geen slot. Let op: een kaart en een slot zijn NIET hetzelfde -- een kaart levert kandidaten voor de trechter, een slot koopt een fonds. Zie docs/FONDSKEUZE_METHODE.md."
 }

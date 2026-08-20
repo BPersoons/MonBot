@@ -77,7 +77,32 @@
       "slot_order": 1,
       "_ketenoverlap": "74,4% (43,01 van 57,79 procentpunt van de top-10 in netapparatuur+EPC), hermeten op de UCITS-holdings per 2026-06-30, script keten_overlap.py -> net_analyse(). Iets HOGER dan de 72,2% van de Amerikaanse GRID, dus de Exclusions-variant breekt de these niet.",
       "_waarom_slot_1": "Enige van de vier thema-kaarten dat op alle vijf dimensies redelijk scoort: hard geld 5, tolhuisje 4, fase 5, drukte 2, instrument 5. Verdict IN DE TRECHTER.",
-      "_openstaand": "TER 0,63% is negen keer het wereldindexfonds -- de bewijslast ligt bij de satelliet. Kernselectie GEVERIFIEERD 2026-08-20 (badge in DEGIRO), dus EUR 1 per order op Tradegate. LET OP bij aankoop: de share class heet 'A USD'. Dat is de FONDSvaluta, niet per se de NOTERINGSvaluta -- koop de in euro's genoteerde regel en controleer dat AutoFX EUR 0,00 is, zoals bij WEBN. Een USD-regel kost 0,25% per transactie."
+      "_openstaand": "TER 0,63% is negen keer het wereldindexfonds -- de bewijslast ligt bij de satelliet. Kernselectie GEVERIFIEERD 2026-08-20 (badge in DEGIRO), dus EUR 1 per order op Tradegate. LET OP bij aankoop: de share class heet 'A USD'. Dat is de FONDSvaluta, niet per se de NOTERINGSvaluta -- koop de in euro's genoteerde regel en controleer dat AutoFX EUR 0,00 is, zoals bij WEBN. Een USD-regel kost 0,25% per transactie.",
+      "testpositie": {
+        "status": "VOORWAARDEN VASTGELEGD — nog niet gekocht",
+        "vastgelegd_op": "2026-08-20",
+        "wat_dit_is": "Een UITVOERINGStest. Dit opent het thema-potje NIET; dat blijft op EUR 25k.",
+        "omvang_eur": 250,
+        "eenmalig": true,
+        "instapregel": "GEEN TIMINGREGEL — bewust. Koop op de dag zelf tegen de dan geldende prijs. De eigen fondskeuze-methode heeft gemeten dat de fondskeuze 57-426pp waard is en narekenbaar, terwijl de instap ~90pp waard is en een glazen bol vraagt. Een timingregel verzinnen voor een testpositie zou precies de fout zijn die het plan verbiedt: een reden die je op de dag zelf bedenkt.",
+        "wat_het_test": [
+          "Bijt AutoFX op een USD-share-class? WEBN was een euro-fonds en testte dit niet.",
+          "Klopt config/broker_holdings.json met TWEE posities in TWEE rollen (kern + thema)?",
+          "Een echt kostencijfer op een fonds van 0,63% i.p.v. 0,07%."
+        ],
+        "wat_het_NIET_test": "Of de selectie klopt. Een positie is een steekproef van een. Verwar dit niet met bewijs dat stroom en net het juiste thema is.",
+        "verkoopregels": {
+          "koersstop": "GEEN. Dit is een vasthoudpositie; een koersstop hoort daar niet bij. Het plan schrijft voor de selectie expliciet 'geen koersstop, wel een these-stop'.",
+          "these_stop": [
+            "Datacenter-capex wordt teruggeschroefd — de vraag onder de netinvestering valt weg.",
+            "Levertijden van transformatoren normaliseren — het capaciteitsknelpunt verdwijnt en daarmee de prijszettingsmacht.",
+            "Toezichthouders keuren de capexplannen niet goed of vertragen ze — dan is het geld niet vastgelegd, en dat was de hele reden dat dit thema bovenaan staat."
+          ]
+        },
+        "aandachtspunt_bij_kopen": "Share class heet 'A USD'. Dat is de FONDSvaluta, niet per se de NOTERINGSvaluta. Koop de in euro's genoteerde regel op Tradegate en controleer dat AutoFX EUR 0,00 toont, zoals bij WEBN. Een USD-regel kost 0,25% per transactie.",
+        "eerlijk_over_het_moment": "GRID staat +28,6% over 12 maanden tegen +21,6% voor de wereldindex, en 9,5% onder zijn top. Je koopt iets dat al gelopen heeft — precies wat drukte 2 op de thema-kaart betekent. Dat is geen reden om het niet te doen bij deze omvang, wel om het niet groter te maken.",
+        "herzien_bij": "EUR 25k — dan gaat het slot pas echt open, en dan opnieuw beoordelen. Niet doorrollen omdat er nu eenmaal al iets staat."
+      }
     }
   },
   "_broker": "DEGIRO. Alle bovenstaande ISIN's staan in de ETF-kernselectie (geverifieerd 2026-07-30 tegen de lijst van 1.415 fondsen), dus EUR 1 per order op Tradegate = 0,2% op een slot van $500. Saxo was eerder in beeld voor AutoInvest bij kleine wekelijkse tranches; met de slot-regel doen we weinig, grotere orders en wint DEGIRO.",
