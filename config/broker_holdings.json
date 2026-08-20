@@ -3,7 +3,7 @@
   "_deploy_note": "VOLUME-MOUNTED: de HOST-kopie op de VM wint van de image. Wijzigen doe je in-place op /home/bartpersoons_gmail_com/config/broker_holdings.json — nooit via rename/os.replace, want een single-file bind mount hangt aan de inode. Zie CLAUDE.md.",
   "_hoe_bijwerken": "Na een order: 'aantal' ophogen, 'gekocht_op' zetten, 'kas_eur' gelijktrekken met het werkelijke saldo bij de broker, en 'laatst_bijgewerkt' op vandaag. Controleer daarna met: docker exec agent_trader_swarm python -m utils.nav",
   "broker": "DEGIRO",
-  "kas_eur": 5.01,
+  "kas_eur": 41.41,
   "posities": [
     {
       "isin": "IE0003XJA0J9",
@@ -12,12 +12,12 @@
       "yahoo_ticker": "WEBN.DE",
       "beurs_aankoop": "Tradegate",
       "valuta": "EUR",
-      "aantal": 156,
+      "aantal": 136,
       "gekocht_op": "2026-08-20",
       "rol": "kern",
       "_note": "Het wereldindexfonds — 40% van Fase A. Zie docs/KERN_ETF_KEUZE.md. yahoo_ticker staat op Xetra (WEBN.DE) omdat Yahoo Tradegate niet quoteert; zelfde fonds, zelfde ISIN, verwaarloosbaar prijsverschil.",
       "gemiddelde_koers_eur": 12.782,
-      "kostprijs_eur": 1994.99,
+      "kostprijs_eur": 1738.35,
       "_transacties": [
         {
           "datum": "2026-08-20",
@@ -27,9 +27,45 @@
           "kosten_eur": 1.0,
           "totaal_eur": 1994.99,
           "beurs": "XGAT (Tradegate)"
+        },
+        {
+          "datum": "2026-08-20",
+          "tijd": "15:27",
+          "aantal": -20,
+          "koers_eur": 12.74,
+          "kosten_eur": 1.0,
+          "beurs": "Tradegate",
+          "_waarom": "Verkocht om de thema-testpositie te financieren. Dit ging IN tegen plan-regel 5 ('gefinancierd uit het veilige potje, NIET uit de kern-ETF') -- bewuste keuze van Bart, bezwaren waren gemaakt. Gevolg: kern van 43% naar ~38%, dus onder het doel van 40%."
         }
-      ]
+      ],
+      "gerealiseerd_eur": -1.84
+    },
+    {
+      "isin": "IE000J80JTL1",
+      "naam": "First Trust Nasdaq Clean Edge Smart Grid Infrastructure UCITS",
+      "ticker": "GRID",
+      "yahoo_ticker": "GRID.DE",
+      "beurs_aankoop": "Tradegate",
+      "valuta": "EUR",
+      "aantal": 4,
+      "gekocht_op": "2026-08-20",
+      "gemiddelde_koers_eur": 54.1,
+      "kostprijs_eur": 217.4,
+      "rol": "thema",
+      "_transacties": [
+        {
+          "datum": "2026-08-20",
+          "tijd": "15:30",
+          "aantal": 4,
+          "koers_eur": 54.1,
+          "kosten_eur": 1.0,
+          "beurs": "Tradegate"
+        }
+      ],
+      "_note": "Thema-slot 1, stroom en net. TESTPOSITIE -- dit opent het thema-potje NIET; dat blijft op EUR 25k. Voorwaarden in config/barbell_targets.json onder themes.NET.testpositie: geen timingregel bij instap, geen koersstop bij uitstap, alleen these-breuk.",
+      "_autofx_onbevestigd": "De koers staat in EUR (54,10) en GRID.DE noteert rond EUR 54, dus het LIJKT de euro-regel. Maar AutoFX is niet AFGELEZEN van het transactiedetail, en dat was juist de test. Open de transactie in DEGIRO en controleer of er EUR 0,00 staat. Niet aannemen."
     }
   ],
-  "laatst_bijgewerkt": "2026-08-20"
+  "laatst_bijgewerkt": "2026-08-20",
+  "_kas_herkomst": "AFGELEID uit de drie transacties, niet afgelezen van de rekening. Controleer tegen het werkelijke saldo bij DEGIRO en corrigeer zo nodig."
 }

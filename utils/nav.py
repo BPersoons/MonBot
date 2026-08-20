@@ -235,7 +235,8 @@ def _broker():
         bucket["regels"].append("%s %g à %.2f %s"
                                 % (pos.get("ticker"), aantal, koers, pos.get("valuta")))
 
-    _labels = {"kern": "Kern — wereldindexfonds (broker)"}
+    _labels = {"kern": "Kern — wereldindexfonds (broker)",
+               "thema": "Thema-slot 1 — stroom en net (broker)"}
     for rol, b in sorted(per_rol.items()):
         label = _labels.get(rol, "Broker — %s" % rol)
         if b["fout"]:

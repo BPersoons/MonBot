@@ -548,8 +548,10 @@ a{color:var(--accent)}
   <ol>
     <li><strong>Inleg.</strong> Eén procentpunt rendement is $54; de vaste kosten zijn $160 per
     jaar. Elke euro erbij verlaagt de horde en doet meer dan elke analyse die er nog ligt.</li>
-    <li><strong>Eén order kan vandaag:</strong> de testpositie van €250 in slot 1 (stroom en net).
-    Voorwaarden staan vast — het test de uitvoering, niet de selectie.</li>
+    <li><strong>Je kern staat onder doel.</strong> De testpositie is gefinancierd door 20 WEBN
+    te verkopen, dus de kern zakte van 43% naar 37%. Dat ging in tegen de eigen regel
+    (<em>"gefinancierd uit het veilige potje, niet uit de kern-ETF"</em>). Regel voor de
+    volgende storting: <strong>eerst WEBN terug naar 40%</strong>, daarna pas iets anders.</li>
     <li><strong>De rest wacht op iets buiten ons:</strong> de twintig namen op kwartaalcijfers
     (eind oktober), de thema-slots op €25k, de poort op februari 2027.</li>
   </ol>
