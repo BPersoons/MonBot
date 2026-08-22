@@ -330,14 +330,13 @@ class ShadowBasis:
             f"funding=${funding_usd:.2f} price_pnl=${price_pnl_usd:.2f} "
             f"fees=${fees_usd:.2f} net=${net_pnl_usd:.2f} (~{net_apy_pct:.1f}% APY)"
         )
-        self._send_telegram(
-            f"🧪 *Shadow Basis (virtueel, geen echt kapitaal)*\n"
-            f"{state['asset']} gesloten na {hours_held:.1f}h — {reason}\n"
-            f"Funding: ${funding_usd:+.2f} | Prijs-hedge: ${price_pnl_usd:+.2f} | "
-            f"Fees (model): -${fees_usd:.2f}\n"
-            f"*Netto: ${net_pnl_usd:+.2f}* (~{net_apy_pct:+.0f}% APY geannualiseerd — "
-            f"bij korte holds domineren fees dit getal, zie report voor cumulatief)"
-        )
+        # BEWUST GEEN Telegram-melding per virtuele sluiting (2026-08-22).
+        # Dit is een papieren motor zonder echt kapitaal en hij sloot ~32 posities
+        # per dag -- verreweg de meeste meldingen die binnenkwamen, en geen enkele
+        # vroeg om actie. De cijfers staan in de logregel hierboven en in het
+        # rapport, en daily_status_text() hangt al onder de dagelijkse
+        # NAV-samenvatting in main.py. Een melding die je leert wegklikken kost je
+        # de echte.
 
     def _send_telegram(self, text: str) -> None:
         token = os.getenv("TELEGRAM_BOT_TOKEN", "")

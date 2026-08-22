@@ -1254,14 +1254,35 @@ class SwarmMonitor:
         # Only relevant once the sleeve is actually live (its state file exists).
         if not os.path.exists("thematic_exposure_positions.json"):
             return
-        client = getattr(self.exchange_client, "signing_client", None)
-        if client is None:
-            return
+        # Twee fouten hersteld op 2026-08-22, samen goed voor twee VALSE alarmen per dag:
+        #  (a) las de HOOFDwallet via exchange_client.signing_client, terwijl de sleeve
+        #      op een eigen wallet draait (HL_THEMATIC_WALLET_ADDRESS);
+        #  (b) die ccxt-client ziet de xyz-perp-dex helemaal niet — hij laadt wel 1475
+        #      markten maar geen enkele xyz-perp — en gaf dus stelselmatig 0.0 terug.
+        #      Dat las de check als "leeg" en alarmeerde, terwijl de sleeve gewoon zes
+        #      posities open had staan. Zie CLAUDE.md over de xyz-perp-dex.
+        # Nu: de sleeve-wallet, rechtstreeks via de info-API mét dex-parameter.
         try:
-            bal = client.fetch_balance(params={"dex": "xyz"})
-            ms = (bal.get("info", {}) or {}).get("marginSummary", {}) or {}
+            from utils.gcp_secrets import get_secret
+            addr = get_secret("HL_THEMATIC_WALLET_ADDRESS") or ""
+        except Exception:
+            addr = ""
+        if not addr:
+            return  # sleeve draait niet op een eigen wallet — niets te bewaken
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                "https://api.hyperliquid.xyz/info",
+                data=json.dumps({"type": "clearinghouseState",
+                                 "user": addr, "dex": "xyz"}).encode(),
+                headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                d = json.load(resp)
+            ms = d.get("marginSummary", {}) or {}
             xyz_value = float(ms.get("accountValue", 0.0) or 0.0)
         except Exception as e:
+            # Een mislukte uitlezing is GEEN nulwaarde. Stil overslaan is hier juist:
+            # alarmeren op een netwerkfout is precies hoe dit alarm vals werd.
             logger.debug(f"_check_thematic_xyz_collateral: fetch failed: {e}")
             return
 

@@ -839,8 +839,16 @@ class PerformanceAuditor:
 
     _DIGEST_STATE_FILE = "rsi_digest_state.json"
 
+    # Uit sinds 2026-08-22. Een dagelijkse RSI-voortgangsdigest zegt niets zolang de
+    # directionele trader gepauzeerd staat (score_threshold 0,40) — hij meldde elke
+    # ochtend voortgang op een pijplijn die niets doet. Zet op True zodra er weer
+    # gehandeld wordt; de opbouw (_build_rsi_digest) is bewust blijven staan.
+    RSI_DIGEST_ENABLED = False
+
     def maybe_send_rsi_digest(self):
         """Send a daily RSI progress digest via Telegram. Called every audit cycle."""
+        if not self.RSI_DIGEST_ENABLED:
+            return
         try:
             # Once-per-day gate
             today = datetime.now().strftime("%Y-%m-%d")
