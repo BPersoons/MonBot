@@ -1,10 +1,14 @@
 name: CI — Import Check
 
+# Ook op push naar main. Dat ontbrak, en daardoor kon op 2026-08-20 een generator
+# met een syntaxfout ongemerkt in main belanden: er wordt in dit project geregeld
+# rechtstreeks naar main gepusht, en dan draaide er niets. De check loopt al over
+# de hele boom inclusief scripts/, dus hij zou hem gevangen hebben.
 on:
   pull_request:
     branches: [main]
   push:
-    branches: ["feature/**"]
+    branches: [main, "feature/**"]
 
 jobs:
   import-check:
