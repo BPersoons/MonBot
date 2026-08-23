@@ -1,4 +1,4 @@
-name: NFT-bewaking — dagelijks
+name: Wallet-bewaking — dagelijks
 
 # Waarom hier en niet op de VM: net als de scorekaart staat de state (research/
 # nft_watch.json) in git, dus de repo IS de bron. Een kopie op de VM zou de waarheid
@@ -57,14 +57,36 @@ jobs:
             -d disable_web_page_preview=true \
             --data-urlencode "text=${MSG}"
 
+      # Tweede bewaking, zelfde job: ~205 tokens waarvan er 161 vandaag GEEN
+      # handelspaar hebben. De vraag is niet "is het meer waard" maar "kan ik
+      # eruit" -- vandaar liquiditeit en niet koers. Het is een VERANDERINGS-
+      # detector: bij de eerste run is per token vastgelegd of het toen al
+      # verhandelbaar was, en alleen wat toen dood was kan alarm slaan.
+      - name: Tokens meten en trigger bepalen
+        id: tokens
+        run: python scripts/token_watch.py
+
+      - name: Telegram bij een opgeleefd token
+        if: steps.tokens.outputs.token_triggered == 'true'
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MSG: ${{ steps.tokens.outputs.token_message }}
+        run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
+            echo "::warning::Telegram-secrets ontbreken — melding overgeslagen"
+            exit 0
+          fi
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage"             -d chat_id="${TG_CHAT}"             -d parse_mode=HTML             -d disable_web_page_preview=true             --data-urlencode "text=${MSG}"
+
       - name: Stand terugcommitten
         run: |
           git config user.name  "nft-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/nft_watch.json
+          git add research/nft_watch.json research/token_watch.json
           if git diff --staged --quiet; then
             echo "Geen wijziging in de bewakingsstand."
           else
-            git commit -m "chore(nft): bewaking $(date -u +%F)"
+            git commit -m "chore(wallet): bewaking $(date -u +%F)"
             git push
           fi
