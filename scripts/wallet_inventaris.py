@@ -1,7 +1,7 @@
 """Inventaris van één wallet over alle ketens waar hij actief is.
 
     python scripts/wallet_inventaris.py [adres]
-    python scripts/wallet_inventaris.py --prijzen    # ook de ongeprijsde tokens opzoeken (traag)
+    python scripts/wallet_inventaris.py --snel        # ongeprijsde tokens overslaan (dan is het totaal een ondergrens)
 
 ## Waarom dit bestaat
 
@@ -55,6 +55,9 @@ RPC_UA = dict(UA, **{"Content-Type": "application/json"})
 LOKAAS = re.compile(
     r"(https?://|www\.|\.(io|com|net|xyz|site|fi|org|club|pro|finance|gifts?)\b"
     r"|visit |claim |airdrop|reward|voucher|gift|free )", re.I)
+
+# Wikkels die 1:1 met de native munt lopen maar waar de indexer geen koers voor heeft.
+EEN_OP_EEN_MET_NATIVE = {"Blur Pool"}
 
 KETENS = [
     # naam,        rpc,                                              blockscout,                        munt,   coingecko-id
@@ -129,9 +132,10 @@ def main():
     adres = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].startswith("0x") else STANDAARD_ADRES
     print("Wallet: %s\n" % adres)
 
+    snel = "--snel" in sys.argv
     koersen = native_prijzen([k[4] for k in KETENS])
     totaal = 0.0
-    onvolledig, groepen = [], {}
+    onvolledig, groepen, extra = [], {}, []
 
     for naam, rpc_url, bs, munt, cg in KETENS:
         try:
@@ -170,6 +174,14 @@ def main():
                     w = b * float(rate)
                     met_koers.append((w, sym, b, float(rate)))
                     totaal += w
+                elif nm in EEN_OP_EEN_MET_NATIVE and pr:
+                    # Blur Pool (bETH) is 1:1 met ETH maar heeft bij Blockscout geen
+                    # koers. De eerste versie liet hem daardoor uit het TOTAAL vallen
+                    # -- $6.356, de vierde grootste post. Dezelfde fout als hierboven,
+                    # nu in de optelling in plaats van in de indeling.
+                    w = b * pr
+                    met_koers.append((w, "%s (1:1 %s)" % (sym or nm, munt), b, pr))
+                    totaal += w
                 elif LOKAAS.search(nm + " " + sym):
                     lokaas.append(sym)
                 else:
@@ -197,41 +209,49 @@ def main():
         if geen_koers or lokaas:
             print("            %d zonder koers · %d lokaas-patroon (nooit aanraken)"
                   % (len(geen_koers), len(lokaas)))
+        # Ongeprijsde posities NIET stil laten verdwijnen. Sorteren op SALDO is
+        # zinloos (spam-tokens hebben triljoenen), dus we prijzen ze gewoon bij
+        # DexScreener. Dat maakt het totaal compleet in plaats van een ondergrens
+        # die van de dekking van één indexer afhangt.
+        if not snel:
+            for sym, b, adr in geen_koers:
+                if not adr or b <= 0:
+                    continue
+                m = dex_prijs(adr)
+                time.sleep(0.5)
+                if m and m["usd"] and b * m["usd"] >= 1:
+                    w = b * m["usd"]
+                    totaal += w
+                    extra.append((w, naam, sym, b, m["usd"], m["liq"], m["vol24"]))
+                    print("              + %-12s %16.4f x $%-12.8f = $%-9.2f pool $%.0f"
+                          % (str(sym)[:12], b, m["usd"], w, m["liq"]))
         groepen[naam] = {"geen_koers": geen_koers, "lokaas": lokaas}
         print()
 
     print("=" * 78)
     print("TOTAAL GEMETEN: $%.2f" % totaal)
     print("=" * 78)
+    print("Bevat NIET: NFT's — die staan apart in scripts/nft_wallet_scan.py, want",
+          "
+            floor x stuks is een bovengrens die je bij verkoop niet haalt.")
     if onvolledig:
         print("⚠️ ONVOLLEDIG — hier is NIET gemeten, dus dit is een ONDERGRENS:")
         for o in onvolledig:
             print("   · %s" % o)
     zk = sum(len(g["geen_koers"]) for g in groepen.values())
     lk = sum(len(g["lokaas"]) for g in groepen.values())
-    print("\n%d tokens zonder koers bij de bron — dat is GEEN 'waardeloos'." % zk)
-    print("   Draai met --prijzen om ze bij DexScreener op te zoeken (traag).")
+    print("")
+    print("%d tokens zonder koers bij de indexer — bij DexScreener nagekeken." % zk)
     print("%d tokens met een lokaas-naam (URL of claim-instructie). Nooit aanraken." % lk)
 
-    if "--prijzen" in sys.argv:
-        print("\n" + "=" * 78)
-        print("ONGEPRIJSDE TOKENS OPGEZOCHT BIJ DEXSCREENER")
-        print("=" * 78)
-        gevonden = []
-        for keten, g in groepen.items():
-            for sym, b, contract in g["geen_koers"]:
-                if not contract:
-                    continue
-                m = dex_prijs(contract)
-                time.sleep(0.6)
-                if m and m["usd"] and b * m["usd"] >= 1:
-                    gevonden.append((b * m["usd"], keten, sym, b, m["usd"], m["liq"], m["vol24"]))
-        gevonden.sort(reverse=True)
-        print("  %-10s %-12s %14s %12s %12s %12s" % ("keten", "symbool", "waarde $", "koers $", "pool-liq $", "24u vol $"))
-        for w, keten, sym, b, pr, liq, vol in gevonden:
-            print("  %-10s %-12s %14.2f %12.8f %12.0f %12.0f" % (keten, str(sym)[:12], w, pr, liq, vol))
-        print("\n  extra gevonden waarde: $%.2f over %d tokens" % (sum(r[0] for r in gevonden), len(gevonden)))
-        print("  LET OP: waarde zonder pool-liquiditeit is niet te verzilveren.")
+    if extra:
+        print("")
+        print("Via DexScreener alsnog geprijsd: %d posities, samen $%.2f"
+              % (len(extra), sum(x[0] for x in extra)))
+        print("LET OP: waarde zonder pool-liquiditeit is niet te verzilveren.")
+    if snel:
+        print("")
+        print("--snel: ongeprijsde tokens NIET opgezocht — het totaal is dan een ONDERGRENS.")
 
 
 if __name__ == "__main__":
