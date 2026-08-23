@@ -231,11 +231,10 @@ def main():
     print("=" * 78)
     print("TOTAAL GEMETEN: $%.2f" % totaal)
     print("=" * 78)
-    print("Bevat NIET: NFT's — die staan apart in scripts/nft_wallet_scan.py, want",
-          "
-            floor x stuks is een bovengrens die je bij verkoop niet haalt.")
+    print("Bevat NIET: NFT's. Die staan apart in scripts/nft_wallet_scan.py, want")
+    print("floor x stuks is een bovengrens die je bij verkoop niet haalt.")
     if onvolledig:
-        print("⚠️ ONVOLLEDIG — hier is NIET gemeten, dus dit is een ONDERGRENS:")
+        print("ONVOLLEDIG — hier is NIET gemeten, dus dit is een ONDERGRENS:")
         for o in onvolledig:
             print("   · %s" % o)
     zk = sum(len(g["geen_koers"]) for g in groepen.values())
