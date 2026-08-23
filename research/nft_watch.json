@@ -1,0 +1,64 @@
+{
+  "_comment": "Wat er bewaakt wordt van de Ethereum-wallet, en waarom alleen dit. Uit scripts/nft_wallet_scan.py (2026-08-22): van 109 collecties hadden er DRIE een markt (24u-volume >= $500). De overige 101 hebben geen enkele handel; een floor-prijs is daar een vraagprijs waar niemand op ingaat. Die staan hier bewust NIET in.",
+  "_waarom_streng": "Op 2026-08-22 zijn de Telegram-meldingen van ~43 naar ~2 per dag gebracht. Reden: een melding die je leert wegklikken kost je de echte. Een nieuwe stroom moet die lat halen, dus de drempels hieronder zijn expliciet hoog en er geldt een wachttijd per collectie.",
+  "_regel": "Een trigger vraagt floor EN volume tegelijk. Een floor die stijgt terwijl het volume niet meebeweegt is een optimistische aanbieder, geen verkoopkans — bij deze volumes is dat het normale geval.",
+  "wallet": "0x75a70b3f24eb6f32e75b53fbe9315111d05851d0",
+  "drempels": {
+    "floor_stijging_pct": 30.0,
+    "min_volume_24h_usd": 2000.0,
+    "volume_stijging_pct": 50.0,
+    "cooldown_dagen": 7
+  },
+  "collecties": [
+    {
+      "naam": "Koda",
+      "contract": "0xE012Baf811CF9c05c408e879C399960D1f305903",
+      "stuks": 1,
+      "basis_floor_usd": 1774.14,
+      "basis_volume_24h_usd": 2085.0,
+      "gemeten_op": "2026-08-22",
+      "_note": "Verreweg de grootste post. Otherside/Yuga-ecosysteem, net als Otherdeed."
+    },
+    {
+      "naam": "Otherdeed Expanded",
+      "contract": "0x790B2cF29Ed4F310bf7641f013C65D4560d28371",
+      "stuks": 3,
+      "basis_floor_usd": 179.35,
+      "basis_volume_24h_usd": 4590.86,
+      "gemeten_op": "2026-08-22",
+      "_note": "3 stuks. floor x 3 is een BOVENGRENS: drie stuks tegelijk aanbieden duwt de floor omlaag."
+    },
+    {
+      "naam": "Gemesis",
+      "contract": "0xbe9371326F91345777b04394448c23E2BFEaa826",
+      "stuks": 1,
+      "basis_floor_usd": 29.21,
+      "basis_volume_24h_usd": 7074.0,
+      "gemeten_op": "2026-08-22",
+      "_note": "Hoogste volume van de drie maar een floor van $29 — de melding is hier zelden de moeite."
+    }
+  ],
+  "_dunne_markt_bewust_niet_bewaakt": [
+    "Dooplicator (floor $18,98, volume $309)",
+    "MarsCatsVoyage (floor $61,03, volume $100)",
+    "Mara, 3 stuks (floor $24,24, volume $38)"
+  ],
+  "staat": {
+    "Koda": {
+      "floor_usd": 1504.5,
+      "vol24_usd": 0.0,
+      "gemeten": "2026-08-23T11:55:49+00:00"
+    },
+    "Otherdeed Expanded": {
+      "floor_usd": 175.82,
+      "vol24_usd": 3389.44,
+      "gemeten": "2026-08-23T11:55:49+00:00"
+    },
+    "Gemesis": {
+      "floor_usd": 28.31,
+      "vol24_usd": 1196.31,
+      "gemeten": "2026-08-23T11:55:49+00:00"
+    }
+  },
+  "laatst_gedraaid": "2026-08-23T11:55:49+00:00"
+}

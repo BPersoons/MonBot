@@ -1,0 +1,70 @@
+name: NFT-bewaking — dagelijks
+
+# Waarom hier en niet op de VM: net als de scorekaart staat de state (research/
+# nft_watch.json) in git, dus de repo IS de bron. Een kopie op de VM zou de waarheid
+# op twee plekken zetten — de fout die dit project al drie keer heeft geraakt.
+# Deze workflow raakt de swarm niet aan.
+#
+# Bewaakt DRIE collecties. scripts/nft_wallet_scan.py mat op 2026-08-22 dat van de
+# 109 collecties in de wallet er drie een 24u-volume boven $500 hadden. De rest
+# wordt bewust niet bewaakt: zonder handel is een floor-prijs een vraagprijs, en
+# bewaken wat niet verhandeld wordt levert alleen meldingen op.
+
+on:
+  schedule:
+    - cron: "0 7 * * *"      # dagelijks 07:00 UTC — botst niet met de scorekaart (22:30)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nft-watch
+  cancel-in-progress: false
+
+jobs:
+  bewaken:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Meten en trigger bepalen
+        id: check
+        run: python scripts/nft_watch.py
+
+      # Telegram ALLEEN bij een echte trigger: floor EN volume tegelijk, plus een
+      # wachttijd van 7 dagen per collectie. Verwachting is enkele meldingen per
+      # jaar. Wordt het er meer, dan staan de drempels te laag -- verhogen, niet
+      # gewend raken. Zie de meldingen-opschoning van 2026-08-22.
+      - name: Telegram bij een verkoopkans
+        if: steps.check.outputs.triggered == 'true'
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MSG: ${{ steps.check.outputs.message }}
+        run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
+            echo "::warning::Telegram-secrets ontbreken — melding overgeslagen"
+            exit 0
+          fi
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d parse_mode=HTML \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text=${MSG}"
+
+      - name: Stand terugcommitten
+        run: |
+          git config user.name  "nft-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/nft_watch.json
+          if git diff --staged --quiet; then
+            echo "Geen wijziging in de bewakingsstand."
+          else
+            git commit -m "chore(nft): bewaking $(date -u +%F)"
+            git push
+          fi
