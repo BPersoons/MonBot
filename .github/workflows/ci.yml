@@ -20,4 +20,8 @@ jobs:
           python-version: "3.11"
           cache: "pip"
       - run: pip install -r requirements.txt
+      # Syntaxcheck EERST: hij parseert alles (ook scripts/ en research/) zonder
+      # iets uit te voeren, en vangt daarmee de fout die check_imports twee keer
+      # miste -- die importeert bewust alleen agents/core/utils/integrations.
+      - run: python -m tests.pre_flight.check_syntax
       - run: python -m tests.pre_flight.check_imports
