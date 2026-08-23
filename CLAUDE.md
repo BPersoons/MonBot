@@ -138,6 +138,29 @@ Sinds 2026-07-06 zijn álle leer- en positie-statebestanden volume-mounted in `d
 | `llm_usage.json` | Token-/aanroepteller per agent per dag (bron voor CostTracker) |
 | `sleeve_revalidation.json` | Sleeve-edge hertoetsing |
 
+## Twee valkuilen bij het bewerken van bestanden vanuit bash (2026-08-23)
+
+**1. Een escape in een heredoc wordt een echte newline.** `"\n"` binnen een
+Python-string in een `<<'PY'`-heredoc kwam meerdere keren als een letterlijke
+regelovergang in het doelbestand terecht, met een `SyntaxError: unterminated
+string literal` tot gevolg. Vier keer op één dag. **Vermijd `
+` in tekst die je
+zo wegschrijft** — gebruik een losse `print("")` of bewerk op regelnummer
+(`r = bron.split("
+"); r[i:j] = [...]`). Dat laatste heeft nog een voordeel:
+het faalt luid als het bestand er anders uitziet dan je dacht.
+
+**2. `check_imports` dekt `scripts/` en `research/` NIET.** Hij importeert bewust
+alleen `agents/`, `core/`, `utils/` en `integrations/` om neveneffecten van
+top-level scripts te vermijden. Daardoor zijn er twee keer syntaxfouten in `main`
+beland met een **groene CI**. Daarom bestaat sinds 2026-08-23
+`tests/pre_flight/check_syntax.py`: die `ast.parse()`t alle 229 bestanden, voert
+niets uit, en draait in CI vóór `check_imports`.
+
+> **Draai `python -m tests.pre_flight.check_syntax` voordat je pusht.** De CI is
+> het vangnet, niet de werkwijze — en een `&&`-keten die de check niet laat
+> blokkeren is precies hoe het twee keer misging.
+
 ## Development Commands
 
 ```bash
