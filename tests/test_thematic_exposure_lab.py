@@ -101,6 +101,33 @@ class ThematicExposureLabTestBase(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+        # De prijs-sanity-guard (2026-07-21) haalt via _fetch_intraday_price een
+        # VERSE koers bij yfinance op. Die is hier nooit gepatcht, waardoor vier
+        # toetsen sinds de invoering rood stonden: ze zetten een mark van $100
+        # voor XYZ-NVDA, de echte koers stond op $209, en de guard sloeg dus
+        # elke order over — inclusief in
+        # test_order_always_uses_leverage_1_isolated, die dit bestand zelf
+        # veiligheidskritisch noemt. Een toets die op de dagkoers van NVDA
+        # meebeweegt, toetst niets.
+        #
+        # 0.0 = "geen intraday-referentie", waarna _sanity_reference terugvalt
+        # op state["price_cache"]; staat die er niet, dan slaat de guard over.
+        # Toetsen die de guard ZELF willen zien vuren, patchen dit expliciet —
+        # zie TestExecutionGuards.test_intraday_sanity_mismatch_skips_order.
+        intraday = patch.object(ThematicExposureLab, "_fetch_intraday_price", return_value=0.0)
+        intraday.start()
+        self.addCleanup(intraday.stop)
+
+        # De sector-circuit-breaker haalt via sector_drawdown_pct() de
+        # XYZ100-dagcandles op — een echte ccxt-aanroep, goed voor ~13 seconden
+        # per toets die _maybe_advance_tranches raakt. Hij wordt bovendien
+        # ONVOORWAARDELIJK aangeroepen, ook als er niets te kopen valt.
+        # 0.0 = "geen sector-daling", dus de breaker blokkeert niets.
+        # TestSectorCircuitBreaker zet hem expliciet aan.
+        cb = patch("core.equity_regime.sector_drawdown_pct", return_value=0.0)
+        cb.start()
+        self.addCleanup(cb.stop)
+
     def tearDown(self):
         os.chdir(self._orig_cwd)
         self._tmpdir.cleanup()
@@ -487,6 +514,26 @@ class TestExecutionGuards(ThematicExposureLabTestBase):
             self.lab._open_tranche("XYZ-NVDA", 1, self.themes_cfg, self.positions, self._report())
         self.exchange.create_order.assert_not_called()
 
+    def test_intraday_sanity_mismatch_skips_order(self):
+        """De INTRADAY-tak van de guard, met een strakke band.
+
+        De testbasis zet _fetch_intraday_price standaard op 0.0 zodat toetsen
+        niet meebewegen met de echte koers van NVDA. Daardoor liep deze tak
+        nergens meer langs — precies het gat dat hem in juli onopgemerkt liet.
+        Hier dus expliciet aangezet.
+        """
+        with patch.object(ThematicExposureLab, "_fetch_intraday_price", return_value=209.0), \
+                patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
+            self.lab._open_tranche("XYZ-NVDA", 1, self.themes_cfg, self.positions, self._report())
+        self.exchange.create_order.assert_not_called()
+
+    def test_intraday_binnen_de_band_laat_de_order_door(self):
+        """Tegenproef: zonder deze zou een guard die ALTIJD blokkeert ook slagen."""
+        with patch.object(ThematicExposureLab, "_fetch_intraday_price", return_value=100.5), \
+                patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
+            self.lab._open_tranche("XYZ-NVDA", 1, self.themes_cfg, self.positions, self._report())
+        self.exchange.create_order.assert_called_once()
+
     def test_below_min_notional_skips_order(self):
         self.exchange.get_min_notional.return_value = 10_000.0  # tranche is always under this
         with patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
@@ -536,13 +583,33 @@ class TestTrancheTriggers(unittest.TestCase):
         score = {"mark_px": 80.0, "theme_breadth": 0.0}
         self.assertFalse(ThematicExposureLab._tranche_trigger(2, score, pos))
 
-    def test_t3_requires_recovering_flag(self):
-        self.assertTrue(ThematicExposureLab._tranche_trigger(3, {"recovering": True}, {}))
-        self.assertFalse(ThematicExposureLab._tranche_trigger(3, {"recovering": False}, {}))
+    def test_stappen_buiten_het_plan_vuren_nooit(self):
+        """Sinds 2026-08-12 telt het plan twee stappen, niet vier.
 
-    def test_t4_requires_renewed_capitulation(self):
-        self.assertTrue(ThematicExposureLab._tranche_trigger(4, {"pullback_z": 3.0}, {}))
-        self.assertFalse(ThematicExposureLab._tranche_trigger(4, {"pullback_z": 0.5}, {}))
+        Deze twee toetsen eisten tot 2026-08-24 nog het OUDE gedrag (T3 vuurt op
+        `recovering`, T4 op een hernieuwde val) en stonden dus rood sinds de dag
+        dat het plan werd ingekort. De code kreeg toen een guard bovenaan
+        `_tranche_trigger` — stap niet in TRANCHE_PCTS is False — maar de toetsen
+        volgden niet mee. Dit is nu het contract dat bewaakt wordt.
+        """
+        for stage in (3, 4):
+            self.assertNotIn(stage, tel.TRANCHE_PCTS,
+                             "plan bevat T%d weer — pas deze toets dan aan" % stage)
+        # ...en dan mag geen enkele score hem alsnog laten vuren.
+        self.assertFalse(ThematicExposureLab._tranche_trigger(3, {"recovering": True}, {}))
+        self.assertFalse(ThematicExposureLab._tranche_trigger(4, {"pullback_z": 3.0}, {}))
+
+    def test_t3_t4_logica_blijft_intact_voor_een_langer_plan(self):
+        """De T3/T4-regels zijn bewust blijven staan voor een groter budget.
+
+        Zonder deze toets is dat dode code die niemand meer controleert — en die
+        bij het terugzetten van een vier-stappenplan stil verkeerd kan blijken.
+        """
+        with patch.dict(tel.TRANCHE_PCTS, {3: 0.0, 4: 0.0}):
+            self.assertTrue(ThematicExposureLab._tranche_trigger(3, {"recovering": True}, {}))
+            self.assertFalse(ThematicExposureLab._tranche_trigger(3, {"recovering": False}, {}))
+            self.assertTrue(ThematicExposureLab._tranche_trigger(4, {"pullback_z": 3.0}, {}))
+            self.assertFalse(ThematicExposureLab._tranche_trigger(4, {"pullback_z": 0.5}, {}))
 
 
 class TestBudgetIsolation(ThematicExposureLabTestBase):
@@ -596,9 +663,6 @@ class TestT2T4DryRunGate(ThematicExposureLabTestBase):
             self.lab._maybe_advance_tranches(report)
         self.exchange.create_order.assert_called_once()
 
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestWinstbescherming(ThematicExposureLabTestBase):
@@ -715,3 +779,61 @@ class TestWinstbescherming(ThematicExposureLabTestBase):
         self.assertAlmostEqual(pos["quantity"], 0.2, places=6)
         # maar de bescherming staat er wel: piek +30% => stop op -15%
         self.assertGreaterEqual(tel._finite(pos.get("peak_gain_pct")), 30.0)
+
+
+
+
+class TestSectorCircuitBreaker(ThematicExposureLabTestBase):
+    """De sector-circuit-breaker: pauzeer NIEUWE dip-buys bij een structurele
+    sectordaling, maar blijf bestaande posities beheren.
+
+    Deze guard had tot 2026-08-24 GEEN enkele toets, terwijl hij bepaalt of er
+    überhaupt gekocht wordt. Hij viel op doordat hij per toets ~13 seconden aan
+    live koersuitvraag kostte; toen bleek dat niemand hem ooit had vastgelegd.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.exchange = MagicMock()
+        self.exchange.get_market_price.return_value = 100.0
+        self.exchange.get_min_notional.return_value = 10.0
+        self.exchange.get_amount_precision.return_value = 0.0001
+        self.exchange.create_order.return_value = {"id": "mock-cb-1"}
+        self.lab = ThematicExposureLab(exchange_client=self.exchange)
+        self.themes_cfg = self._seed_themes({
+            "XYZ-NVDA": {"real_symbol": "NVDA", "themes": {"semiconductors": 0.4},
+                         "status": "CONFIRMED"},
+        })
+        self.lab._save_positions({"budget_usd": 1250.0, "cash_usd": 1000.0, "positions": {}})
+
+    def _report(self):
+        return {"scores": {"XYZ-NVDA": {"mark_px": 100.0, "theme_breadth": 0.5}},
+                "qualifying": ["XYZ-NVDA"]}
+
+    def _advance(self, drawdown_pct):
+        cb = patch("core.equity_regime.sector_drawdown_pct", return_value=drawdown_pct)
+        markt = patch("agents.xyz_technical_analyst._market_is_open", return_value=True)
+        with cb, markt:
+            self.lab._maybe_advance_tranches(self._report())
+
+    def test_structurele_daling_pauzeert_nieuwe_koop(self):
+        self._advance(tel.SLEEVE_CIRCUIT_BREAKER_DD_PCT + 5.0)
+        self.exchange.create_order.assert_not_called()
+
+    def test_rustige_markt_laat_koop_door(self):
+        """Tegenproef — zonder deze zou een breaker die ALTIJD blokkeert ook slagen."""
+        self._advance(0.0)
+        self.exchange.create_order.assert_called_once()
+
+    def test_precies_op_de_drempel_blokkeert(self):
+        """>= en niet >: op de drempel zelf hoort hij te pauzeren."""
+        self._advance(tel.SLEEVE_CIRCUIT_BREAKER_DD_PCT)
+        self.exchange.create_order.assert_not_called()
+
+    def test_net_onder_de_drempel_laat_door(self):
+        self._advance(tel.SLEEVE_CIRCUIT_BREAKER_DD_PCT - 0.1)
+        self.exchange.create_order.assert_called_once()
+
+
+if __name__ == "__main__":
+    unittest.main()
