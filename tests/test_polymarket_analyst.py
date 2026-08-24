@@ -63,10 +63,20 @@ class TestMatchTicker:
         assert result.match_tier == "explicit"
         assert any("ethereum" in m["title"].lower() for m in result.markets)
 
-    def test_unknown_ticker_macro_fallback(self):
+    def test_unknown_ticker_valt_stil_zonder_macro_fallback(self):
+        """Een onbekende ticker moet netjes UITSTAPPEN, niet macro-matchen.
+
+        Deze toets eiste tot 2026-08-24 het omgekeerde (tier "macro",
+        confidence 0.5). Die derde tier is BEWUST geschrapt: hij gaf elke
+        niet-expliciete ticker hetzelfde signaal, waardoor de correlatie in het
+        shadow-log vervuild raakte. De toets bewaakte dus het gedrag dat we
+        expres hebben weggehaald — en hield vol dat een verwijderde fallback
+        er nog was.
+        """
         result = match_ticker("UNKNOWN/USDC", SAMPLE_MARKETS)
-        assert result.match_tier == "macro"
-        assert result.confidence == 0.5
+        assert result.match_tier == "none"
+        assert result.confidence == 0.0
+        assert result.markets == []
 
     def test_no_markets_at_all(self):
         result = match_ticker("BTC/USDC", [])

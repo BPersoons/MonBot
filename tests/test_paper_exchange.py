@@ -1,3 +1,10 @@
+# INTEGRATIETOETS -- vereist netwerk en/of echte sleutels, en draait daarom NIET
+# in CI (`pytest -m "not integration"`). Reden: laadt echte markten bij het initialiseren (25s).
+# Draai hem lokaal met `pytest tests/test_paper_exchange.py` wanneer je dit onderdeel aanraakt.
+import pytest
+
+pytestmark = pytest.mark.integration
+
 import unittest
 import sys
 import os

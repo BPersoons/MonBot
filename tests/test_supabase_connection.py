@@ -1,3 +1,10 @@
+# INTEGRATIETOETS -- vereist netwerk en/of echte sleutels, en draait daarom NIET
+# in CI (`pytest -m "not integration"`). Reden: praat met de echte Supabase.
+# Draai hem lokaal met `pytest tests/test_supabase_connection.py` wanneer je dit onderdeel aanraakt.
+import pytest
+
+pytestmark = pytest.mark.integration
+
 """
 Supabase Connection Test & Schema Validation
 Run this after configuring SUPABASE_URL and SUPABASE_KEY in .env.adk

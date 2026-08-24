@@ -8,10 +8,29 @@ from agents.swarm_learner import SwarmLearner
 
 @pytest.fixture
 def learner():
-    """Create a SwarmLearner with mocked dependencies."""
-    with patch("agents.swarm_learner.LLMClient", side_effect=Exception("no LLM")):
-        sl = SwarmLearner(exchange_client=None, db_client=None)
-    return sl
+    """Create a SwarmLearner with mocked dependencies.
+
+    Patch-doel is `utils.llm_client.LLMClient`, NIET
+    `agents.swarm_learner.LLMClient`. SwarmLearner importeert de client sinds
+    een refactor binnen `__init__` (lazy, in een try/except), dus er staat op
+    modulniveau niets meer om te patchen. Het oude doel gaf een AttributeError
+    in de fixture, waardoor alle 16 toetsen in dit bestand met een ERROR
+    afbraken in plaats van te falen — en omdat pytest niet in CI draait, viel
+    dat niet op. Bij een lazy import patch je de BRON-module; de import in
+    __init__ pikt de patch dan op omdat hij pas bij de aanroep gebeurt.
+
+    De drempel wordt vastgezet op 0,4. `_load_score_threshold()` leest
+    `config/auto_params.json` — een bestand dat de PerformanceAuditor in
+    productie bijstelt en dat in de repo op 0,2 stond terwijl deze toetsen
+    0,4 aannemen ("0.45 and 0.55 >= 0.4"). Een toets die met de afstemming
+    meebeweegt, meet de afstemming en niet het gedrag. Let op: de learner leest
+    hem OPNIEUW aan het begin van `run_learning_cycle`, dus de patch moet de
+    hele toets actief blijven — vandaar `yield` binnen het with-blok en niet
+    `return` erna.
+    """
+    with patch("utils.llm_client.LLMClient", side_effect=Exception("no LLM")), \
+            patch("agents.swarm_learner._load_score_threshold", return_value=0.4):
+        yield SwarmLearner(exchange_client=None, db_client=None)
 
 
 @pytest.fixture

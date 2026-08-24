@@ -70,10 +70,14 @@ def match_ticker(ticker: str, available_markets: list[dict]) -> MatchResult:
     """
     Matches a trading ticker to relevant Polymarket prediction markets.
 
-    Three-tier matching:
+    Two-tier matching:
     1. Explicit map (confidence 1.0) — curated keywords for known assets
     2. Keyword search (confidence 0.8) — ticker name in market titles
-    3. Macro fallback (confidence 0.5) — broad crypto/macro markets
+
+    Geen match → ("none", 0.0). Er was een derde tier (macro fallback, 0.5) en
+    die is BEWUST verwijderd — zie de toelichting onderaan deze functie. Deze
+    docstring beloofde hem nog wel, wat precies de fout is die iemand ertoe
+    verleidt hem "terug te repareren".
 
     Returns MatchResult with matched markets and confidence level.
     """

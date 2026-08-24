@@ -8,7 +8,8 @@ Prevents regressions like:
 import sys
 import os
 from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock
+import tempfile
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -16,16 +17,39 @@ from agents.swarm_monitor import SwarmMonitor
 
 
 def _make_monitor():
-    """Return a SwarmMonitor with a mocked db client."""
-    monitor = SwarmMonitor.__new__(SwarmMonitor)
-    monitor.db = MagicMock()
+    """Return a SwarmMonitor with a mocked db client.
+
+    Gebruikt bewust de ECHTE constructor. Hiervoor stond hier
+    `SwarmMonitor.__new__(SwarmMonitor)` met een handmatige opsomming van zes
+    attributen — dat omzeilt `__init__`, dus elk attribuut dat er later bij kwam
+    ontbrak. Toen `_cycle_last_advance` werd toegevoegd (cumulatieve
+    freeze-timer) braken vier toetsen met een AttributeError, en omdat pytest
+    niet in CI draait bleef dat staan. `__init__` zet er inmiddels negentien;
+    die met de hand bijhouden is een gegarandeerde herhaling.
+
+    De constructor is hier veilig: hij start geen thread (dat doet `start()`)
+    en doet verder alleen veldinitialisatie. Het enige I/O-punt is
+    `_load_alert_state()`, en dat wijzen we naar een niet-bestaand pad in temp
+    zodat een toets nooit de echte alarmstate van deze machine inleest.
+    """
+    state_file = os.path.join(tempfile.gettempdir(), "monitor_alert_state_TEST_ONLY.json")
+    with patch.object(SwarmMonitor, "ALERT_STATE_FILE", state_file):
+        monitor = SwarmMonitor(db_client=MagicMock())
     monitor.logger = MagicMock()
-    monitor._prev_check_time = None
-    monitor._prev_cycle_counts = {}
-    monitor._prev_output_snapshots = {}
     monitor._check_count = 1
     monitor._last_alert_time = None
     return monitor
+
+
+def test_fixture_dekt_alle_velden_van_de_constructor():
+    """Struikeldraad: de fixture mag niet achterlopen op `__init__`.
+
+    Deze toets bestaat omdat precies dat vier toetsen sloopte. Hij faalt zodra
+    de fixture een veld mist dat de echte constructor wel zet.
+    """
+    echt = SwarmMonitor(db_client=MagicMock())
+    ontbreekt = set(vars(echt)) - set(vars(_make_monitor()))
+    assert not ontbreekt, "fixture mist veld(en) uit __init__: %s" % sorted(ontbreekt)
 
 
 def _agent(name, cycle_count=1, status="IDLE", meta=None, last_pulse=None):

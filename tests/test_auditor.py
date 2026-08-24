@@ -28,20 +28,45 @@ class TestPreFlightAuditor(unittest.TestCase):
         self.assertTrue(result['passed'])
         print(f"\n✓ Base Case Passed: {result['reason']}")
 
-    def test_auditor_reject_staleness(self):
-        """Test stale data rejection (> 5 mins)."""
-        stale_time = (datetime.now() - timedelta(minutes=10)).isoformat()
-        trade_data = {
-            "action": "BUY",
-            "approved_at_price": 50000.0,
-            "approval_time": stale_time
+    def test_tien_minuten_oud_is_niet_verlopen(self):
+        """Tien minuten oud mag gewoon door — de grens ligt op 60 minuten.
+
+        Deze toets eiste eerst een harde afwijzing met "Stale Data" bij >5
+        minuten. Dat gedrag bestaat niet meer: de drempel staat op 60 minuten
+        en daarboven volgt geen afwijzing maar een LLM-hertoets (zie de
+        docstring van perform_pre_flight_check). De toets legde dus een
+        vervangen ontwerp vast en faalde op de vervanging.
+        """
+        tien_min = (datetime.now() - timedelta(minutes=10)).isoformat()
+        result = self.agent.perform_pre_flight_check({
+            "action": "BUY", "approved_at_price": 50000.0, "approval_time": tien_min,
+        }, 50000.0)
+        self.assertTrue(result['passed'], result['reason'])
+
+    def test_late_goedkeuring_gaat_naar_de_llm_hertoets(self):
+        """Boven de 60 minuten beslist de LLM-hertoets, in beide richtingen.
+
+        Dat pad had geen enkele toets, terwijl het de laatste horde is vóór een
+        echte order.
+        """
+        laat = (datetime.now() - timedelta(minutes=90)).isoformat()
+        trade = {
+            "action": "BUY", "ticker": "BTC/USDC",
+            "approved_at_price": 50000.0, "approval_time": laat,
         }
-        current_price = 50000.0
-        
-        result = self.agent.perform_pre_flight_check(trade_data, current_price)
+
+        with patch.object(self.agent, '_revalidate_thesis',
+                          return_value=(False, "these achterhaald")) as afwijzen:
+            result = self.agent.perform_pre_flight_check(trade, 50000.0)
+        afwijzen.assert_called_once()
         self.assertFalse(result['passed'])
-        self.assertIn("Stale Data", result['reason'])
-        print(f"✓ Staleness Case Passed (Rejected as expected): {result['reason']}")
+        self.assertIn("LLM Rejection", result['reason'])
+
+        with patch.object(self.agent, '_revalidate_thesis',
+                          return_value=(True, "these staat nog")):
+            result = self.agent.perform_pre_flight_check(trade, 50000.0)
+        self.assertTrue(result['passed'])
+        self.assertIn("LLM Validated", result['reason'])
 
     def test_auditor_reject_slippage_buy(self):
         """Test excessive slippage on BUY (Price goes UP)."""

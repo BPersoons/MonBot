@@ -1,3 +1,10 @@
+# INTEGRATIETOETS -- vereist netwerk en/of echte sleutels, en draait daarom NIET
+# in CI (`pytest -m "not integration"`). Reden: papieren order via een echte exchange-client (58s).
+# Draai hem lokaal met `pytest tests/test_execution_agent_direct.py` wanneer je dit onderdeel aanraakt.
+import pytest
+
+pytestmark = pytest.mark.integration
+
 import unittest
 import time
 import json

@@ -1,3 +1,10 @@
+# INTEGRATIETOETS -- vereist netwerk en/of echte sleutels, en draait daarom NIET
+# in CI (`pytest -m "not integration"`). Reden: draait de hele pijplijn live (94s).
+# Draai hem lokaal met `pytest tests/test_swarm_end_to_end.py` wanneer je dit onderdeel aanraakt.
+import pytest
+
+pytestmark = pytest.mark.integration
+
 import unittest
 import time
 import json

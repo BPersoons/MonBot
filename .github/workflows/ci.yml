@@ -1,4 +1,4 @@
-name: CI — Import Check
+name: CI — Syntax, Imports & Tests
 
 # Ook op push naar main. Dat ontbrak, en daardoor kon op 2026-08-20 een generator
 # met een syntaxfout ongemerkt in main belanden: er wordt in dit project geregeld
@@ -25,3 +25,30 @@ jobs:
       # miste -- die importeert bewust alleen agents/core/utils/integrations.
       - run: python -m tests.pre_flight.check_syntax
       - run: python -m tests.pre_flight.check_imports
+
+      # Unit-toetsen. Toegevoegd 2026-08-24, en dat was nodig: tot die dag
+      # draaide pytest NERGENS automatisch, waardoor 30 van de 181 toetsen stil
+      # kapot stonden -- zes ervan sinds ~21 juli, waaronder er een die het
+      # testbestand zelf "veiligheidskritisch" noemt. "CI groen" betekende
+      # alleen "het parseert en importeert".
+      #
+      # `-m "not integration"` sluit de tien toetsen uit die netwerk of echte
+      # sleutels nodig hebben (end-to-end, papieren exchange, Supabase, HL-
+      # credentials, ProjectLead-setup). Die zijn per bestand gemarkeerd met
+      # `pytestmark = pytest.mark.integration` en hebben daar een reden bij
+      # staan. Wat overblijft draait hermetisch: 174 toetsen in ~5 seconden,
+      # geverifieerd met alle secrets uit de omgeving gestript.
+      #
+      # Blijft dit groen maar breekt productie toch, kijk dan eerst of het
+      # betreffende pad een integratietoets is die hier niet meeloopt.
+      #
+      # pytest wordt hier apart geinstalleerd en NIET aan requirements.txt
+      # toegevoegd, om twee redenen. (1) Het is een CI-werktuig, geen
+      # runtime-afhankelijkheid van de swarm. (2) Een wijziging in
+      # requirements.txt triggert `deploy.yml` en dus een volledige
+      # productie-herbouw met `docker-compose down`/`up` -- een testwijziging
+      # hoort geen productie-herstart uit te lokken. Versie GEMETEN aan de
+      # draaiende container (`docker exec agent_trader_swarm pip freeze`),
+      # niet gekozen -- zie de requirements-valkuil in CLAUDE.md.
+      - run: pip install pytest==9.1.1
+      - run: python -m pytest tests/ -m "not integration" -q

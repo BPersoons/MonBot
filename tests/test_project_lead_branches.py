@@ -1,3 +1,10 @@
+# INTEGRATIETOETS -- vereist netwerk en/of echte sleutels, en draait daarom NIET
+# in CI (`pytest -m "not integration"`). Reden: bouwt in setup een echte ProjectLead met live clients (3x ~45s).
+# Draai hem lokaal met `pytest tests/test_project_lead_branches.py` wanneer je dit onderdeel aanraakt.
+import pytest
+
+pytestmark = pytest.mark.integration
+
 import pytest
 from unittest.mock import MagicMock, patch
 from agents.project_lead import ProjectLead

@@ -89,9 +89,21 @@ def test_malformed_date_is_not_fatal(monitor, tmp_path):
     assert monitor.sent == []
 
 
-def test_live_config_is_wired_and_parsable():
-    """De echte config moet een actieve brug met een geldige datum hebben zolang
-    het broker-account nog niet open is — anders is het alarm een lege huls."""
+def test_live_config_bridge_is_coherent():
+    """De echte config moet coherent zijn — in BEIDE standen.
+
+    Deze toets eiste eerst onvoorwaardelijk `active is True`, met als reden
+    "zolang het broker-account nog niet open is". Dat is voorbij: het account
+    is open (WEBN + GRID gekocht op 2026-08-20) en de brug-positie XYZ-SMH is
+    op diezelfde dag gesloten, waarna `active` op false ging. De toets bewaakte
+    daarmee een tijdelijke productiestand in plaats van een eigenschap, en viel
+    om zodra het plan gewoon zijn beloop kreeg.
+
+    Wat wél altijd moet gelden: een ACTIEVE brug is volledig ingevuld (anders is
+    het vervaldatum-alarm een lege huls), en een GESLOTEN brug houdt zijn
+    gegevens zodat er iets valt na te lezen. Zo blijft de toets betekenisvol
+    wanneer er ooit een nieuwe brug wordt geopend.
+    """
     import datetime as dt
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -99,7 +111,10 @@ def test_live_config_is_wired_and_parsable():
         cfg = json.load(f)
 
     bridge = cfg["themes"]["SEMIS"]["bridge"]
-    assert bridge["active"] is True
+    assert isinstance(bridge["active"], bool), "active moet een bool zijn, geen string"
     assert bridge["instrument"] == "XYZ-SMH"
-    dt.datetime.strptime(bridge["review_by"], "%Y-%m-%d")  # moet parsen
     assert "VVSM" in bridge["converts_to"]
+
+    if bridge["active"]:
+        # Een actieve brug zonder geldige einddatum kan niet bewaakt worden.
+        dt.datetime.strptime(bridge["review_by"], "%Y-%m-%d")

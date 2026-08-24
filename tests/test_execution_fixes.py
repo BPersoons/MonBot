@@ -67,8 +67,8 @@ class TestFillPriceFallback:
             "id": "order_1",
             "average": 45000.5,         # actual fill
             "price": 47250.0,           # 5% tolerance — MUST NOT be used
-            "amount": 0.001,
-            "filled": 0.001,
+            "amount": 0.002,
+            "filled": 0.002,
             "status": "closed",
         }
         agent.exchange.fetch_order_status.return_value = None
@@ -78,9 +78,9 @@ class TestFillPriceFallback:
             "ticker": "BTC/USDC",
             "action": "BUY",
             "price": 45000.0,
-            "size": 0.001,
+            "size": 0.002,
             "conviction": 0.8,
-            "metrics": {"kelly": {"recommended_size": 45}},
+            "metrics": {"kelly": {"recommended_size": 90}},  # 0,002 BTC @ $45k = $90; onder ExecutionAgent's $50-ondergrens (MIN_MEANINGFUL_NOTIONAL) wordt de order stil overgeslagen
         }
 
         result = agent.execute_order(proposal)
@@ -105,15 +105,15 @@ class TestFillPriceFallback:
             "id": "order_2",
             "average": None,            # not available yet
             "price": 47250.0,           # 5% tolerance — MUST NOT be used
-            "amount": 0.001,
-            "filled": 0.001,
+            "amount": 0.002,
+            "filled": 0.002,
             "status": "closed",
         }
         # fetch_order_status also returns no average
         agent.exchange.fetch_order_status.return_value = {
             "status": "closed",
             "average": None,
-            "filled": 0.001,
+            "filled": 0.002,
         }
         agent.strategy_manager = None
 
@@ -121,9 +121,9 @@ class TestFillPriceFallback:
             "ticker": "BTC/USDC",
             "action": "BUY",
             "price": 45000.0,
-            "size": 0.001,
+            "size": 0.002,
             "conviction": 0.8,
-            "metrics": {"kelly": {"recommended_size": 45}},
+            "metrics": {"kelly": {"recommended_size": 90}},  # 0,002 BTC @ $45k = $90; onder ExecutionAgent's $50-ondergrens (MIN_MEANINGFUL_NOTIONAL) wordt de order stil overgeslagen
         }
 
         result = agent.execute_order(proposal)
@@ -303,8 +303,8 @@ class TestCorrelationGuard:
             "id": "order_btc",
             "average": 45050.0,
             "price": 47302.5,
-            "amount": 0.001,
-            "filled": 0.001,
+            "amount": 0.002,
+            "filled": 0.002,
             "status": "closed",
         }
         agent.exchange.fetch_order_status.return_value = None
@@ -314,9 +314,9 @@ class TestCorrelationGuard:
             "ticker": "BTC/USDC",
             "action": "BUY",
             "price": 45000.0,
-            "size": 0.001,
+            "size": 0.002,
             "conviction": 0.8,
-            "metrics": {"kelly": {"recommended_size": 45}},
+            "metrics": {"kelly": {"recommended_size": 90}},  # 0,002 BTC @ $45k = $90; onder ExecutionAgent's $50-ondergrens (MIN_MEANINGFUL_NOTIONAL) wordt de order stil overgeslagen
         }
 
         result = agent.execute_order(proposal)

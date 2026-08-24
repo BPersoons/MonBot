@@ -49,12 +49,33 @@ def test_missing_config_is_not_fatal(tmp_path, monkeypatch):
     assert _barbell_bridge_bases() == set()
 
 
-def test_live_config_protects_the_open_position():
-    """De ECHTE config moet de brug beschermen zolang de positie open staat."""
+def test_live_config_beschermt_precies_de_actieve_bruggen():
+    """De bescherming moet exact de ACTIEVE bruggen dekken — niet meer, niet minder.
+
+    Deze toets eiste eerst onvoorwaardelijk dat XYZ-SMH beschermd werd, "zolang
+    de positie open staat". Die positie is op 2026-08-20 gesloten en de brug op
+    `active: false` gezet, waarna de toets omviel op een volstrekt normale gang
+    van zaken. Een toets die een tijdelijke stand vastlegt, gaat gegarandeerd
+    rood — en leert je daarna niets meer.
+
+    De eigenschap die wél altijd geldt, en die scherper is dan het origineel:
+    de allocator beschermt precies de bruggen die aanstaan. Dat vangt zowel een
+    half-afgesloten brug (uit, maar nog wél afgeschermd) als een nieuwe brug die
+    aanstaat zonder bescherming.
+    """
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(root, "config", "barbell_targets.json"), encoding="utf-8") as f:
+        cfg = json.load(f)
+
+    verwacht = {
+        b["instrument"].split("/")[0]
+        for t in cfg.get("themes", {}).values()
+        if (b := t.get("bridge")) and b.get("active")
+    }
+
     cwd = os.getcwd()
     try:
         os.chdir(root)
-        assert "XYZ-SMH" in _barbell_bridge_bases()
+        assert _barbell_bridge_bases() == verwacht
     finally:
         os.chdir(cwd)

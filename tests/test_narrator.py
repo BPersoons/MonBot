@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import patch, MagicMock
 from utils.narrator import NarrativeGenerator
@@ -6,12 +7,17 @@ class TestNarrativeGenerator(unittest.TestCase):
     def setUp(self):
         with patch('utils.narrator.LLMClient') as MockLLM:
             self.narrator = NarrativeGenerator()
-            # Mock the LLM to return a predictable narrative
-            self.narrator.llm.analyze_text.return_value = '''
-            THESIS: Technical Momentum is strong but we must tread carefully.
-            ANTI_THESIS: Fear detected in the market, raising volatility risks.
-            SYNTHESIS: Despite the fear, the technicals justify a small position.
-            '''
+            # De narrator parseert het LLM-antwoord sinds een refactor als JSON
+            # (`json.loads` na `_clean_json_text`), niet meer als los tekstformaat
+            # met THESIS:/ANTI_THESIS:/SYNTHESIS:-koppen. Die oude mock gaf een
+            # JSONDecodeError, die de narrator bewust doorzet als RuntimeError
+            # ("fail loud") — beide toetsen braken daarop. Ze toetsten dus niet
+            # het gedrag maar het antwoordformaat van een mock.
+            self.narrator.llm.analyze_text.return_value = json.dumps({
+                "thesis": "Technical Momentum is strong but we must tread carefully.",
+                "anti_thesis": "Fear detected in the market, raising volatility risks.",
+                "synthesis": "Despite the fear, the technicals justify a small position.",
+            })
 
     def test_generate_valid_narrative(self):
         """Test a standard trade with obvious risks (should be VALID)."""

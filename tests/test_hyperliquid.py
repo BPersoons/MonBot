@@ -1,3 +1,10 @@
+# INTEGRATIETOETS -- vereist netwerk en/of echte sleutels, en draait daarom NIET
+# in CI (`pytest -m "not integration"`). Reden: test_credentials_loaded eist echte HL-sleutels.
+# Draai hem lokaal met `pytest tests/test_hyperliquid.py` wanneer je dit onderdeel aanraakt.
+import pytest
+
+pytestmark = pytest.mark.integration
+
 import unittest
 import time
 import json
@@ -20,7 +27,19 @@ class TestHyperliquidExecution(unittest.TestCase):
         
         # Setup mock ccxt client
         mock_client = MagicMock()
-        mock_client.load_markets.return_value = {"BTC/USDC:USDC": {}}
+        # De markt moet een realistische VORM hebben, niet alleen de juiste sleutel.
+        # ExecutionAgent kreeg later een spot-order-guard die `markets[sym]['type']`
+        # leest en alles blokkeert wat geen 'swap' is (zie de HL-valkuil: ccxt's
+        # spot BTC/USDC op Hyperliquid is FRAC, niet Bitcoin). Met een lege dict
+        # gaf `.get('type', '')` een lege string → order geweigerd → execute_order
+        # gaf None terug → 'NoneType' object is not subscriptable. De toets faalde
+        # dus op zijn eigen mock, niet op het gedrag.
+        mock_client.load_markets.return_value = {
+            "BTC/USDC:USDC": {
+                "symbol": "BTC/USDC:USDC", "type": "swap", "swap": True, "spot": False,
+                "base": "BTC", "quote": "USDC", "settle": "USDC", "active": True,
+            },
+        }
         mock_client.fetch_ticker.return_value = {'last': 50000.0}
         mock_client.fetch_order_book.return_value = {'bids': [[49999, 1]], 'asks': [[50001, 1]]}
         mock_client.fetch_funding_rate.return_value = {'fundingRate': 0.01}
@@ -119,6 +138,32 @@ class TestHyperliquidExecution(unittest.TestCase):
              self.agent.exchange.create_order = original_create
              self.agent.exchange.fetch_order_status = original_status
              self.agent.exchange.signing_client = original_signing_client
+
+    def test_spot_markt_wordt_geweigerd(self):
+        """Tegenproef op de spot-order-guard, die zelf geen toets had.
+
+        Op Hyperliquid is de ccxt-spotregel BTC/USDC het token FRAC (~$0,02),
+        niet Bitcoin. Een order daarop is geen kleine vergissing maar een
+        aankoop van een heel ander instrument. De guard blokkeert alles wat
+        geen 'swap' is; zonder deze toets bewijst de vorige toets alleen dat
+        een swap DOOR mag, niet dat spot wordt TEGENGEHOUDEN.
+        """
+        self.agent.exchange.markets["BTC/USDC:USDC"]["type"] = "spot"
+        self.agent.exchange.signing_client = "MOCKED_CLIENT"
+
+        def mock_create(ticker, action, quantity, price=None, order_type='market'):
+            raise AssertionError("er is een order geplaatst op een SPOT-markt")
+
+        original_create = self.agent.exchange.create_order
+        self.agent.exchange.create_order = mock_create
+        try:
+            result = self.agent.execute_order({
+                "ticker": "BTC/USDT", "action": "BUY", "size": 0.001,
+                "price": 60000.0, "conviction": 2.0, "metrics": {},
+            })
+            self.assertIsNone(result, "spot-markt had geweigerd moeten worden")
+        finally:
+            self.agent.exchange.create_order = original_create
 
 if __name__ == '__main__':
     unittest.main()
