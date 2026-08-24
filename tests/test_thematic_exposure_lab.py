@@ -556,11 +556,19 @@ class TestExecutionGuards(ThematicExposureLabTestBase):
         self.assertEqual(self.positions["positions"]["XYZ-NVDA"]["status"], "OPEN")
 
     def test_second_tranche_updates_weighted_avg_entry(self):
-        with patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
-            self.lab._open_tranche("XYZ-NVDA", 1, self.themes_cfg, self.positions, self._report())
-        self.exchange.get_market_price.return_value = 80.0  # price dropped further
-        with patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
-            self.lab._open_tranche("XYZ-NVDA", 2, self.themes_cfg, self.positions, self._report())
+        """Bijkopen moet de entryprijs MENGEN, niet overschrijven.
+
+        Draait met een tijdelijk verlengd plan: sinds 2026-08-24 telt
+        TRANCHE_PCTS één stap, zodat `_open_tranche(…, 2, …)` op een KeyError
+        zou stuiten. De menglogica blijft gelden zodra het budget groter wordt
+        en er weer meerdere stappen komen — dus blijft hij getoetst.
+        """
+        with patch.dict(tel.TRANCHE_PCTS, {1: 0.60, 2: 0.40}, clear=True):
+            with patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
+                self.lab._open_tranche("XYZ-NVDA", 1, self.themes_cfg, self.positions, self._report())
+            self.exchange.get_market_price.return_value = 80.0  # price dropped further
+            with patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
+                self.lab._open_tranche("XYZ-NVDA", 2, self.themes_cfg, self.positions, self._report())
         pos = self.positions["positions"]["XYZ-NVDA"]
         self.assertEqual(pos["tranche_stage"], 2)
         self.assertTrue(80.0 < pos["avg_entry_price"] < 100.0)  # blended, not overwritten
@@ -573,15 +581,28 @@ class TestExecutionGuards(ThematicExposureLabTestBase):
 
 
 class TestTrancheTriggers(unittest.TestCase):
-    def test_t2_requires_drop_and_breadth(self):
-        pos = {"avg_entry_price": 100.0}
-        score = {"mark_px": 88.0, "theme_breadth": 0.5}  # -12%, breadth ok
-        self.assertTrue(ThematicExposureLab._tranche_trigger(2, score, pos))
+    def test_t2_logica_blijft_intact_voor_een_langer_plan(self):
+        """T2 zit sinds 2026-08-24 niet meer in het plan, de regel wel.
 
-    def test_t2_false_without_breadth(self):
-        pos = {"avg_entry_price": 100.0}
-        score = {"mark_px": 80.0, "theme_breadth": 0.0}
-        self.assertFalse(ThematicExposureLab._tranche_trigger(2, score, pos))
+        Het plan is teruggebracht tot een enkele stap: T2 vuurde op -10% t.o.v.
+        entry en was dus geconditioneerd op ongelijk hebben, terwijl
+        `t2_t4_enabled` bovendien nooit aan heeft gestaan. De regel zelf blijft
+        staan voor een groter budget, dus hij blijft getoetst — met een
+        tijdelijk verlengd plan, net als T3/T4 hieronder.
+        """
+        with patch.dict(tel.TRANCHE_PCTS, {2: 0.0}):
+            pos = {"avg_entry_price": 100.0}
+            drop_met_breadth = {"mark_px": 88.0, "theme_breadth": 0.5}   # -12%
+            drop_zonder_breadth = {"mark_px": 80.0, "theme_breadth": 0.0}
+            self.assertTrue(ThematicExposureLab._tranche_trigger(2, drop_met_breadth, pos))
+            self.assertFalse(ThematicExposureLab._tranche_trigger(2, drop_zonder_breadth, pos))
+
+    def test_t2_vuurt_niet_in_het_huidige_plan(self):
+        """Het plan telt één stap; T2 mag dus door niets worden aangezet."""
+        self.assertNotIn(2, tel.TRANCHE_PCTS,
+                         "plan bevat T2 weer — pas deze toets dan aan")
+        self.assertFalse(ThematicExposureLab._tranche_trigger(
+            2, {"mark_px": 88.0, "theme_breadth": 0.5}, {"avg_entry_price": 100.0}))
 
     def test_stappen_buiten_het_plan_vuren_nooit(self):
         """Sinds 2026-08-12 telt het plan twee stappen, niet vier.
@@ -659,7 +680,12 @@ class TestT2T4DryRunGate(ThematicExposureLabTestBase):
         self.exchange.get_amount_precision.return_value = 0.0001
         self.exchange.create_order.return_value = {"id": "mock-order-2"}
         report = {"scores": {"XYZ-NVDA": {"mark_px": 88.0, "theme_breadth": 0.5}}, "qualifying": []}
-        with patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
+        # Verlengd plan: het huidige telt één stap (zie TRANCHE_PCTS), dus zonder
+        # dit zou T2 nergens meer op afketsen en toetst de vlag niets meer.
+        # MAX_TRANCHE_STAGE wordt bij import afgeleid en moet dus mee.
+        with patch.dict(tel.TRANCHE_PCTS, {1: 0.60, 2: 0.40}, clear=True), \
+                patch.object(tel, "MAX_TRANCHE_STAGE", 2), \
+                patch("agents.xyz_technical_analyst._market_is_open", return_value=True):
             self.lab._maybe_advance_tranches(report)
         self.exchange.create_order.assert_called_once()
 

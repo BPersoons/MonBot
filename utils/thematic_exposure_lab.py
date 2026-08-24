@@ -147,7 +147,33 @@ STABILIZATION_LOOKBACK = 5     # dagen — laatste close mag niet op het 5d-low 
 # stap moet `budget / MAX_CONCURRENT_NAMES * pct >= min_notional + 1` halen,
 # anders slaat _open_tranche hem stil over. Zie het blok bij
 # MAX_CONCURRENT_NAMES voor waarom dit van 4 naar 2 stappen ging.
-TRANCHE_PCTS = {1: 0.60, 2: 0.40}
+# ── 2026-08-24: 2 stappen -> 1. Alles in T1 ────────────────────────────────
+# De vorige ronde (2026-08-12) verkleinde het plan van 4 naar 2 stappen omdat
+# 79% van het budget stilstond. Dat hielp, maar loste de kern niet op: T2 vuurt
+# op -10% t.o.v. entry, dus de reserve is geconditioneerd op ONGELIJK hebben.
+# Werkt de dip-buy-edge, dan komt dat geld nooit aan het werk.
+#
+# En het was nog erger dan "geconditioneerd": `t2_t4_enabled` staat NIET in
+# thematic_exposure_state.json en defaultt dus op False (zie
+# _maybe_advance_tranches). T2 is sinds 2026-07-17 dry-run en heeft in het hele
+# bestaan van de sleeve GEEN ENKELE keer gevuurd. De 40% was daarmee niet
+# gereserveerd maar onbereikbaar — dood kapitaal in een reserve-jasje.
+#
+# Tweede gevolg, en dat is wat het echt brak: bij 6 namen en T1=60% is een
+# positie $25,50, en 25% daarvan bij +30% is $8,29 — onder HL's $10-minimum.
+# De winstladder kon dus per constructie niet vuren (CRCL stond +41% en NOW
+# +34% zonder ooit een cent af te romen). Kleine posities zijn niet alleen
+# zonde van het rendement, ze zijn ONBEHEERBAAR.
+#
+# Nu: 6 namen x $42,50, alles in T1. De afroming bij +30% wordt $13,81 en zit
+# daarmee ruim boven de vloer; bij +60% en +100% helemaal. Volledige inzet,
+# geen dode reserve, diversificatie ongewijzigd.
+#
+# Let op bij het terugzetten van meerdere stappen (kan prima bij een groter
+# budget, zie het blok bij MAX_CONCURRENT_NAMES): T1 moet dan nog steeds
+# `budget/N*T1_pct * 1,30 * 0,25 >= $10` halen, anders is de ladder weer stil.
+# Bij $1.250 en 8 namen is dat geen enkel probleem.
+TRANCHE_PCTS = {1: 1.0}
 # Hoogste stap — nergens hardcoderen, anders loopt TRANCHE_PCTS[stage] op een
 # KeyError zodra het plan korter wordt.
 MAX_TRANCHE_STAGE = max(TRANCHE_PCTS)

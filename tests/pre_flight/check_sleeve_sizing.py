@@ -147,6 +147,29 @@ def check_sleeve_sizing(budget_usd: float = LIVE_BUDGET_USD, verbose: bool = Tru
               f"ONGELIJK hebben. Verhoog TRANCHE_PCTS[1] of verlaag het budget.")
         ok = False
 
+    # 6 — een positie moet ook TE BEHEREN zijn, niet alleen groot genoeg om te
+    #     openen. Check 3 kijkt of de INSTAP boven het $10-minimum uitkomt; de
+    #     winstladder roomt 25% af en die verkoop moet er óók overheen. Dat is
+    #     precies wat op 2026-08-24 misging: T1 was $25,50, dus 25% bij +30% was
+    #     $8,29 en de eerste winst-sport heeft in het hele bestaan van de sleeve
+    #     nooit gevuurd. CRCL stond +41% zonder ooit een cent te hebben
+    #     afgeroomd. Een instap die je niet kunt afbouwen is geen positie maar
+    #     een gok. Getoetst op de LAAGSTE sport, want die is bindend.
+    eerste_sport_pct = 30.0
+    trim_fractie = 0.25
+    trim_usd = per_name * TRANCHE_PCTS[1] * (1 + eerste_sport_pct / 100) * trim_fractie
+    haalt = trim_usd >= MIN_NOTIONAL_USD
+    zeg(f"  {'ok   ' if haalt else 'FAIL '} winst-tranche uitvoerbaar -> "
+        f"{trim_fractie:.0%} van T1 bij +{eerste_sport_pct:.0f}% = {_fmt(trim_usd)} "
+        f"(minimum {_fmt(MIN_NOTIONAL_USD)})")
+    if not haalt:
+        benodigd = MIN_NOTIONAL_USD / trim_fractie / (1 + eerste_sport_pct / 100)
+        print(f"  FAIL  de winstladder kan niet vuren: T1 moet minstens "
+              f"{_fmt(benodigd)} zijn. Verhoog TRANCHE_PCTS[1] of verlaag "
+              f"MAX_CONCURRENT_NAMES — een winnaar die je niet kunt afromen "
+              f"geeft zijn winst volledig terug aan de trailing-stop.")
+        ok = False
+
     return ok
 
 
