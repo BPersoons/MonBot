@@ -139,6 +139,35 @@ SLEEVE_MIN_TRIM_NOTIONAL_USD = 10.0    # HL weigert orders <$10; daaronder tranc
 SLEEVE_TRAIL_LADDER = ((100.0, 0.92), (60.0, 0.88), (30.0, 0.85))
 SLEEVE_TRAIL_BASE = 0.80   # onder +30%: ongewijzigd t.o.v. de oude vaste regel
 
+# Hoeveel er per winst-sport wordt afgeroomd. Stond drie keer los in de code;
+# de regel hieronder rekent ermee, dus hij moet op één plek staan.
+SLEEVE_PROFIT_TRIM_FRACTION = 0.25
+
+# ── te kleine winnaar: helemaal dicht i.p.v. niets doen (2026-08-24) ───────
+# De backtest die de edge onderbouwt (+5,66%/positie, 73 instappen) neemt aan
+# dat de winstladder VUURT: `gain >= 30 -> 25% eraf`. Er zit geen
+# minimum-notional in dat model. In productie is dat nog nooit gebeurd, dus de
+# live sleeve draaide een ANDERE strategie dan de gevalideerde: alles
+# vasthouden tot de trailing-stop.
+#
+# Voor nieuwe posities is dat opgelost met $42,50 per naam (25% bij +30% =
+# $13,81, ruim boven de vloer). Blijven over: de posities die onder het oude,
+# kleinere plan zijn geopend. Die kunnen hun sport per constructie niet halen
+# en zouden hem eeuwig blijven overslaan.
+#
+# Regel: raakt zo'n positie zijn eerste winst-sport en is de afroming niet
+# uitvoerbaar, dan gaat hij in zijn GEHEEL dicht. Het kapitaal komt terug op
+# volle grootte en de volgende instap kan wél beheerd worden.
+#
+# Wat het kost, expliciet: het gevalideerde model laat 75% doorlopen na de
+# sport. Deze regel kapt zo'n positie af op zijn sport, dus op een grote
+# winnaar laat je geld liggen. Dat is bewust en begrensd — de regel raakt
+# alleen ondermaatse posities en dooft zichzelf uit zodra die vervangen zijn.
+#
+# Bewust GEEN aan/uit-vlag: `t2_t4_enabled` stond op default False en heeft
+# daardoor in het hele bestaan van de sleeve nooit gedraaid. Een schakelaar die
+# niemand omzet is functioneel hetzelfde als geen code.
+
 PULLBACK_VOL_THRESHOLD = 1.5   # vol-genormaliseerde "eenheden onder het 252d-high"
 BREADTH_THRESHOLD = 0.30       # aandeel tickers in thema dat ook >= pullback-drempel scoort
 STABILIZATION_LOOKBACK = 5     # dagen — laatste close mag niet op het 5d-low liggen
@@ -1199,18 +1228,35 @@ class ThematicExposureLab:
             if gain_pct <= -SLEEVE_MAX_DRAWDOWN_STOP_PCT:
                 exit_reason, exit_fraction = f"downside-stop {SLEEVE_MAX_DRAWDOWN_STOP_PCT:.0f}%", 1.0
             elif gain_pct >= 100 and not pos.get("profit_tranche_3_done"):
-                exit_reason, exit_fraction = "winst-tranche +100%", 0.25
+                exit_reason = "winst-tranche +100%"
+                exit_fraction = SLEEVE_PROFIT_TRIM_FRACTION
                 tranche_vlag = "profit_tranche_3_done"
             elif gain_pct >= 60 and not pos.get("profit_tranche_2_done"):
-                exit_reason, exit_fraction = "winst-tranche +60%", 0.25
+                exit_reason = "winst-tranche +60%"
+                exit_fraction = SLEEVE_PROFIT_TRIM_FRACTION
                 tranche_vlag = "profit_tranche_2_done"
             elif gain_pct >= 30 and not pos.get("profit_tranche_1_done"):
-                exit_reason, exit_fraction = "winst-tranche +30%", 0.25
+                exit_reason = "winst-tranche +30%"
+                exit_fraction = SLEEVE_PROFIT_TRIM_FRACTION
                 tranche_vlag = "profit_tranche_1_done"
             elif gain_pct > 0 and pos["current_value_usd"] < pos["peak_value_usd"] * trail:
                 exit_reason, exit_fraction = (
                     "NAV-trailing-stop -%.0f%% (piek stond op +%.0f%%)"
                     % ((1 - trail) * 100, pos["peak_gain_pct"]), 1.0)
+
+            # Te kleine winnaar -> helemaal dicht in plaats van eeuwig overslaan.
+            # Zie het constants-blok bij SLEEVE_PROFIT_TRIM_FRACTION voor het
+            # waarom. Alleen op winst-sporten (tranche_vlag gezet): een
+            # downside-stop en een trailing-stop sluiten al volledig.
+            if tranche_vlag and (pos["current_value_usd"] * exit_fraction
+                                 < SLEEVE_MIN_TRIM_NOTIONAL_USD):
+                exit_reason = (
+                    "%s — positie te klein om %.0f%% af te romen ($%.2f < $%.0f), "
+                    "dus volledig gesloten"
+                    % (exit_reason, exit_fraction * 100,
+                       pos["current_value_usd"] * exit_fraction,
+                       SLEEVE_MIN_TRIM_NOTIONAL_USD))
+                exit_fraction, tranche_vlag = 1.0, None
 
             if exit_reason:
                 # De vlag wordt pas gezet als de verkoop ECHT is gelukt. Stond hij

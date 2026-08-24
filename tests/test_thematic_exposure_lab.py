@@ -792,22 +792,89 @@ class TestWinstbescherming(ThematicExposureLabTestBase):
         self.assertEqual(self._positie()["status"], "OPEN")
 
     # ── het $10-minimum: tranche bewaren, niet verbranden ────────────────
-    def test_te_kleine_trim_bewaart_de_tranche(self):
-        # 0,2 stuks a $50 entry, mark $65 = +30%. Waarde $13, 25% = $3,25 < $10.
+    def test_close_or_trim_bewaart_een_te_kleine_deelexit(self):
+        """`_close_or_trim` mag een sub-minimum deelexit nooit als gedaan boeken.
+
+        LET OP — deze toets richt zich bewust op `_close_or_trim` zelf en niet
+        meer op `_manage_exits`. Tot eerder vandaag bewaarde de hele keten de
+        sport bij een te kleine positie; sinds de regel "te kleine winnaar gaat
+        helemaal dicht" bereikt een WINST-sport dit pad niet meer (zie
+        TestWinstbescherming.test_te_kleine_winnaar_gaat_helemaal_dicht).
+
+        De guard blijft er wel toe doen als laatste vangnet: de hogere regel
+        rekent met `current_value_usd`, terwijl hier pas op de precisie wordt
+        afgerond. Een order die daardoor alsnog onder de vloer uitkomt moet
+        stilvallen zonder de sport te verbranden — de fout van 2026-08-20.
+        """
+        pos = self._seed_positie(0.2, 50.0)
+        positions = self.lab._load_positions()
+        pos = positions["positions"]["XYZ-NVDA"]
+        pos["current_value_usd"] = 0.2 * 65.0
+
+        gelukt = self.lab._close_or_trim(positions, "XYZ-NVDA", pos, 65.0,
+                                         tel.SLEEVE_PROFIT_TRIM_FRACTION, "winst-tranche +30%")
+
+        self.assertFalse(gelukt, "een niet-uitvoerbare deelexit meldde succes")
+        self.exchange.create_order.assert_not_called()
+        self.assertAlmostEqual(pos["quantity"], 0.2, places=6)
+
+    def test_volledige_sluiting_wordt_altijd_geprobeerd(self):
+        """Een VOLLEDIGE sluiting kent geen ondergrens — daar valt niets te bewaren."""
+        positions = self.lab._load_positions()
+        positions["positions"] = {"XYZ-NVDA": dict(self._seed_positie(0.05, 50.0))}
+        pos = positions["positions"]["XYZ-NVDA"]
+        pos["current_value_usd"] = 0.05 * 65.0        # $3,25 -- ruim onder de vloer
+
+        gelukt = self.lab._close_or_trim(positions, "XYZ-NVDA", pos, 65.0, 1.0, "downside-stop")
+
+        self.assertTrue(gelukt)
+        self.exchange.create_order.assert_called_once()
+
+
+
+    # ── te kleine winnaar: helemaal dicht ────────────────────────────────
+    def test_te_kleine_winnaar_gaat_helemaal_dicht(self):
+        """Een positie die zijn sport raakt maar niet af te romen is, sluit heel.
+
+        0,2 stuks a $50 = $10 kostprijs, mark $65 = +30%. Waarde $13, en 25%
+        daarvan is $3,25 -- onder HL's $10. Voorheen bleef zo'n positie eeuwig
+        de sport overslaan; nu komt het kapitaal terug op volle grootte.
+        """
         self._seed_positie(0.2, 50.0)
         self.exchange.get_market_price.return_value = 65.0
 
         self.lab._manage_exits()
         pos = self._positie()
+        self.assertEqual(pos["status"], "CLOSED")
+        self.assertAlmostEqual(pos["quantity"], 0.0, places=6)
+        self.exchange.create_order.assert_called_once()
+        _, kwargs = self.exchange.create_order.call_args
+        self.assertEqual(kwargs.get("leverage"), 1)
+        self.assertEqual(kwargs.get("margin_mode"), "isolated")
+
+    def test_grote_genoeg_winnaar_roomt_af_en_blijft_open(self):
+        """Tegenproef -- anders zou een regel die ALLES sluit ook slagen.
+
+        0,5 stuks a $100 = $50 kostprijs, mark $130 = +30%. Waarde $65, 25%
+        daarvan is $16,25 en dat haalt de vloer. Dit is de nieuwe standaard-
+        grootte ($42,50/naam), dus dit pad hoort het normale te zijn.
+        """
+        self._seed_positie(0.5, 100.0)
+        self.exchange.get_market_price.return_value = 130.0
+
+        self.lab._manage_exits()
+        pos = self._positie()
+        self.assertEqual(pos["status"], "OPEN")
+        self.assertAlmostEqual(pos["quantity"], 0.375, places=6)
+        self.assertTrue(pos.get("profit_tranche_1_done"))
+
+    def test_verliezer_wordt_niet_door_deze_regel_geraakt(self):
+        """De regel geldt alleen op winst-sporten, niet op een kleine verliezer."""
+        self._seed_positie(0.2, 50.0)
+        self.exchange.get_market_price.return_value = 45.0   # -10%, geen sport
+        self.lab._manage_exits()
+        self.assertEqual(self._positie()["status"], "OPEN")
         self.exchange.create_order.assert_not_called()
-        self.assertFalse(pos.get("profit_tranche_1_done"),
-                         "een niet-uitgevoerde winst-tranche werd toch afgevinkt")
-        self.assertAlmostEqual(pos["quantity"], 0.2, places=6)
-        # maar de bescherming staat er wel: piek +30% => stop op -15%
-        self.assertGreaterEqual(tel._finite(pos.get("peak_gain_pct")), 30.0)
-
-
-
 
 class TestSectorCircuitBreaker(ThematicExposureLabTestBase):
     """De sector-circuit-breaker: pauzeer NIEUWE dip-buys bij een structurele
