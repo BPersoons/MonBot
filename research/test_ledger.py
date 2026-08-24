@@ -48,6 +48,22 @@ def controleer_ledger():
     eis(bench.get("ticker") and bench["ticker"] != "TODO",
         "_benchmark.ticker is leeg of staat nog op TODO — de zesmaandstoets is dan "
         "niet af te rekenen")
+    eis(bench.get("currency"),
+        "_benchmark.currency ontbreekt — zonder valuta weet de tracker niet of hij "
+        "moet omrekenen, en dan meet je een EUR/USD-beweging als selectie-edge")
+
+    # De namen noteren in USD, de kern-ETF in EUR. Zodra die twee verschillen is
+    # een wisselkoers verplicht, per regel en op de scoredatum vastgelegd.
+    valutas = {e.get("currency") or "USD" for e in d["entries"]}
+    if valutas - {bench.get("currency")}:
+        eis(bench.get("fx_ticker"),
+            "_benchmark.fx_ticker ontbreekt terwijl er regels in een andere valuta "
+            "(%s) staan dan de benchmark (%s)"
+            % (sorted(valutas - {bench.get("currency")}), bench.get("currency")))
+        eis(bench.get("fx_quote"),
+            "_benchmark.fx_quote ontbreekt — zonder de noteringsrichting ('USD per "
+            "EUR') is niet vast te stellen of er gedeeld of vermenigvuldigd moet "
+            "worden, en een omgedraaid paar ziet er plausibel uit")
 
     actief = [e for e in d["entries"] if not e.get("superseded_by")]
     tickers = [e["ticker"] for e in actief]
@@ -77,6 +93,16 @@ def controleer_ledger():
                 "%s: price_at_score ontbreekt of is <= 0 (%r)" % (t, p))
             eis(isinstance(b, (int, float)) and b > 0,
                 "%s: benchmark_price_at_score ontbreekt of is <= 0 (%r)" % (t, b))
+
+            # En de wisselkoers, zodra de regel in een andere valuta noteert dan
+            # de benchmark. Ontbreekt hij, dan slaat de tracker de regel over --
+            # stil uit de meting vallen is erger dan een luide fout hier.
+            if (e.get("currency") or "USD") != bench.get("currency"):
+                fx = e.get("fx_at_score")
+                eis(isinstance(fx, (int, float)) and fx > 0,
+                    "%s: fx_at_score ontbreekt of is <= 0 (%r) terwijl de regel in "
+                    "%s noteert en de benchmark in %s"
+                    % (t, fx, e.get("currency") or "USD", bench.get("currency")))
 
         # Scores: precies de zes dimensies, geldige waarden.
         scores = e.get("scores")
@@ -158,6 +184,61 @@ def controleer_logica(actief):
     # live_entries mag geen superseded regels teruggeven.
     eis(all(not e.get("superseded_by") for e in actief),
         "live_entries geeft een superseded regel terug")
+
+    # --- de valuta-omrekening ------------------------------------------------
+    # Dit is de duurste stille fout in het hele grootboek: draai de wisselkoers om
+    # en er komt nog steeds een plausibel getal uit, alleen de verkeerde kant op.
+    # Daarom met de hand uitgerekende cijfers in plaats van een herhaling van de
+    # formule. Naam: $100 -> $110. EURUSD 1,25 -> 1,00 (de dollar wordt sterker).
+    # In euro's: 100/1,25 = EUR 80 -> 110/1,00 = EUR 110, dus +37,5%.
+    bench_eur = {"ticker": "WEBN.DE", "label": "WEBN", "name": "kern",
+                 "currency": "EUR", "fx_ticker": "EURUSD=X"}
+    regel = {"price_at_score": 100.0, "benchmark_price_at_score": 10.0,
+             "fx_at_score": 1.25, "currency": "USD"}
+    naam, bm = track.returns_pct(regel, 110.0, 10.0, 1.00, bench_eur)
+    eis(naam is not None and abs(naam - 37.5) < 1e-9,
+        "returns_pct rekent de naam verkeerd om: kreeg %r, verwacht +37,5%% "
+        "(een sterkere dollar MOET het euro-rendement verhogen)" % naam)
+    eis(bm is not None and abs(bm) < 1e-9,
+        "returns_pct geeft een benchmarkrendement van %r bij een vlakke benchmark" % bm)
+
+    # Zelfde valuta: geen omrekening, ook niet als er een koers meegegeven wordt.
+    zelfde = {"price_at_score": 100.0, "benchmark_price_at_score": 10.0,
+              "fx_at_score": 1.25, "currency": "EUR"}
+    naam, _ = track.returns_pct(zelfde, 110.0, 10.0, 1.00, bench_eur)
+    eis(naam is not None and abs(naam - 10.0) < 1e-9,
+        "returns_pct rekent om terwijl regel en benchmark dezelfde valuta hebben "
+        "(kreeg %r, verwacht +10,0%%)" % naam)
+
+    # Ontbrekend gegeven geeft None, nooit stil een getal.
+    for ontbreekt, waarde in (("price_at_score", None), ("fx_at_score", None)):
+        kapot = dict(regel)
+        kapot[ontbreekt] = waarde
+        naam, _ = track.returns_pct(kapot, 110.0, 10.0, 1.00, bench_eur)
+        eis(naam is None,
+            "returns_pct geeft een getal terug terwijl '%s' ontbreekt" % ontbreekt)
+    naam, _ = track.returns_pct(regel, 110.0, 10.0, None, bench_eur)
+    eis(naam is None,
+        "returns_pct rekent door zonder actuele wisselkoers — dan landt de hele "
+        "valutabeweging in het verschil naam-min-benchmark")
+
+    # De struikeldraad tegen een omgedraaid valutapaar moet echt afbreken.
+    entries_fx = [{"fx_at_score": 1.1546}]
+    try:
+        track._verify_fx(entries_fx, 1.1673, bench_eur)  # normale beweging: mag door
+        ok_normaal = True
+    except SystemExit:
+        ok_normaal = False
+    eis(ok_normaal, "_verify_fx breekt af op een normale koersbeweging (1,1546 -> 1,1673)")
+
+    try:
+        track._verify_fx(entries_fx, 1 / 1.1673, bench_eur)  # omgedraaid paar
+        ok_omgedraaid = False
+    except SystemExit:
+        ok_omgedraaid = True
+    eis(ok_omgedraaid,
+        "_verify_fx laat een OMGEDRAAID valutapaar (0,857 i.p.v. 1,167) door — "
+        "precies de fout die hij moet vangen")
 
 
 # ---------------------------------------------------------------------- main

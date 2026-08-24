@@ -6,7 +6,7 @@ Papieren analyse van kandidaat-namen en ETF's, vanaf 2026-08-10. Geen kapitaal n
 
 ## Stand per 2026-08-11
 
-**20 van 20 namen gescoord — het aantal is gehaald.** Vier screenronden, ~300 namen door de laag-1-screen, alle twintig met prijs én benchmarkprijs (URTH $210,11 op 2026-08-10). Verdeling: **15 VOLGEN · 5 AFVALLER · 0 KOOPBAAR**.
+**20 van 20 namen gescoord — het aantal is gehaald.** Vier screenronden, ~300 namen door de laag-1-screen, alle twintig met prijs én benchmarkprijs (WEBN €12,98 op 2026-08-11; tot 2026-08-24 was dat URTH $210,11). Verdeling: **15 VOLGEN · 5 AFVALLER · 0 KOOPBAAR**.
 
 Wat rest is tijd. De poort valt rond **2027-02-10** (zes maanden na de eerste regel). Tot die tijd: maandelijks `python research/track.py meet`, en herscoren zodra de cijfers landen — `python research/track.py due`. Eerstvolgende: **DOCU op 2026-09-03**, de rest eind okt / begin nov.
 
@@ -111,11 +111,11 @@ research/
 ## Cadans
 
 ```bash
-python research/track.py meet    # maandelijks: elke regel tegen de wereld-ETF
+python research/track.py meet    # maandelijks: elke regel tegen de kern-ETF
 python research/track.py due     # welke kaarten zijn toe aan herscoring?
 ```
 
-`meet` haalt koersen via yfinance, rekent elk aandeel af tegen de benchmark op de scoredatum, groepeert het resultaat per verdict en waarschuwt zodra een prijs-wachtvoorwaarde (`wait_price_below`) geraakt wordt. `due` gebruikt de echte earnings-datum per naam, met een 90-dagenvangnet.
+`meet` haalt koersen via yfinance, rekent elk aandeel af tegen de benchmark op de scoredatum (en zet het rendement daarbij om naar de valuta van de benchmark — zie hieronder), groepeert het resultaat per verdict en waarschuwt zodra een prijs-wachtvoorwaarde (`wait_price_below`) geraakt wordt. `due` gebruikt de echte earnings-datum per naam, met een 90-dagenvangnet.
 
 **Het script scoort niets en beslist niets** — het meet en signaleert. Het oordeel blijft een handmatige `/scorecard <TICKER>`-aanroep. Dat is bewust: `docs/PLAN_2026-08.md` §2 zet automatisering van de onderzoekscadans pas op de agenda vanaf ~€100k.
 
@@ -126,6 +126,37 @@ Drie ritmes:
 | elke 1-2 weken | nieuwe namen screenen en scoren, tot de 20 vol is |
 | **op de cijfers** (niet op de kalender) | `due` → `/scorecard <TICKER> rescore` |
 | maandelijks | `meet` |
+
+## De meetlat: meet tegen wat je bezit
+
+Sinds 2026-08-24 is de benchmark **WEBN** (Amundi Prime All Country World, ISIN
+`IE0003XJA0J9`) — het fonds dat werkelijk in de portefeuille zit. Daarvoor was het
+URTH (iShares MSCI World). Die twee zijn niet hetzelfde: URTH noteert in dollars en
+dekt alleen ontwikkelde markten, WEBN noteert in euro's en heeft opkomende markten
+erbij. Meten tegen een fonds dat je niet bezit beantwoordt de verkeerde vraag.
+
+**De valuta-regel.** De namen noteren in USD, de benchmark in EUR. `track.py` rekent
+het rendement van elke naam om naar euro's vóór het aftrekken — anders landt de hele
+EUR/USD-beweging in het verschil naam-min-benchmark, en die beweging is over zes
+maanden makkelijk groter dan de selectie-edge die we meten. Concreet: tussen 11
+augustus en 24 augustus 2026 versterkte de euro 1,1%, genoeg om het gemiddelde over
+twintig namen met een halve procentpunt te verschuiven.
+
+Elke regel draagt daarom naast `price_at_score` en `benchmark_price_at_score` ook een
+`fx_at_score`. Ontbreekt die, dan valt de regel **uit de meting** in plaats van stil
+een verkeerd getal te leveren — onmeetbaar is niet hetzelfde als nul.
+
+**De struikeldraad.** Een omgedraaid valutapaar (EUR per USD in plaats van USD per
+EUR) geeft een plausibel ogend getal dat het oordeel omdraait. `_verify_fx` breekt de
+meting daarom af zodra de actuele koers meer dan 25% afwijkt van wat er in de ledger
+staat vastgelegd; `test_ledger.py` toetst beide richtingen met handmatig uitgerekende
+cijfers.
+
+> De oude URTH-koers blijft per regel bewaard als `benchmark_urth_price_at_score`.
+> Let op bij het teruglezen van `tracking.json`: snapshots van vóór 2026-08-24 zijn
+> tegen URTH gemeten én gebruikten 210,11 voor álle regels, ook de twintig die op 11
+> augustus zijn gescoord — daar hoorde 209,69. Een fout van 0,20 procentpunt in elke
+> oude meting, sindsdien rechtgezet.
 
 **De ledger is het punt.** Elke regel legt vast wat we vonden, op welke datum en tegen welke prijs — inclusief de benchmarkprijs op diezelfde dag. Over zes maanden rekent dat af of hoge scores écht aan goede uitkomsten voorafgingen. Zonder die regels is het een verzameling meningen.
 

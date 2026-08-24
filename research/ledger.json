@@ -1,12 +1,15 @@
 {
-  "_comment": "Scorekaart-ledger. Elke regel legt vast wat we vonden, wanneer, en tegen welke prijs — inclusief de benchmarkprijs op dezelfde dag. Over 6 maanden rekent dit af of hoge scores echt aan goede uitkomsten voorafgingen. Zie research/README.md.",
-  "_poort": "6 maanden vanaf de eerste regel, minimaal 20 gescoorde namen, criterium = versla de wereld-ETF over dezelfde periode.",
+  "_comment": "Scorekaart-ledger. Elke regel legt vast wat we vonden, wanneer, en tegen welke prijs — inclusief de benchmarkprijs op dezelfde dag. Over 6 maanden rekent dit af of hoge scores echt aan goede uitkomsten voorafgingen. Zie research/README.md. Meetlat sinds 2026-08-24: WEBN in EUR; zie _benchmark en _benchmark_history.",
+  "_poort": "6 maanden vanaf de eerste regel, minimaal 20 gescoorde namen, criterium = versla de kern-ETF (WEBN) over dezelfde periode, gemeten in euro's.",
   "_benchmark": {
-    "ticker": "URTH",
-    "name": "iShares MSCI World ETF",
-    "currency": "USD",
-    "note": "Ingevuld 2026-08-11. Was 'TODO', waardoor elke regel een lege benchmarkprijs had en de poort van 6 maanden dus niet af te rekenen was geweest. URTH is gekozen als USD-index-proxy omdat alle kandidaten in USD noteren; het uiteindelijke DeGiro-instrument (waarschijnlijk IWDA, EUR/accumulerend) volgt DEZELFDE index MSCI World. Bij de eindafrekening: vergelijk in dezelfde valuta, of reken beide om — een EUR/USD-beweging mag het oordeel niet bepalen.",
-    "degiro_instrument_chosen": false
+    "ticker": "WEBN.DE",
+    "label": "WEBN",
+    "name": "Amundi Prime All Country World UCITS (IE0003XJA0J9)",
+    "currency": "EUR",
+    "fx_ticker": "EURUSD=X",
+    "fx_quote": "USD per EUR",
+    "fx_note": "EURUSD=X noteert USD per EUR. De namen noteren in USD, de benchmark in EUR: DEEL een USD-koers door deze koers om hem in EUR uit te drukken. Zonder die omrekening landt de hele EUR/USD-beweging in het verschil naam-min-benchmark, en die is over zes maanden makkelijk groter dan het verschil dat we meten. Draai je de koers per ongeluk om, dan vangt de bandbreedte-controle in track.py dat af (fx_now moet binnen 25% van fx_at_score liggen).",
+    "note": "Omgezet 2026-08-24 van URTH naar WEBN. Reden: PLAN_2026-08 punt 2 van 2026-08-18 -- meet tegen wat je BEZIT. Het grootboek mat tegen URTH (iShares MSCI World, USD, alleen ontwikkelde markten) terwijl de kern sinds 2026-08-20 WEBN is (Amundi Prime All Country World, EUR, inclusief opkomende markten). Dat raakt het poortcriterium zelf, dus het moest voor de afrekening recht."
   },
   "_rounds": [
     {
@@ -80,7 +83,7 @@
       "currency": "USD",
       "market_cap_usd": 28300000000,
       "market_cap_note": "afgeleid uit 388,12M aandelen x $72,87; bronnen geven 21,5-27,9 mrd — herleiden uit 10-Q",
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.974,
       "benchmark_asof": "2026-08-10 slot",
       "benchmark_backfilled": "2026-08-11 — stond op null; ingevuld met de URTH-slotkoers van dezelfde week. Let op bij de afrekening: dit is een backfill, geen live vastgelegde prijs.",
       "gates": {
@@ -115,7 +118,9 @@
         "Starlink direct-to-cell bereikt brede commerciele dekking tegen lagere prijs eerst"
       ],
       "rescore_after": "2026-08-10 Q2-cijfers",
-      "card": "research/cards/ASTS.md"
+      "card": "research/cards/ASTS.md",
+      "benchmark_urth_price_at_score": 210.11,
+      "fx_at_score": 1.1556
     },
     {
       "ticker": "ASTS",
@@ -126,7 +131,7 @@
       "price_note": "Ingevuld 2026-08-11 (stond op TODO). Koers na de Q2-daling: $68,76, -4,42% op de dag. Marktkap $26,69 mrd.",
       "market_cap_usd": 26690000000,
       "currency": "USD",
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "benchmark_backfilled": "2026-08-11 — stond op null; ingevuld met de URTH-slotkoers van 2026-08-10, dezelfde peildatum als price_at_score. Regel is nu volledig af te rekenen.",
       "quarter": "Q2 2026",
@@ -191,7 +196,9 @@
         "INGETROKKEN: het voorstel om de overlevingspoort te herformuleren naar 'kas >= katalysator + marge'. Dat kwam voort uit het foute pro-forma-getal. Op de werkelijke cijfers is er geen grensgeval en deed de poort precies wat hij moest doen."
       ],
       "card": "research/cards/ASTS.md",
-      "manual_only_conditions": "capex < $200M/kw en financiering rond - capex niet in de metriekenset"
+      "manual_only_conditions": "capex < $200M/kw en financiering rond - capex niet in de metriekenset",
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "NTCT",
@@ -201,7 +208,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 2810000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust CIBR holding 0,41% (peildatum 2026-08-07)",
       "analyst_coverage": 3,
@@ -263,7 +270,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "ITRI",
@@ -273,7 +282,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 4490000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust GRID holding 0,42% (peildatum 2026-08-07)",
       "analyst_coverage": 13,
@@ -336,7 +345,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "MYRG",
@@ -346,7 +357,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 5140000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust GRID holding 0,53% (peildatum 2026-08-07)",
       "analyst_coverage": 7,
@@ -399,7 +410,9 @@
       "wait_price_below": 250.0,
       "wait_price_note": "koers onder ~$250 (~20x forward EPS $12,85)",
       "wait_price_is_partial": false,
-      "manual_only_conditions": "marktaandeel-trend t.o.v. Quanta/MasTec - geen publieke reeks"
+      "manual_only_conditions": "marktaandeel-trend t.o.v. Quanta/MasTec - geen publieke reeks",
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "PLPC",
@@ -410,7 +423,7 @@
       "currency": "USD",
       "market_cap_usd": 2262000000,
       "market_cap_note": "nagerekend: 4,89M aandelen x $462,63 = $2,262 mrd",
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust GRID holding 0,09% (peildatum 2026-08-07)",
       "analyst_coverage": 0,
@@ -478,7 +491,9 @@
         ],
         "partial": true,
         "partial_reason": "de gecodeerde regels zijn maar EEN HELFT van een EN-voorwaarde; de andere helft is guidance (ALNY) of de prijsdrempel (PLPC)"
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "AMSC",
@@ -488,7 +503,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 1500000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust GRID holding 0,17% (peildatum 2026-08-07)",
       "analyst_coverage": 4,
@@ -564,7 +579,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "OTEX",
@@ -574,7 +591,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 5870000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust SKYY holding 0,59% (peildatum 2026-08-07)",
       "gates": {
@@ -640,7 +657,9 @@
           }
         ]
       },
-      "manual_only_conditions": "de alternatieve voorwaarde (netto schuld/EBITDA < 2,5x) vergt balansdata; alleen de omzetgroei-helft is gecodeerd"
+      "manual_only_conditions": "de alternatieve voorwaarde (netto schuld/EBITDA < 2,5x) vergt balansdata; alleen de omzetgroei-helft is gecodeerd",
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "DOCU",
@@ -650,7 +669,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 11390000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust SKYY holding 0,65% (peildatum 2026-08-07)",
       "gates": {
@@ -720,7 +739,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "BLKB",
@@ -730,7 +751,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 2060000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust SKYY holding 0,80% (peildatum 2026-08-07)",
       "gates": {
@@ -784,7 +805,9 @@
       "wait_price_below": 33.0,
       "wait_price_note": "koers onder ~$33 EN netto schuld/EBITDA onder 3,0x — prijs alleen is niet genoeg",
       "wait_price_is_partial": true,
-      "manual_only_conditions": "netto schuld/EBITDA < 3,0x - vergt balansdata per kwartaal"
+      "manual_only_conditions": "netto schuld/EBITDA < 3,0x - vergt balansdata per kwartaal",
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "LDOS",
@@ -794,7 +817,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 17500000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust CIBR holding 1,96% (peildatum 2026-08-07)",
       "gates": {
@@ -861,7 +884,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "TTD",
@@ -871,7 +896,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 6290000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust SKYY holding 0,36% (peildatum 2026-08-07)",
       "gates": {
@@ -938,7 +963,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "HUBS",
@@ -948,7 +975,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 10770000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust SKYY holding 1,61% (peildatum 2026-08-07)",
       "gates": {
@@ -1016,7 +1043,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "ALNY",
@@ -1026,7 +1055,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 29030000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust FTXH holding 0,29% (peildatum 2026-08-10)",
       "gates": {
@@ -1091,7 +1120,9 @@
         "partial": true,
         "partial_reason": "de gecodeerde regels zijn maar EEN HELFT van een EN-voorwaarde; de andere helft is guidance (ALNY) of de prijsdrempel (PLPC)"
       },
-      "manual_only_conditions": "'geen verdere verlaging van de TTR-prognose' is guidance, niet meetbaar uit de jaarrekening - alleen de omzetgroei-helft is gecodeerd"
+      "manual_only_conditions": "'geen verdere verlaging van de TTR-prognose' is guidance, niet meetbaar uit de jaarrekening - alleen de omzetgroei-helft is gecodeerd",
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "CHKP",
@@ -1101,7 +1132,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 13390000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust CIBR holding 1,92% (peildatum 2026-08-07)",
       "gates": {
@@ -1163,7 +1194,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "LEA",
@@ -1173,7 +1206,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 8050000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust FTXR holding 1,13% (peildatum 2026-08-10)",
       "gates": {
@@ -1237,7 +1270,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "TRMB",
@@ -1247,7 +1282,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 13620000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust GRID holding 0,05% (peildatum 2026-08-07)",
       "gates": {
@@ -1301,7 +1336,9 @@
       "note": "Operationeel de sterkste van ronde 4: elke dimensie behalve waardering scoort 4. Geblokkeerd op prijs, niet op bedrijf.",
       "source": "kwartaalcijfers, kasstroom en balans via yfinance (2026-08-10, cijfers t/m mrt-2026)",
       "card": "research/cards/TRMB.md",
-      "manual_only_conditions": "alleen een prijsvoorwaarde; geen fundamentele component"
+      "manual_only_conditions": "alleen een prijsvoorwaarde; geen fundamentele component",
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "WLDN",
@@ -1311,7 +1348,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 1250000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust GRID holding 0,14% en QCLN holding 0,43% (peildatum 2026-08-10)",
       "analyst_coverage": 2,
@@ -1381,7 +1418,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "SEB",
@@ -1391,7 +1430,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 4060000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust FTXG holding 1,33% (peildatum 2026-08-10)",
       "analyst_coverage": 0,
@@ -1462,7 +1501,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "WIX",
@@ -1472,7 +1513,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 2610000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust SKYY holding 1,21% (peildatum 2026-08-07)",
       "gates": {
@@ -1541,7 +1582,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     },
     {
       "ticker": "CHRW",
@@ -1551,7 +1594,7 @@
       "price_asof": "2026-08-10 slot",
       "currency": "USD",
       "market_cap_usd": 17330000000,
-      "benchmark_price_at_score": 210.11,
+      "benchmark_price_at_score": 12.98,
       "benchmark_asof": "2026-08-10 slot",
       "candidate_source": "First Trust FTXR holding 0,81% (peildatum 2026-08-10)",
       "gates": {
@@ -1615,7 +1658,9 @@
             "quarters": 2
           }
         ]
-      }
+      },
+      "benchmark_urth_price_at_score": 209.69,
+      "fx_at_score": 1.1546
     }
   ],
   "_screened_layer1_20260811": [
@@ -1744,5 +1789,15 @@
       "BAH -1,6%, omzet -4,2%"
     ],
     "note": "AMSC kwam opnieuw als laag-1-treffer bovendrijven (-17,6% vs200, omzet +30%) maar is in ronde 1 al AFVALLER op dalende brutomarges. Bewijs dat laag 1 alleen niet volstaat: de kaart doet het werk."
+  },
+  "_benchmark_history": {
+    "was": {
+      "ticker": "URTH",
+      "name": "iShares MSCI World ETF",
+      "currency": "USD",
+      "note": "Ingevuld 2026-08-11. Was 'TODO', waardoor elke regel een lege benchmarkprijs had en de poort van 6 maanden dus niet af te rekenen was geweest. URTH is gekozen als USD-index-proxy omdat alle kandidaten in USD noteren; het uiteindelijke DeGiro-instrument (waarschijnlijk IWDA, EUR/accumulerend) volgt DEZELFDE index MSCI World. Bij de eindafrekening: vergelijk in dezelfde valuta, of reken beide om — een EUR/USD-beweging mag het oordeel niet bepalen.",
+      "degiro_instrument_chosen": false
+    },
+    "note": "Tot 2026-08-24 was de benchmark URTH (iShares MSCI World ETF, USD). De URTH-slotkoers per scoredatum blijft per regel bewaard als benchmark_urth_price_at_score, zodat de oude reeks leesbaar blijft. Let op bij het teruglezen van research/tracking.json: snapshots van voor 2026-08-24 zijn tegen URTH gemeten EN gebruikten 210.11 (de slotkoers van 10 augustus) voor ALLE regels, ook de twintig die op 11 augustus zijn gescoord -- daar hoorde 209.69. Een fout van 0,20 procentpunt in elke oude meting. De regels hieronder dragen nu wel de koers van hun eigen scoredatum."
   }
 }

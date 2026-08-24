@@ -15,12 +15,22 @@ besluit, geen meting, en dat hoort zichtbaar te zijn.
 import io
 import json
 import os
+import sys
 import warnings
 from datetime import datetime, timezone
 
 warnings.filterwarnings("ignore")
 
 WORTEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# De meetlat komt uit research/track.py, niet uit een eigen kopie. Die kopie
+# bestond wel, en toen de benchmark op 2026-08-24 van URTH (USD) naar WEBN (EUR)
+# ging, zou deze pagina een ander — en fout — getal zijn gaan tonen dan het
+# grootboek: zonder valuta-omrekening landt de hele EUR/USD-beweging in het
+# verschil naam-min-benchmark. Eén meetlat, één plek.
+sys.path.insert(0, os.path.join(WORTEL, "research"))
+import track  # noqa: E402
+
 UIT = os.path.join(WORTEL, "docs", "overzicht.html")
 ARTIFACT = os.path.join(WORTEL, "docs", "overzicht_artifact.html")
 POORTDATUM = datetime(2027, 2, 10, tzinfo=timezone.utc)
@@ -141,20 +151,23 @@ def bouw():
     ledger = _laad("research/ledger.json", {"entries": []})
     themas = _laad("research/themes.json", {"kaarten": []}).get("kaarten", [])
     actief = [e for e in ledger.get("entries", []) if not e.get("superseded_by")]
-    bench_t = (ledger.get("_benchmark") or {}).get("ticker", "URTH")
+    bench = track.bench_config(ledger)
+    bench_t = bench["ticker"]
 
-    prijzen = _koersen([e["ticker"] for e in actief] + [bench_t])
+    nodig = [e["ticker"] for e in actief] + [bench_t]
+    if bench["fx_ticker"]:
+        nodig.append(bench["fx_ticker"])
+    prijzen = _koersen(nodig)
     bench_nu = prijzen.get(bench_t)
+    fx_nu = prijzen.get(bench["fx_ticker"]) if bench["fx_ticker"] else None
 
     rijen = []
     for e in actief:
         nu = prijzen.get(e["ticker"])
-        p0, b0 = e.get("price_at_score"), e.get("benchmark_price_at_score")
-        rend = rel = None
-        if nu and p0:
-            rend = (nu / p0 - 1) * 100
-            if bench_nu and b0:
-                rel = rend - (bench_nu / b0 - 1) * 100
+        p0 = e.get("price_at_score")
+        # rend staat in de valuta van de BENCHMARK (euro's), nu en p0 in dollars.
+        rend, bench_rend = track.returns_pct(e, nu, bench_nu, fx_nu, bench)
+        rel = (rend - bench_rend) if rend is not None else None
         scores = [v for v in e["scores"].values() if v is not None]
         wp = e.get("wait_price_below")
         rijen.append({
@@ -393,7 +406,8 @@ def bouw():
         ("RIJEN", tr), ("BESLISSINGEN", beslis_html), ("THEMAS", themas_html),
         ("DAGEN", str(max(dagen, 0))),
         ("GEMREL", "%+.2f%%" % gem_rel), ("NAANTAL", str(len(gemeten))),
-        ("BENCH", _esc(bench_t)),
+        ("BENCH", _esc("%s (%s, in %s)"
+                       % (bench["label"], bench["name"], bench["currency"]))),
     ]:
         html = html.replace("{{%s}}" % sleutel, waarde)
 

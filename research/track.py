@@ -1,6 +1,6 @@
 """Scorekaart-tracker — het oordeelloze deel van de onderzoekscadans.
 
-    python research/track.py meet       # meet elke ledger-regel tegen de wereld-ETF
+    python research/track.py meet       # meet elke ledger-regel tegen de kern-ETF
     python research/track.py due        # welke kaarten zijn toe aan herscoring?
     python research/track.py dashboard  # research/dashboard.html (voeg --snel toe om
                                         #   de cijferdatums over te slaan)
@@ -72,29 +72,113 @@ def days_since(date_str):
     return (datetime.now(timezone.utc) - d).days
 
 
+# ----------------------------------------------------------------- de meetlat
+
+# Een omgedraaid valutapaar (USD per EUR = 1,15 versus EUR per USD = 0,87) wijkt
+# 26% af en valt hier dus buiten. Dat is precies de fout die deze grens moet
+# vangen: hij is stil, hij ziet er plausibel uit, en hij draait het oordeel om.
+FX_MAX_DRIFT = 0.25
+
+
+def bench_config(ledger):
+    """De meetlat uit de ledger, met de valuta-afspraak erbij."""
+    b = ledger["_benchmark"]
+    return {
+        "ticker": b["ticker"],
+        "label": b.get("label") or b["ticker"],
+        "name": b.get("name") or b["ticker"],
+        "currency": b.get("currency", "USD"),
+        "fx_ticker": b.get("fx_ticker"),
+    }
+
+
+def fetch_market(ledger, entries):
+    """Haalt namen, benchmark en wisselkoers op.
+
+    Geeft (bench, prices, bench_now, fx_now). Stopt met een foutmelding als de
+    benchmark of de wisselkoers ontbreekt: liever geen meting dan een meting
+    waarin een valutabeweging als selectie-edge wordt gerapporteerd.
+    """
+    bench = bench_config(ledger)
+    tickers = [e["ticker"] for e in entries] + [bench["ticker"]]
+    if bench["fx_ticker"]:
+        tickers.append(bench["fx_ticker"])
+    prices = fetch_prices(tickers)
+
+    bench_now = prices.get(bench["ticker"])
+    if bench_now is None:
+        return bench, prices, None, None
+
+    fx_now = None
+    if bench["fx_ticker"]:
+        fx_now = prices.get(bench["fx_ticker"])
+        if fx_now:
+            _verify_fx(entries, fx_now, bench)
+    return bench, prices, bench_now, fx_now
+
+
+def _verify_fx(entries, fx_now, bench):
+    """Struikeldraad tegen een omgedraaid of vervangen valutapaar."""
+    refs = [e["fx_at_score"] for e in entries if e.get("fx_at_score")]
+    if not refs:
+        return
+    ref = sum(refs) / len(refs)
+    if abs(fx_now / ref - 1) > FX_MAX_DRIFT:
+        sys.exit(
+            "Wisselkoers %s staat op %.4f terwijl de ledger rond %.4f is vastgelegd "
+            "(%.0f%% verschil). Dat is te veel voor een echte koersbeweging — "
+            "waarschijnlijk staat _benchmark.fx_ticker omgedraaid. Meting afgebroken."
+            % (bench["fx_ticker"], fx_now, ref, abs(fx_now / ref - 1) * 100))
+
+
+def returns_pct(entry, price_now, bench_now, fx_now, bench):
+    """(rendement naam, rendement benchmark) in procenten, BEIDE in benchmarkvaluta.
+
+    De namen noteren in USD en de benchmark in EUR. Zonder omrekening landt de
+    hele EUR/USD-beweging in het verschil naam-min-benchmark, en dat verschil is
+    over zes maanden makkelijk groter dan de selectie-edge die we meten.
+
+    Geeft (None, None) als de regel niet af te rekenen is. Een ontbrekend gegeven
+    geeft nooit stil een getal: onmeetbaar is niet hetzelfde als nul.
+    """
+    p0 = entry.get("price_at_score")
+    b0 = entry.get("benchmark_price_at_score")
+    if not p0 or not b0 or price_now is None or bench_now is None:
+        return None, None
+
+    bench_ret = (bench_now / b0 - 1) * 100
+
+    if (entry.get("currency") or "USD") == bench["currency"]:
+        return (price_now / p0 - 1) * 100, bench_ret
+
+    f0 = entry.get("fx_at_score")
+    if not f0 or not fx_now:
+        return None, None
+    # fx noteert naamvaluta per eenheid benchmarkvaluta (EURUSD=X: USD per EUR),
+    # dus DELEN zet een USD-koers om in EUR. Zie _benchmark.fx_note in de ledger.
+    return ((price_now / fx_now) / (p0 / f0) - 1) * 100, bench_ret
+
+
 # --------------------------------------------------------------------------- meet
 
 def cmd_meet(ledger):
     entries = live_entries(ledger)
-    bench_ticker = ledger["_benchmark"]["ticker"]
 
-    print("Koersen ophalen (%d namen + benchmark %s)...\n" % (len(entries), bench_ticker))
-    prices = fetch_prices([e["ticker"] for e in entries] + [bench_ticker])
-
-    bench_now = prices.get(bench_ticker)
+    print("Koersen ophalen (%d namen + benchmark %s)...\n"
+          % (len(entries), ledger["_benchmark"]["ticker"]))
+    bench, prices, bench_now, fx_now = fetch_market(ledger, entries)
     if bench_now is None:
-        sys.exit("Benchmark %s niet op te halen — meting afgebroken." % bench_ticker)
+        sys.exit("Benchmark %s niet op te halen — meting afgebroken." % bench["ticker"])
 
     rows, skipped = [], []
     for e in entries:
         now = prices.get(e["ticker"])
-        p0, b0 = e.get("price_at_score"), e.get("benchmark_price_at_score")
-        if now is None or not p0 or not b0:
+        p0 = e.get("price_at_score")
+        ret, bench_ret = returns_pct(e, now, bench_now, fx_now, bench)
+        if ret is None:
             skipped.append(e["ticker"])
             continue
 
-        ret = (now / p0 - 1) * 100
-        bench_ret = (bench_now / b0 - 1) * 100
         rows.append({
             "ticker": e["ticker"],
             "verdict": e["verdict"],
@@ -112,8 +196,10 @@ def cmd_meet(ledger):
 
     rows.sort(key=lambda r: r["relative_pct"], reverse=True)
 
+    print("Koersen in USD; rendement en verschil in %s, de valuta van de benchmark.\n"
+          % bench["currency"])
     print("%-6s %-9s %5s %8s %8s %8s %8s   %s" % (
-        "", "verdict", "score", "toen", "nu", "rend.", "vs ETF", ""))
+        "", "verdict", "score", "toen", "nu", "rend.", "vs " + bench["label"], ""))
     print("-" * 74)
     for r in rows:
         flag = "  <- WACHTVOORWAARDE GERAAKT" if r["wait_triggered"] else ""
@@ -133,14 +219,17 @@ def cmd_meet(ledger):
         grp = [r for r in rows if r["verdict"] == verdict]
         if grp:
             avg = sum(r["relative_pct"] for r in grp) / len(grp)
-            print("  %-9s n=%-3d gemiddeld %+.1f%% vs de wereld-ETF" % (verdict, len(grp), avg))
+            print("  %-9s n=%-3d gemiddeld %+.1f%% vs %s"
+                  % (verdict, len(grp), avg, bench["label"]))
 
     if rows:
         overall = sum(r["relative_pct"] for r in rows) / len(rows)
-        print("  %-9s n=%-3d gemiddeld %+.1f%% vs de wereld-ETF" % ("TOTAAL", len(rows), overall))
+        print("  %-9s n=%-3d gemiddeld %+.1f%% vs %s"
+              % ("TOTAAL", len(rows), overall, bench["label"]))
 
     n = len(rows)
-    print("\nPoort: 6 maanden, >=20 namen, versla de wereld-ETF.")
+    print("\nPoort: 6 maanden, >=20 namen, versla %s (%s)."
+          % (bench["label"], bench["name"]))
     print("Stand: %d van 20 namen. %s" % (
         n, "Nog %d te scoren." % (20 - n) if n < 20 else "Aantal gehaald."))
     if n < 20:
@@ -151,16 +240,24 @@ def cmd_meet(ledger):
         print("\n*** Wachtvoorwaarde geraakt: %s — kaart opnieuw langslopen. ***"
               % ", ".join(triggered))
 
-    n_hist = save_snapshot(bench_ticker, bench_now, rows)
+    n_hist = save_snapshot(bench, bench_now, fx_now, rows)
     print("\nSnapshot opgeslagen in research/tracking.json (%d in historie)." % n_hist)
 
 
-def save_snapshot(bench_ticker, bench_now, rows):
-    """Schrijft de meting van vandaag weg; een tweede run dezelfde dag overschrijft."""
+def save_snapshot(bench, bench_now, fx_now, rows):
+    """Schrijft de meting van vandaag weg; een tweede run dezelfde dag overschrijft.
+
+    De benchmark en de valuta gaan MEE in de snapshot. Zonder die twee is een
+    oude meting niet te duiden zodra de meetlat wisselt — en dat is op
+    2026-08-24 gebeurd (URTH/USD -> WEBN/EUR).
+    """
     snapshot = {
         "measured_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "benchmark": bench_ticker,
-        "benchmark_price": round(bench_now, 2),
+        "benchmark": bench["ticker"],
+        "benchmark_price": round(bench_now, 4),
+        "benchmark_currency": bench["currency"],
+        "fx_ticker": bench["fx_ticker"],
+        "fx_rate": round(fx_now, 4) if fx_now else None,
         "rows": rows,
     }
     history = {"snapshots": []}
@@ -192,22 +289,19 @@ def cmd_check(ledger):
     die altijd komt, leest niemand meer na een week.
     """
     entries = live_entries(ledger)
-    bench_ticker = ledger["_benchmark"]["ticker"]
-    prices = fetch_prices([e["ticker"] for e in entries] + [bench_ticker])
-    bench_now = prices.get(bench_ticker)
+    bench, prices, bench_now, fx_now = fetch_market(ledger, entries)
     if bench_now is None:
-        print("Benchmark %s niet op te halen — meting overgeslagen." % bench_ticker)
+        print("Benchmark %s niet op te halen — meting overgeslagen." % bench["ticker"])
         _emit(False, "")
         return
 
     rows, triggered, stale = [], [], []
     for e in entries:
         now = prices.get(e["ticker"])
-        p0, b0 = e.get("price_at_score"), e.get("benchmark_price_at_score")
-        if now is None or not p0 or not b0:
+        p0 = e.get("price_at_score")
+        ret, bench_ret = returns_pct(e, now, bench_now, fx_now, bench)
+        if ret is None:
             continue
-        ret = (now / p0 - 1) * 100
-        bench_ret = (bench_now / b0 - 1) * 100
         wp = e.get("wait_price_below")
         row = {
             "ticker": e["ticker"], "verdict": e["verdict"], "avg_score": avg_score(e),
@@ -224,10 +318,10 @@ def cmd_check(ledger):
         if row["days_held"] >= RESCORE_AFTER_DAYS:
             stale.append(e["ticker"])
 
-    save_snapshot(bench_ticker, bench_now, rows)
+    save_snapshot(bench, bench_now, fx_now, rows)
     avg_rel = sum(r["relative_pct"] for r in rows) / len(rows) if rows else 0.0
     print("%d namen gemeten · gemiddeld %+.2f%% vs %s · %d trigger(s) geraakt"
-          % (len(rows), avg_rel, bench_ticker, len(triggered)))
+          % (len(rows), avg_rel, bench["label"], len(triggered)))
 
     if not triggered and not stale:
         _emit(False, "")
@@ -425,21 +519,18 @@ def _esc(s):
 
 def cmd_dashboard(ledger, with_earnings=True):
     entries = live_entries(ledger)
-    bench_ticker = ledger["_benchmark"]["ticker"]
-    prices = fetch_prices([e["ticker"] for e in entries] + [bench_ticker])
-    bench_now = prices.get(bench_ticker)
+    bench, prices, bench_now, fx_now = fetch_market(ledger, entries)
     if bench_now is None:
-        sys.exit("Benchmark %s niet op te halen." % bench_ticker)
+        sys.exit("Benchmark %s niet op te halen." % bench["ticker"])
 
     b0_ref = entries[0].get("benchmark_price_at_score")
     rows = []
     for e in entries:
         now = prices.get(e["ticker"])
-        p0, b0 = e.get("price_at_score"), e.get("benchmark_price_at_score")
-        if now is None or not p0 or not b0:
+        p0 = e.get("price_at_score")
+        ret, bench_ret = returns_pct(e, now, bench_now, fx_now, bench)
+        if ret is None:
             continue
-        ret = (now / p0 - 1) * 100
-        bench_ret = (bench_now / b0 - 1) * 100
         wp = e.get("wait_price_below")
         rows.append({
             "ticker": e["ticker"], "name": e.get("name", ""),
@@ -467,7 +558,7 @@ def cmd_dashboard(ledger, with_earnings=True):
     # --- stat tiles ---------------------------------------------------------
     tiles = [
         ("Namen gescoord", "%d / 20" % len(rows), "poort-eis gehaald", "good"),
-        ("Selectie vs wereld-ETF", "%+.1f%%" % avg_rel,
+        ("Selectie vs %s" % bench["label"], "%+.1f%%" % avg_rel,
          "gemiddeld over %d namen · ruis onder 6 mnd" % len(rows),
          "good" if avg_rel > 0 else ("critical" if avg_rel < -1 else "neutral")),
         ("Wachtvoorwaarden geraakt", "%d" % len(triggered),
@@ -496,15 +587,15 @@ def cmd_dashboard(ledger, with_earnings=True):
             side = ("left:50%%;width:%.2f%%" % frac) if pos else \
                    ("right:50%%;width:%.2f%%" % frac)
             bars.append(
-                '<div class="barrow" data-tip="%s: %+.2f%% vs wereld-ETF">'
+                '<div class="barrow" data-tip="%s: %+.2f%% vs %s">'
                 '<div class="barlabel">%s</div>'
                 '<div class="bartrack"><div class="zero"></div>'
                 '<div class="bar %s" style="%s"></div></div>'
                 '<div class="barval">%+.1f%%</div></div>'
-                % (_esc(r["ticker"]), r["rel"], _esc(r["ticker"]),
-                   "pos" if pos else "neg", side, r["rel"]))
+                % (_esc(r["ticker"]), r["rel"], _esc(bench["label"]),
+                   _esc(r["ticker"]), "pos" if pos else "neg", side, r["rel"]))
         chart_html = ('<div class="chart">%s</div>'
-                      '<div class="legend"><span class="sw pos"></span>boven de wereld-ETF'
+                      '<div class="legend"><span class="sw pos"></span>boven de kern-ETF'
                       '<span class="sw neg"></span>eronder</div>' % "".join(bars))
 
     # --- tabel --------------------------------------------------------------
@@ -548,8 +639,8 @@ def cmd_dashboard(ledger, with_earnings=True):
     html = _TEMPLATE
     for k, v in [("TODAY", today), ("TILES", tiles_html), ("CHART", chart_html),
                  ("ROWS", "".join(trs)), ("AGENDA", agenda_html),
-                 ("BENCH", "%s $%.2f (%+.1f%% sinds scoredatum)"
-                  % (bench_ticker, bench_now, bench_ret_all))]:
+                 ("BENCH", "%s %.2f %s (%+.1f%% sinds scoredatum)"
+                  % (bench["label"], bench_now, bench["currency"], bench_ret_all))]:
         html = html.replace("{{%s}}" % k, v)
 
     with io.open(DASHBOARD, "w", encoding="utf-8") as fh:
@@ -639,7 +730,7 @@ tr:last-child td{border-bottom:none}
 <p class="sub">Bijgewerkt {{TODAY}} · benchmark {{BENCH}} · <code>python research/track.py dashboard</code></p>
 <div class="tiles">{{TILES}}</div>
 
-<h2>Rendement ten opzichte van de wereld-ETF</h2>
+<h2>Rendement ten opzichte van de kern-ETF</h2>
 <div class="panel">{{CHART}}</div>
 
 <h2>Alle namen</h2>
@@ -656,7 +747,8 @@ tr:last-child td{border-bottom:none}
 <b>Dagelijks:</b> checken of een vooraf vastgelegde prijs-trigger geraakt is — dat is
 uitvoering van een besluit dat al genomen is, geen reactie. <b>Op de kwartaalcijfers:</b>
 herscoren, oftewel van mening mogen veranderen. <b>Maandelijks:</b> meten tegen de
-wereld-ETF.<br><br>
+kern-ETF — sinds 24 augustus 2026 is dat WEBN, het fonds dat we werkelijk bezitten,
+en niet langer URTH. Koersen staan in dollars, rendement en verschil in euro's.<br><br>
 Wat er níét mag: op de dag zelf een nieuwe reden verzinnen om te kopen omdat de koers hard
 zakte. Namen met een <i>fundamentele</i> wachtvoorwaarde (twee kwartalen groei) worden
 niet koopbaar door een koersdaling alleen — dan koopt de daling juist het risico in.
