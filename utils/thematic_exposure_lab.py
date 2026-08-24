@@ -121,6 +121,24 @@ SLEEVE_CIRCUIT_BREAKER_DD_PCT = 15.0   # XYZ100 >dit% onder 60d-high -> pauzeer 
 SLEEVE_MAX_DRAWDOWN_STOP_PCT = 25.0    # sluit positie bij -dit% verlies (falling-knife cap)
 SLEEVE_MIN_TRIM_NOTIONAL_USD = 10.0    # HL weigert orders <$10; daaronder tranche BEWAREN, niet verbranden
 
+# ── winstbescherming bij kleine posities (2026-08-24) ──────────────────────
+# De winstladder (25% afromen bij +30/+60/+100%) is bij dit budget onuitvoerbaar.
+# HL weigert orders onder $10, dus 25% afromen vergt een positie van >=$40 bij
+# +30% ($40 x 1,30 x 0,25 = $13). De posities zijn hier $16-28. Gemeten op
+# 2026-08-24: CRCL stond +41% en NOW +34% en er was nog nooit een cent afgeroomd
+# -- de +30%-sport had in het hele bestaan van de sleeve niet één keer gevuurd.
+#
+# Wat wél altijd kan is de trailing-stop aantrekken: dat vergt geen order en
+# kent dus geen minimum. Hoe verder een winnaar liep, hoe minder hij van zijn
+# piek mag teruggeven. Dezelfde vorm als de sl_stage-bevinding op de
+# hoofd-swarm (stage 0 = 3,4% WR / -$236, stage 2 = profit-lock = 100% WR /
+# +$246): alle P&L komt uit post-entry-beheer, niet uit de instap.
+#
+# De trims blijven staan en gaan vanzelf werken zodra het budget groeit; deze
+# ladder is de bodem eronder, niet de vervanging.
+SLEEVE_TRAIL_LADDER = ((100.0, 0.92), (60.0, 0.88), (30.0, 0.85))
+SLEEVE_TRAIL_BASE = 0.80   # onder +30%: ongewijzigd t.o.v. de oude vaste regel
+
 PULLBACK_VOL_THRESHOLD = 1.5   # vol-genormaliseerde "eenheden onder het 252d-high"
 BREADTH_THRESHOLD = 0.30       # aandeel tickers in thema dat ook >= pullback-drempel scoort
 STABILIZATION_LOOKBACK = 5     # dagen — laatste close mag niet op het 5d-low liggen
@@ -184,6 +202,19 @@ def _finite(x, default=0.0):
         return x if math.isfinite(x) else default
     except (TypeError, ValueError):
         return default
+
+
+def _trail_fraction(peak_gain_pct: float) -> float:
+    """Welk deel van de piekwaarde een winnaar mag behouden voor hij dichtgaat.
+
+    Naar gelang hoe ver de positie ooit liep — niet hoe ver hij NU staat, want
+    dan zou de bescherming weer losser worden zodra de koers terugzakt, precies
+    op het moment dat je hem nodig hebt.
+    """
+    for drempel, frac in SLEEVE_TRAIL_LADDER:
+        if peak_gain_pct >= drempel:
+            return frac
+    return SLEEVE_TRAIL_BASE
 
 
 class ThematicExposureLab:
@@ -1122,6 +1153,18 @@ class ThematicExposureLab:
             gain_pct = (mark - entry) / entry * 100 if entry > 0 else 0.0
             pos["peak_value_usd"] = max(_finite(pos.get("peak_value_usd")), pos["current_value_usd"])
 
+            # Piekwinst in PROCENTEN, prijs-gebaseerd. Bewust niet elke keer
+            # afgeleid uit peak_value/cost_basis: die twee verschuiven allebei
+            # bij een bijkoop of een deelexit, de prijsverhouding niet.
+            if pos.get("peak_gain_pct") is None and _finite(pos.get("cost_basis_usd")) > 0:
+                # Eerste keer: leid hem af uit de bestaande piekwaarde. Dat is
+                # exact zolang er niet is bijgekocht of getrimd — en dat is bij
+                # geen enkele positie gebeurd (gemeten 2026-08-24).
+                pos["peak_gain_pct"] = (_finite(pos.get("peak_value_usd"))
+                                        / pos["cost_basis_usd"] - 1) * 100
+            pos["peak_gain_pct"] = max(_finite(pos.get("peak_gain_pct")), gain_pct)
+            trail = _trail_fraction(pos["peak_gain_pct"])
+
             exit_reason, exit_fraction, tranche_vlag = None, 0.0, None
             # Downside-stop (falling-knife cap): sluit volledig bij een groot verlies.
             # De sleeve had voorheen GEEN downside-stop → posities konden oneindig
@@ -1138,8 +1181,10 @@ class ThematicExposureLab:
             elif gain_pct >= 30 and not pos.get("profit_tranche_1_done"):
                 exit_reason, exit_fraction = "winst-tranche +30%", 0.25
                 tranche_vlag = "profit_tranche_1_done"
-            elif gain_pct > 0 and pos["current_value_usd"] < pos["peak_value_usd"] * 0.80:
-                exit_reason, exit_fraction = "NAV-trailing-stop -20% (na winstgevend)", 1.0
+            elif gain_pct > 0 and pos["current_value_usd"] < pos["peak_value_usd"] * trail:
+                exit_reason, exit_fraction = (
+                    "NAV-trailing-stop -%.0f%% (piek stond op +%.0f%%)"
+                    % ((1 - trail) * 100, pos["peak_gain_pct"]), 1.0)
 
             if exit_reason:
                 # De vlag wordt pas gezet als de verkoop ECHT is gelukt. Stond hij
@@ -1198,9 +1243,25 @@ class ThematicExposureLab:
         cost_basis_sold = pos["avg_entry_price"] * qty_to_sell
         realized_pnl = proceeds - cost_basis_sold
 
+        qty_voor = pos["quantity"]
         pos["quantity"] -= qty_to_sell
         pos["cost_basis_usd"] = pos["avg_entry_price"] * pos["quantity"]
         pos["current_value_usd"] = pos["quantity"] * mark
+
+        # De piekwaarde hoort bij de positie die er WAS; schaal hem mee met wat
+        # er verkocht is. Zonder dit staat de trailing-stop na elke deelexit
+        # gegarandeerd onder water — niet soms, altijd: na een trim van 25% is
+        # de waarde 0,75 x de waarde van dat moment, en die was per definitie
+        # hoogstens de piek, dus 0,75 x waarde < 0,80 x piek klopt zonder
+        # uitzondering. De eerstvolgende cyclus zou dan de hele winnaar
+        # liquideren onder de noemer "trailing-stop". Gevonden 2026-08-24 en
+        # nooit opgemerkt, juist omdat de winst-tranches door het $10-minimum
+        # nog geen enkele keer gevuurd hadden. Deel op de FEITELIJK verkochte
+        # hoeveelheid, niet op de gevraagde fractie: precision-afronding
+        # hierboven verandert die.
+        if qty_voor > 0:
+            pos["peak_value_usd"] = (_finite(pos.get("peak_value_usd"))
+                                     * (1.0 - qty_to_sell / qty_voor))
         positions["cash_usd"] = _finite(positions.get("cash_usd")) + proceeds
         positions["realized_pnl_usd"] = _finite(positions.get("realized_pnl_usd")) + realized_pnl
 
@@ -1324,6 +1385,26 @@ class ThematicExposureLab:
             total_cost = sum(_finite(p.get("cost_basis_usd")) for p in open_positions.values())
             lines.append(f"  Waarde: ${total_value:,.2f} | ongerealiseerd: ${total_value - total_cost:+,.2f}")
         lines.append(f"  Vrij budget: ${_finite(positions.get('cash_usd')):,.2f}")
+
+        # Winnaars: welke bescherming staat er, en is de winstladder bruikbaar?
+        # Die laatste vraag stond drie maanden onbeantwoord omdat een overgeslagen
+        # tranche alleen een INFO-regel in de logs achterliet.
+        winnaars, inert = [], []
+        for t, p in open_positions.items():
+            piek = _finite(p.get("peak_gain_pct"))
+            if piek < SLEEVE_TRAIL_LADDER[-1][0]:
+                continue
+            trail = _trail_fraction(piek)
+            winnaars.append("%s piek +%.0f%% → stop -%.0f%%" % (t, piek, (1 - trail) * 100))
+            # 25% van de huidige waarde: haalt die het HL-minimum?
+            if _finite(p.get("current_value_usd")) * 0.25 < SLEEVE_MIN_TRIM_NOTIONAL_USD:
+                inert.append(t)
+        if winnaars:
+            lines.append(f"  Winstbescherming: {'; '.join(winnaars)}")
+        if inert:
+            lines.append(
+                f"  ℹ️ Winstladder nog onbruikbaar bij {', '.join(inert)} — 25% blijft "
+                f"onder HL's ${SLEEVE_MIN_TRIM_NOTIONAL_USD:.0f}; de trailing-stop doet het werk")
         preview = self._t2_t4_preview(report, positions)
         if preview:
             lines.append(f"  T2-T4 (nog uit, zou vuren): {'; '.join(preview[:3])}")

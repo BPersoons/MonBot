@@ -599,3 +599,119 @@ class TestT2T4DryRunGate(ThematicExposureLabTestBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWinstbescherming(ThematicExposureLabTestBase):
+    """De winstladder en de trailing-stop (2026-08-24).
+
+    Achtergrond: de winstladder (25% afromen bij +30/+60/+100%) heeft in het
+    hele bestaan van de sleeve nooit gevuurd, omdat 25% van een positie van
+    $16-28 onder HL's $10-minimum blijft. Daardoor bleef ook onopgemerkt dat
+    een geslaagde trim de piekwaarde NIET meeschaalde — waarna de trailing-stop
+    de eerstvolgende cyclus gegarandeerd de hele winnaar liquideerde.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.exchange = MagicMock()
+        self.exchange.get_amount_precision.return_value = 0.0001
+        self.exchange.create_order.return_value = {"id": "mock-exit-1"}
+        self.lab = ThematicExposureLab(exchange_client=self.exchange)
+
+    def _seed_positie(self, quantity, entry, **extra):
+        pos = {
+            "themes": {"semiconductors": 0.4},
+            "tranche_stage": 1,
+            "status": "OPEN",
+            "quantity": quantity,
+            "avg_entry_price": entry,
+            "cost_basis_usd": quantity * entry,
+            "opened_at": tel._now_iso(),
+        }
+        pos.update(extra)
+        data = self.lab._load_positions()
+        data["positions"] = {"XYZ-NVDA": pos}
+        self.lab._save_positions(data)
+        return pos
+
+    def _positie(self):
+        return self.lab._load_positions()["positions"]["XYZ-NVDA"]
+
+    # ── de ladder zelf ───────────────────────────────────────────────────
+    def test_trail_fraction_per_band(self):
+        self.assertEqual(tel._trail_fraction(0.0), tel.SLEEVE_TRAIL_BASE)
+        self.assertEqual(tel._trail_fraction(29.9), tel.SLEEVE_TRAIL_BASE)
+        self.assertEqual(tel._trail_fraction(30.0), 0.85)
+        self.assertEqual(tel._trail_fraction(59.9), 0.85)
+        self.assertEqual(tel._trail_fraction(60.0), 0.88)
+        self.assertEqual(tel._trail_fraction(100.0), 0.92)
+        self.assertEqual(tel._trail_fraction(250.0), 0.92)
+
+    def test_ladder_wordt_strenger_niet_losser(self):
+        """Elke hogere piek moet een STRAKKERE stop geven, nooit een lossere."""
+        vorige = tel.SLEEVE_TRAIL_BASE
+        for piek in (0, 30, 60, 100, 200):
+            huidig = tel._trail_fraction(piek)
+            self.assertGreaterEqual(huidig, vorige,
+                                    "stop werd losser bij piek +%s%%" % piek)
+            vorige = huidig
+
+    # ── de regressie: trim mag de winnaar niet liquideren ────────────────
+    def test_trim_liquideert_de_rest_niet(self):
+        # 0,5 stuks a $100 entry, mark $130 = +30%. Waarde $65, dus 25% = $16,25
+        # en dat haalt HL's $10-minimum wel — anders zou de trim niet vuren en
+        # test deze zaak niets.
+        self._seed_positie(0.5, 100.0)
+        self.exchange.get_market_price.return_value = 130.0
+
+        self.lab._manage_exits()                      # cyclus 1: trimt 25%
+        na_trim = self._positie()
+        self.assertEqual(na_trim["status"], "OPEN")
+        self.assertTrue(na_trim.get("profit_tranche_1_done"))
+        self.assertAlmostEqual(na_trim["quantity"], 0.375, places=6)
+        # de piek moet met dezelfde 25% zijn meegeschaald
+        self.assertAlmostEqual(na_trim["peak_value_usd"], 48.75, places=4)
+
+        self.exchange.create_order.reset_mock()
+        self.lab._manage_exits()                      # cyclus 2: prijs onveranderd
+        na_tweede = self._positie()
+        self.assertEqual(
+            na_tweede["status"], "OPEN",
+            "de trailing-stop liquideerde de winnaar direct na de winst-tranche")
+        self.exchange.create_order.assert_not_called()
+
+    def test_trailing_stop_vuurt_wel_bij_echte_terugval(self):
+        """De strakkere stop moet ook echt sluiten — anders is hij decoratie."""
+        self._seed_positie(0.5, 100.0)
+        self.exchange.get_market_price.return_value = 140.0   # piek +40%
+        self.lab._manage_exits()
+        self.assertEqual(self._positie()["status"], "OPEN")
+
+        # -14% vanaf de piek: binnen de oude 20%-regel, buiten de nieuwe 15%.
+        self.exchange.get_market_price.return_value = 118.0
+        self.lab._manage_exits()
+        self.assertEqual(self._positie()["status"], "CLOSED")
+
+    def test_onder_30_procent_blijft_de_oude_20_procent_regel(self):
+        self._seed_positie(0.5, 100.0)
+        self.exchange.get_market_price.return_value = 120.0   # piek +20%
+        self.lab._manage_exits()
+        # -14% vanaf de piek mag bij een kleine winnaar nog NIET sluiten
+        self.exchange.get_market_price.return_value = 103.5
+        self.lab._manage_exits()
+        self.assertEqual(self._positie()["status"], "OPEN")
+
+    # ── het $10-minimum: tranche bewaren, niet verbranden ────────────────
+    def test_te_kleine_trim_bewaart_de_tranche(self):
+        # 0,2 stuks a $50 entry, mark $65 = +30%. Waarde $13, 25% = $3,25 < $10.
+        self._seed_positie(0.2, 50.0)
+        self.exchange.get_market_price.return_value = 65.0
+
+        self.lab._manage_exits()
+        pos = self._positie()
+        self.exchange.create_order.assert_not_called()
+        self.assertFalse(pos.get("profit_tranche_1_done"),
+                         "een niet-uitgevoerde winst-tranche werd toch afgevinkt")
+        self.assertAlmostEqual(pos["quantity"], 0.2, places=6)
+        # maar de bescherming staat er wel: piek +30% => stop op -15%
+        self.assertGreaterEqual(tel._finite(pos.get("peak_gain_pct")), 30.0)
