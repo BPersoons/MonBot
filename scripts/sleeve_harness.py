@@ -203,6 +203,58 @@ def _laad_aandelen(conf, vanaf: str, tot: str, ververs: bool = False):
     return DATA, (pd.Series(dict(sorted(eq.items()))) if eq else None)
 
 
+def _regime_dagen(eqs, venster: int = 200):
+    """Welke dagen zijn 'bull' en welke 'bear', UITSLUITEND met wat je die dag wist.
+
+    De index boven zijn eigen voortschrijdend gemiddelde van `venster` dagen =
+    bull. Traag en dom met opzet: een bear duurt maanden, dus achterlopen is
+    hier geen bezwaar, en er valt niets te fitten. Het gemiddelde van dag D
+    gebruikt alleen koersen t/m D.
+
+    Dit is het scharnier van de hele vraag. Long-op-dips en short-op-oplevingen
+    werken allebei in hun eigen regime en falen allebei in het andere; de winst
+    zit dus volledig in het KUNNEN AANWIJZEN van het regime -- niet in het
+    voorspellen ervan, maar in het herkennen van de stand van vandaag.
+    """
+    if eqs is None or len(eqs) < venster:
+        return None, None
+    ma = eqs.rolling(venster, min_periods=venster).mean()
+    bull = {int(d) for d in eqs.index if ma.get(d) == ma.get(d) and eqs[d] > ma[d]}
+    bear = {int(d) for d in eqs.index if ma.get(d) == ma.get(d) and eqs[d] <= ma[d]}
+    return bull, bear
+
+
+def _omkeren(DATA, eqs):
+    """Spiegel de reeks: 1/koers. Zo wordt "koop de dip" letterlijk "short de
+    stijging" ZONDER één regel meetlogica te dupliceren.
+
+    Waarom dit werkt: een opleving in P is een drawdown in 1/P, en de
+    gerealiseerde volatiliteit van log-rendementen is identiek (log(1/P) =
+    -log(P)). Dus `_pullback_score`, de breadth, de circuit-breaker en alle elf
+    exit-varianten draaien onveranderd door — alleen het teken van de wereld
+    draait om. Dit is dezelfde truc als hierboven bij de databron: verander één
+    ding, laat de regels met rust.
+
+    WAAR HET SCHEEF ZIT, en dat is niet klein. Een echte short verliest
+    (P1-P0)/P0; een long in 1/P verliest P0/P1 - 1. Stijgt de koers 10%, dan
+    kost de echte short 10,0% en deze spiegel 9,1%. Daalt hij 10%, dan levert de
+    echte short 10,0% en de spiegel 11,1%. **De spiegel vleit de short dus in
+    beide richtingen.** Hij is bruikbaar als eerste zeef: verliest de strategie
+    HIER, dan verliest ze in het echt harder. Wint ze, dan is dat geen resultaat
+    maar een reden om pas dán echte short-boekhouding te bouwen.
+
+    Niet gemodelleerd: financieringskosten van een short, leenkosten, en het
+    feit dat een short onbegrensd verlies kan lijden.
+    """
+    import pandas as pd
+    gespiegeld = {t: {d: 1.0 / c for d, c in reeks.items() if c > 0}
+                  for t, reeks in DATA.items()}
+    eq_sp = None
+    if eqs is not None:
+        eq_sp = pd.Series({d: 1.0 / v for d, v in eqs.items() if v > 0})
+    return gespiegeld, eq_sp
+
+
 # ── Waarom UUR en niet fijner (gemeten 2026-08-25) ────────────────────────
 # Voor de hand liggende volgende stap: 5 minuten, want zo vaak kijkt productie.
 # Dat kan niet, en het gaat ook nooit kunnen. Hyperliquid bewaart per
@@ -308,7 +360,8 @@ def _signalen(lab, conf, themes, DATA, eqs):
 
 def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
              variant: dict = None, vanaf: int = 0, kosten_pct: float = 0.0,
-             UUR: dict = None, uren_per_dag: dict = None):
+             UUR: dict = None, uren_per_dag: dict = None,
+             instap_dagen: set = None):
     """Speelt de sleeve na over de reeks.
 
     beperkt=False  → het huidige model: onbeperkt geld en plekken.
@@ -420,6 +473,12 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
 
         # ── nieuwe instap ───────────────────────────────────────────────
         if dag["cb"]:
+            continue
+        # Regimepoort: alleen INSTAPPEN wordt geblokkeerd, nooit uitstappen.
+        # Een positie die is geopend toen het regime nog klopte, wordt gewoon
+        # uitbeheerd volgens zijn eigen regels -- anders zou een regimewissel
+        # een verkapte liquidatie zijn en meet je die in plaats van de poort.
+        if instap_dagen is not None and day not in instap_dagen:
             continue
         kandidaten = sorted(
             (t for t in sc
@@ -564,6 +623,60 @@ def verdeling(all_days, per_dag, DATA, conf, budget, n_vensters=12, kosten_pct=0
     print("Alles GEREALISEERD. Is de spreiding groter dan het verschil tussen de")
     print("regels, dan meet je het venster en niet de regel.")
 
+def _regime_run(lab, conf, themes, DATA, eqs, args) -> int:
+    """Twee boeken, één causale poort. Long-op-dips zolang de index boven zijn
+    200d-gemiddelde staat, short-op-oplevingen zodra hij eronder zakt.
+
+    Beide boeken krijgen het VOLLE budget en worden apart gerapporteerd. Dat is
+    geen samengestelde portefeuille: bij een regimewissel kan één portemonnee
+    niet tegelijk beide boeken vullen, en dat overlapdeel is hier niet
+    gemodelleerd. Het beantwoordt de vraag die telt -- draagt de poort? -- en
+    niet meer dan dat.
+    """
+    bull, bear = _regime_dagen(eqs, venster=args.ma)
+    if bull is None:
+        sys.exit("te weinig indexdata voor een %d-daags gemiddelde" % args.ma)
+
+    long_days, long_pd = _signalen(lab, conf, themes, DATA, eqs)
+    sDATA, seqs = _omkeren(DATA, eqs)
+    short_days, short_pd = _signalen(lab, conf, themes, sDATA, seqs)
+
+    n_bull = len([d for d in long_days if d in bull])
+    n_bear = len([d for d in long_days if d in bear])
+    print("Regimepoort: NDX vs %d-daags gemiddelde (causaal)" % args.ma)
+    print("=" * 74)
+    print("%d handelsdagen · %d bull (%.0f%%) · %d bear (%.0f%%)"
+          % (len(long_days), n_bull, 100.0 * n_bull / max(len(long_days), 1),
+             n_bear, 100.0 * n_bear / max(len(long_days), 1)))
+    print()
+    print("%-26s %12s %12s %10s" % ("", "GEREAL.", "op papier", "instappen"))
+    print("-" * 74)
+
+    totaal = 0.0
+    for naam, dagen, pd_, data_, poort in (
+            ("long-op-dips (bull)", long_days, long_pd, DATA, bull),
+            ("short-op-oplev. (bear)", short_days, short_pd, sDATA, bear)):
+        r = speel_na(dagen, pd_, data_, conf, beperkt=True, budget=args.budget,
+                     kosten_pct=args.kosten, instap_dagen=poort)
+        totaal += r["gerealiseerd"]
+        print("%-26s %12s %12s %10d"
+              % (naam, "$%+.2f" % r["gerealiseerd"], "$%+.2f" % r["op_papier"], r["n"]))
+    print("-" * 74)
+    print("%-26s %12s" % ("samen (2 potjes)", "$%+.2f" % totaal))
+    print()
+    print("Ter vergelijking, ZELFDE venster, zonder poort:")
+    for naam, dagen, pd_, data_ in (("alleen long", long_days, long_pd, DATA),
+                                    ("alleen short", short_days, short_pd, sDATA)):
+        r = speel_na(dagen, pd_, data_, conf, beperkt=True, budget=args.budget,
+                     kosten_pct=args.kosten)
+        print("  %-24s %12s" % (naam, "$%+.2f" % r["gerealiseerd"]))
+    print()
+    print("De spiegel VLEIT de short (zie _omkeren); financiering en leenkosten")
+    print("zitten er niet in. Een positief resultaat is hier een reden om door te")
+    print("meten, geen resultaat.")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dagen", type=int, default=180)
@@ -585,7 +698,19 @@ def main() -> int:
                     help="startdatum bij --aandelen (JJJJ-MM-DD)")
     ap.add_argument("--tot", default="2026-08-25",
                     help="einddatum bij --aandelen (JJJJ-MM-DD)")
+    ap.add_argument("--omgekeerd", action="store_true",
+                    help="spiegel de koersen (1/P): 'koop de dip' wordt 'short de "
+                         "stijging'. Eerste zeef — zie _omkeren voor de scheefheid")
+    ap.add_argument("--regime", action="store_true",
+                    help="twee boeken met een CAUSALE regimepoort (NDX vs 200d-MA): "
+                         "long-op-dips in bull, short-op-oplevingen in bear")
+    ap.add_argument("--ma", type=int, default=200,
+                    help="venster van het voortschrijdend gemiddelde voor --regime")
     args = ap.parse_args()
+
+    if args.omgekeerd and not args.aandelen:
+        sys.exit("--omgekeerd is alleen zinvol met --aandelen: de HL-data heeft "
+                 "geen dalende markt om in te shorten.")
 
     if args.uur and args.aandelen:
         sys.exit("--uur werkt niet met --aandelen: yfinance geeft geen uurkoersen "
@@ -604,6 +729,12 @@ def main() -> int:
         DATA, eqs = _laad_aandelen(conf, args.vanaf, args.tot, ververs=args.ververs)
         if len(DATA) < 3:
             sys.exit("te weinig aandelenreeksen (%d)" % len(DATA))
+    if args.regime:
+        if not args.aandelen:
+            sys.exit("--regime vereist --aandelen (de HL-data heeft geen bear).")
+        return _regime_run(lab, conf, themes, DATA, eqs, args)
+    if args.omgekeerd:
+        DATA, eqs = _omkeren(DATA, eqs)
     all_days, per_dag = _signalen(lab, conf, themes, DATA, eqs)
 
     per_naam = args.budget / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
@@ -611,6 +742,9 @@ def main() -> int:
     if args.aandelen:
         print("BRON: echte aandelenhistorie %s t/m %s — exits op DAGkoersen "
               "(ondergrens voor meelopers)" % (args.vanaf, args.tot))
+    if args.omgekeerd:
+        print("SPIEGEL AAN (1/P): dit is 'short de stijging'. De spiegel VLEIT de "
+              "short — zie _omkeren.")
     print("=" * 66)
     print("%d tickers · %d handelsdagen · budget $%.0f · %d plekken · $%.2f per instap"
           % (len(DATA), len(all_days), args.budget, MAX_CONCURRENT_NAMES, per_naam))
