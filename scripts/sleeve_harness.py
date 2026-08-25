@@ -185,6 +185,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
 
     kas = budget
     instap_namen = []
+    duur_dicht, duur_open = [], []
     gerealiseerd = 0.0      # winst/verlies uit VOLLEDIG gesloten posities
     posities = {}
     gesloten = []          # rendement per positie (fractie)
@@ -242,6 +243,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
             if p["stuks"] <= 1e-9:
                 gesloten.append((p["opbrengst"] - p["inleg"]) / p["inleg"])
                 gerealiseerd += p["opbrengst"] - p["inleg"]
+                duur_dicht.append(day - p["dag_in"])
                 del posities[t]
 
         # ── nieuwe instap ───────────────────────────────────────────────
@@ -275,13 +277,15 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
                 inleg = 1.0                                # fractie-model
             prijs = DATA[t][day]
             instap_namen.append(t)
-            posities[t] = {"entry": prijs, "stuks": inleg / prijs, "inleg": inleg,
+            posities[t] = {"dag_in": day, "entry": prijs, "stuks": inleg / prijs, "inleg": inleg,
                            "opbrengst": 0.0, "piek_waarde": inleg, "piek_gain": 0.0,
                            "min_gain": 0.0, "s1": False, "s2": False, "s3": False}
 
     # ── afrekenen op de laatste dag ────────────────────────────────────
     ld = all_days[-1]
     open_waarde = 0.0
+    for p in posities.values():
+        duur_open.append(ld - p["dag_in"])
     for t, p in posities.items():
         m = DATA[t].get(ld) or sorted(DATA[t].items())[-1][1]
         p["opbrengst"] += p["stuks"] * m
@@ -299,6 +303,8 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
         "op_papier": round(kas + open_waarde - budget - gerealiseerd, 2) if beperkt else None,
         "n_gesloten": n - len(posities),
         "instap_namen": instap_namen,
+        "duur_dicht": sorted(duur_dicht),
+        "duur_open": sorted(duur_open),
         "open_waarde": round(open_waarde, 2) if beperkt else None,
         "gemist_vol": gemist_vol,
         "gemist_kas": gemist_kas,
@@ -349,6 +355,15 @@ def main() -> int:
     print("  %-30s %14s   (%d posities nog open, marktwaarde)"
           % ("nog op papier", "$%+.2f" % echt["op_papier"], echt["n"] - echt["n_gesloten"]))
     print()
+    print()
+    print("Hoe lang zit hij ergens in? (kalenderdagen)")
+    dd, do = echt["duur_dicht"], echt["duur_open"]
+    if dd:
+        print("  gesloten            n=%-3d  mediaan %3d   langste %3d"
+              % (len(dd), dd[len(dd)//2], dd[-1]))
+    if do:
+        print("  NOG open            n=%-3d  mediaan %3d   langste %3d   <-- nooit uitgestapt"
+              % (len(do), do[len(do)//2], do[-1]))
     print()
     print("Welke namen werden gekocht (in volgorde):")
     print("  " + ", ".join(echt["instap_namen"]))
