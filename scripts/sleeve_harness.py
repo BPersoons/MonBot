@@ -612,7 +612,7 @@ def vergelijk(all_days, per_dag, DATA, conf, budget):
 
 
 def verdeling(all_days, per_dag, DATA, conf, budget, n_vensters=12, kosten_pct=0.0,
-              UUR=None, uren_per_dag=None):
+              UUR=None, uren_per_dag=None, herbeleggen=False):
     """Elke variant over VEEL startmomenten, en dan de spreiding tonen.
 
     Een venster zegt niets: dezelfde regel gaf -$9,01 over 365 dagen en
@@ -636,7 +636,8 @@ def verdeling(all_days, per_dag, DATA, conf, budget, n_vensters=12, kosten_pct=0
         for st in starts:
             r = speel_na(all_days, per_dag, DATA, conf, beperkt=True,
                          budget=budget, variant=opties, vanaf=st,
-                         kosten_pct=kosten_pct, UUR=UUR, uren_per_dag=uren_per_dag)
+                         kosten_pct=kosten_pct, UUR=UUR, uren_per_dag=uren_per_dag,
+                         herbeleggen=herbeleggen)
             uit.append(r["gerealiseerd"])
         uit.sort()
         print("%-22s %10s %10s %10s %11s %7d/%d" % (
@@ -728,6 +729,9 @@ def main() -> int:
     ap.add_argument("--regime", action="store_true",
                     help="twee boeken met een CAUSALE regimepoort (NDX vs 200d-MA): "
                          "long-op-dips in bull, short-op-oplevingen in bear")
+    ap.add_argument("--zonder", default="",
+                    help="namen uitsluiten, kommagescheiden (bv. XYZ-NVDA,XYZ-MU) — "
+                         "test of het resultaat aan de strategie hangt of aan een winnaar")
     ap.add_argument("--herbeleggen", action="store_true",
                     help="inzet meegroeien met het potje i.p.v. vast op $42,50")
     ap.add_argument("--ma", type=int, default=200,
@@ -759,6 +763,10 @@ def main() -> int:
         if not args.aandelen:
             sys.exit("--regime vereist --aandelen (de HL-data heeft geen bear).")
         return _regime_run(lab, conf, themes, DATA, eqs, args)
+    if args.zonder:
+        weg = {x.strip().upper() for x in args.zonder.split(",") if x.strip()}
+        DATA = {t: r for t, r in DATA.items() if t.upper() not in weg}
+        print("Uitgesloten: %s (%d namen over)" % (", ".join(sorted(weg)), len(DATA)))
     if args.omgekeerd:
         DATA, eqs = _omkeren(DATA, eqs)
     all_days, per_dag = _signalen(lab, conf, themes, DATA, eqs)
@@ -792,7 +800,8 @@ def main() -> int:
 
     if args.verdeling:
         verdeling(all_days, per_dag, DATA, conf, args.budget,
-                  kosten_pct=args.kosten, UUR=UUR, uren_per_dag=uren_per_dag)
+                  kosten_pct=args.kosten, UUR=UUR, uren_per_dag=uren_per_dag,
+                  herbeleggen=args.herbeleggen)
         return 0
 
     if args.varianten:
