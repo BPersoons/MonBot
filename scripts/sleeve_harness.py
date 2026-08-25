@@ -168,7 +168,7 @@ def _signalen(lab, conf, themes, DATA, eqs):
 # ---------------------------------------------------------------- naspeling
 
 def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
-             variant: dict = None):
+             variant: dict = None, vanaf: int = 0, kosten_pct: float = 0.0):
     """Speelt de sleeve na over de reeks.
 
     beperkt=False  → het huidige model: onbeperkt geld en plekken.
@@ -186,6 +186,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
     z_uit = variant.get("z_uit")            # uitstap als de daling is uitgewerkt
     max_dagen = variant.get("max_dagen")    # uitstap na zoveel dagen
     eerste_sport = variant.get("eerste_sport", 30.0)
+    winst_uit = variant.get("winst_uit")    # VOLLEDIG eruit op een vast winstdoel
 
     per_naam = budget / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
 
@@ -197,7 +198,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
     gesloten = []          # rendement per positie (fractie)
     gemist_vol, gemist_kas = 0, 0
 
-    for day in all_days:
+    for day in all_days[vanaf:]:
         dag = per_dag[day]
         sc = dag["scores"]
 
@@ -217,6 +218,8 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
             fractie, sport = 0.0, None
             if gain <= -SLEEVE_MAX_DRAWDOWN_STOP_PCT:
                 fractie = 1.0
+            elif winst_uit is not None and gain >= winst_uit:
+                fractie = 1.0        # vast winstdoel gehaald: hele positie eruit
             elif z_uit is not None and sc.get(t, {}).get("pullback_z", 99) < z_uit:
                 fractie = 1.0        # de daling is uitgewerkt: these afgerond
             elif max_dagen is not None and (day - p["dag_in"]) >= max_dagen:
@@ -244,8 +247,8 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
                 continue                                   # order zou falen
 
             stuks_weg = p["stuks"] * fractie
-            kas += stuks_weg * mark
-            p["opbrengst"] += stuks_weg * mark
+            kas += stuks_weg * mark * (1 - kosten_pct / 100.0)   # verkoopkosten
+            p["opbrengst"] += stuks_weg * mark * (1 - kosten_pct / 100.0)
             p["stuks"] -= stuks_weg
             p["piek_waarde"] *= (1.0 - fractie)            # piek schaalt mee
             if sport:
@@ -283,12 +286,14 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
                     continue
                 inleg = per_naam
                 kas -= inleg
+                kas -= inleg * kosten_pct / 100.0        # instapkosten
             else:
                 inleg = 1.0                                # fractie-model
             prijs = DATA[t][day]
             instap_namen.append(t)
             posities[t] = {"dag_in": day, "entry": prijs, "stuks": inleg / prijs, "inleg": inleg,
-                           "opbrengst": 0.0, "piek_waarde": inleg, "piek_gain": 0.0,
+                           "opbrengst": -inleg * kosten_pct / 100.0,
+                           "piek_waarde": inleg, "piek_gain": 0.0,
                            "min_gain": 0.0, "s1": False, "s2": False, "s3": False}
 
     # ── afrekenen op de laatste dag ────────────────────────────────────
@@ -298,7 +303,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
         duur_open.append(ld - p["dag_in"])
     for t, p in posities.items():
         m = DATA[t].get(ld) or sorted(DATA[t].items())[-1][1]
-        p["opbrengst"] += p["stuks"] * m
+        p["opbrengst"] += p["stuks"] * m * (1 - kosten_pct / 100.0)
         open_waarde += p["stuks"] * m
         gesloten.append((p["opbrengst"] - p["inleg"]) / p["inleg"])
 
@@ -324,6 +329,15 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
 
 VARIANTEN = [
     ("huidig",              {}),
+    ("volledig uit op +3%",  {"winst_uit": 3.0}),
+    ("volledig uit op +5%",  {"winst_uit": 5.0}),
+    ("volledig uit op +6%",  {"winst_uit": 6.0}),
+    ("volledig uit op +8%",  {"winst_uit": 8.0}),
+    ("volledig uit op +10%", {"winst_uit": 10.0}),
+    ("volledig uit op +12%", {"winst_uit": 12.0}),
+    ("volledig uit op +15%", {"winst_uit": 15.0}),
+    ("volledig uit op +20%", {"winst_uit": 20.0}),
+    ("volledig uit op +30%", {"winst_uit": 30.0}),
     ("uit op signaal z<1.0", {"z_uit": 1.0}),
     ("uit op signaal z<0.5", {"z_uit": 0.5}),
     ("uit na 60 dagen",     {"max_dagen": 60}),
@@ -359,10 +373,50 @@ def vergelijk(all_days, per_dag, DATA, conf, budget):
     print("GEREAL. = winst die echt geboekt is. 'nog open' = posities die aan het",
           "eind nooit zijn uitgestapt.")
 
+
+def verdeling(all_days, per_dag, DATA, conf, budget, n_vensters=12, kosten_pct=0.0):
+    """Elke variant over VEEL startmomenten, en dan de spreiding tonen.
+
+    Een venster zegt niets: dezelfde regel gaf -$9,01 over 365 dagen en
+    +$100,84 over 180. Dat is geen effect maar padgeluk -- met zes plekken
+    bepaalt wie de plekken als eerste vult de hele rest van de reeks. Door
+    dezelfde regel op verschoven startdagen te draaien wordt zichtbaar of een
+    verschil de ruis overleeft. Zo niet, dan is de eerlijke uitkomst "niet te
+    meten" -- en niet het beste getal uit de rij.
+    """
+    stap = max(1, (len(all_days) - 60) // n_vensters)
+    starts = list(range(0, len(all_days) - 60, stap))[:n_vensters]
+    print()
+    print("Elke variant over %d startmomenten · kosten %.3f%% per kant"
+          % (len(starts), kosten_pct))
+    print("=" * 78)
+    print("%-22s %10s %10s %10s %11s %8s" % (
+        "", "mediaan", "slechtste", "beste", "spreiding", "> 0"))
+    print("-" * 78)
+    for naam, opties in VARIANTEN:
+        uit = []
+        for st in starts:
+            r = speel_na(all_days, per_dag, DATA, conf, beperkt=True,
+                         budget=budget, variant=opties, vanaf=st,
+                         kosten_pct=kosten_pct)
+            uit.append(r["gerealiseerd"])
+        uit.sort()
+        print("%-22s %10s %10s %10s %11s %7d/%d" % (
+            naam, "$%+.2f" % uit[len(uit) // 2], "$%+.2f" % uit[0],
+            "$%+.2f" % uit[-1], "$%.2f" % (uit[-1] - uit[0]),
+            sum(1 for x in uit if x > 0), len(uit)))
+    print("-" * 78)
+    print("Alles GEREALISEERD. Is de spreiding groter dan het verschil tussen de")
+    print("regels, dan meet je het venster en niet de regel.")
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dagen", type=int, default=180)
     ap.add_argument("--budget", type=float, default=LIVE_BUDGET)
+    ap.add_argument("--kosten", type=float, default=0.0,
+                    help="handelskosten in %% per kant (HL taker ~0,045)")
+    ap.add_argument("--verdeling", action="store_true",
+                    help="elke variant over veel startmomenten")
     ap.add_argument("--varianten", action="store_true",
                     help="vergelijk de uitstap-varianten i.p.v. de standaardrun")
     ap.add_argument("--ververs", action="store_true",
@@ -383,6 +437,11 @@ def main() -> int:
     print("%d tickers · %d handelsdagen · budget $%.0f · %d plekken · $%.2f per instap"
           % (len(DATA), len(all_days), args.budget, MAX_CONCURRENT_NAMES, per_naam))
     print()
+
+    if args.verdeling:
+        verdeling(all_days, per_dag, DATA, conf, args.budget,
+                  kosten_pct=args.kosten)
+        return 0
 
     if args.varianten:
         vergelijk(all_days, per_dag, DATA, conf, args.budget)
