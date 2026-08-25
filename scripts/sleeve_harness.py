@@ -134,6 +134,75 @@ def _cache_schrijven(dagen: int, kern: dict) -> None:
 
 
 
+def _laad_aandelen(conf, vanaf: str, tot: str, ververs: bool = False):
+    """Dezelfde namen, maar op ECHTE aandelenhistorie in plaats van HL-candles.
+
+    Waarom dit bestaat: de sleeve is alleen ooit gemeten op een stijgende markt.
+    De XYZ-synthetics op Hyperliquid bestaan pas ~9 maanden, dus er zit geen
+    enkele bear in die data en die komt er ook niet — zie het blok hieronder
+    over de bewaartermijn. De onderliggende waarden zijn gewone aandelen met
+    zestien jaar geschiedenis, inclusief 2022 (-41%) en de COVID-crash.
+
+    WAT DIT WEL EN NIET IS. Het is niet hetzelfde systeem: geen funding, geen
+    HL-tarieven, geen perp-mechaniek, en de synthetic volgt zijn onderliggende
+    waarde niet tot op de cent. Het beantwoordt één vraag, en die is genoeg voor
+    een go/no-go op kapitaal: overleeft "koop de sectorbrede terugval" een echte
+    dalende markt? Dat is een vraag over koersgedrag, en koersgedrag is precies
+    wat hier beschikbaar is.
+
+    LET OP DE RESOLUTIE. Er is alleen dagdata (yfinance geeft geen uurkoersen
+    voor 2022). We weten uit de vorige ronde dat dagmeting meelopende stops
+    STRUCTUREEL benadeelt en vaste doelen bevoordeelt. Deze test is voor de
+    gedeployde regel dus een ONDERGRENS: haalt hij het hier, dan is dat sterker
+    bewijs, niet zwakker. Vergelijk deze cijfers nooit direct met de uurcijfers
+    uit de HL-meting.
+    """
+    import pandas as pd
+    pad = "sleeve_harness_aandelen_%s_%s.json" % (vanaf, tot)
+    if not ververs:
+        try:
+            with open(pad, encoding="utf-8") as fh:
+                rauw = json.load(fh)
+            print("Aandelenkoersen uit cache (%d namen)." % len(rauw["tickers"]))
+            DATA = {t: {int(k): float(v) for k, v in r.items()}
+                    for t, r in rauw["tickers"].items()}
+            eq = {int(k): float(v) for k, v in rauw["index"].items()}
+            return DATA, (pd.Series(dict(sorted(eq.items()))) if eq else None)
+        except (IOError, ValueError, KeyError):
+            pass
+
+    import warnings
+    warnings.filterwarnings("ignore")
+    import yfinance as yf
+
+    symbolen = {t: c["real_symbol"] for t, c in conf.items() if c.get("real_symbol")}
+    ruw = yf.download(list(symbolen.values()) + ["^NDX"], start=vanaf, end=tot,
+                      progress=False, auto_adjust=True)["Close"]
+
+    def _reeks(kolom):
+        s = ruw[kolom].dropna()
+        return {int(ts.timestamp() * 1000) // 86400000: float(v) for ts, v in s.items()}
+
+    DATA = {}
+    for xyz, echt in symbolen.items():
+        if echt not in ruw.columns:
+            continue
+        d = _reeks(echt)
+        # Zelfde ondergrens als de HL-kant: minder dan 25 dagen is geen reeks.
+        if len(d) >= 25:
+            DATA[xyz] = d
+    eq = _reeks("^NDX") if "^NDX" in ruw.columns else {}
+
+    try:
+        with open(pad, "w", encoding="utf-8") as fh:
+            json.dump({"tickers": DATA, "index": eq}, fh)
+    except IOError:
+        pass
+    print("Aandelenkoersen opgehaald (%d van %d namen, %s t/m %s)."
+          % (len(DATA), len(symbolen), vanaf, tot))
+    return DATA, (pd.Series(dict(sorted(eq.items()))) if eq else None)
+
+
 # ── Waarom UUR en niet fijner (gemeten 2026-08-25) ────────────────────────
 # Voor de hand liggende volgende stap: 5 minuten, want zo vaak kijkt productie.
 # Dat kan niet, en het gaat ook nooit kunnen. Hyperliquid bewaart per
@@ -509,18 +578,39 @@ def main() -> int:
                     help="vergelijk de uitstap-varianten i.p.v. de standaardrun")
     ap.add_argument("--ververs", action="store_true",
                     help="koersen opnieuw ophalen i.p.v. de cache gebruiken")
+    ap.add_argument("--aandelen", action="store_true",
+                    help="draai op ECHTE aandelenhistorie (yfinance) i.p.v. HL-candles "
+                         "— de enige manier om een dalende markt te meten")
+    ap.add_argument("--vanaf", default="2010-01-01",
+                    help="startdatum bij --aandelen (JJJJ-MM-DD)")
+    ap.add_argument("--tot", default="2026-08-25",
+                    help="einddatum bij --aandelen (JJJJ-MM-DD)")
     args = ap.parse_args()
+
+    if args.uur and args.aandelen:
+        sys.exit("--uur werkt niet met --aandelen: yfinance geeft geen uurkoersen "
+                 "voor oude vensters. Zie de toelichting bij _laad_aandelen.")
 
     logging.basicConfig(level=logging.WARNING)
     from utils.thematic_exposure_lab import (
         ThematicExposureLab, MAX_CONCURRENT_NAMES, TRANCHE_PCTS)
 
     lab = ThematicExposureLab()
+    # De config (namen, thema's, drempels) is in beide modi dezelfde; alleen de
+    # KOERSEN komen ergens anders vandaan. Zo verschillen de twee runs
+    # gegarandeerd in de data en niet in de regels.
     conf, themes, DATA, eqs = _laad_data(args.dagen, ververs=args.ververs)
+    if args.aandelen:
+        DATA, eqs = _laad_aandelen(conf, args.vanaf, args.tot, ververs=args.ververs)
+        if len(DATA) < 3:
+            sys.exit("te weinig aandelenreeksen (%d)" % len(DATA))
     all_days, per_dag = _signalen(lab, conf, themes, DATA, eqs)
 
     per_naam = args.budget / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
     print("Eerlijke naspeling van de dip-koper")
+    if args.aandelen:
+        print("BRON: echte aandelenhistorie %s t/m %s — exits op DAGkoersen "
+              "(ondergrens voor meelopers)" % (args.vanaf, args.tot))
     print("=" * 66)
     print("%d tickers · %d handelsdagen · budget $%.0f · %d plekken · $%.2f per instap"
           % (len(DATA), len(all_days), args.budget, MAX_CONCURRENT_NAMES, per_naam))
