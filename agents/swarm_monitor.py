@@ -54,6 +54,17 @@ def _telegram_chat_id() -> str:
         except Exception:
             pass
     return v
+
+
+def _md_escape(text) -> str:
+    """Neutraliseer Markdown-tekens in tekst die we NIET als opmaak bedoelen.
+
+    Alarmnamen als DB_ERROR openen anders een cursief-blok dat nooit sluit, en
+    Telegram weigert dan het complete bericht (HTTP 400). Zie _send_telegram.
+    """
+    return re.sub(r"([_*`\[])", r"\\\1", str(text))
+
+
 CONTAINER_NAME = os.getenv("DOCKER_CONTAINER_NAME", "agent_trader_swarm")
 LOG_TAIL_LINES = 100  # how many recent log lines to scan
 LOG_ERROR_PATTERNS = [
@@ -987,6 +998,14 @@ class SwarmMonitor:
         # Normalize opened trades to (entry_epoch_naive, direction).
         opened = []
         for t in trades:
+            # Sleeve- en oogst-trades zijn GEEN richtingsbesluit van de council:
+            # de dip-koper is per ontwerp alleen LONG en de rente-oogst altijd
+            # SHORT. Meetellen maakt "eenzijdigheid" een permanent vals alarm —
+            # gemeten 2026-08-25 meldde deze check 8× LONG terwijl de
+            # richtingshandelaar al twee weken gepauzeerd was. Zelfde guard als
+            # in execution_agent, strategy_manager en main.py's Pass 3.
+            if t.get("thematic_exposure") or t.get("harvest"):
+                continue
             raw = t.get("entry_time")
             if not raw:
                 continue
@@ -1410,7 +1429,20 @@ class SwarmMonitor:
                     trades: list = json.load(f)
             except Exception:
                 trades = []
-            open_trades = [t for t in trades if t.get("status") == "OPEN"]
+
+            # Sleeve- en oogst-posities staan op EIGEN wallets (thema: 0xBd6c),
+            # terwijl hl_open_bases van de HOOFDwallet komt. Ze kunnen daar dus
+            # per definitie nooit in staan. Meetellen deed twee dingen fout:
+            # de veiligheidsrem sloeg bij elke ronde aan (permanent alarm), en
+            # Fix 3 hieronder zou ze allemaal als GHOST_POSITION_SYNC hebben
+            # gesloten zodra de hoofdwallet óók maar één positie had — precies
+            # de fout die main.py's Pass 3 vier weken lang maakte (CLAUDE.md).
+            def _is_own_book(t: dict) -> bool:
+                return not (t.get("thematic_exposure") or t.get("harvest"))
+
+            open_trades = [
+                t for t in trades if t.get("status") == "OPEN" and _is_own_book(t)
+            ]
 
             # ── Safety guard: HL returned 0 positions but OPEN trades exist ────
             # This likely means the HL API is down or the account has an issue.
@@ -1477,7 +1509,11 @@ class SwarmMonitor:
                 for trade in trades:
                     base = trade.get("ticker", "").split("/")[0].upper()
                     is_xyz = trade.get("ticker", "").startswith("XYZ-")
-                    if trade.get("status") == "OPEN" and base not in hl_open_bases and (not is_xyz or _xyz_ok):
+                    # _is_own_book: schrijvende stap, dus dezelfde uitsluiting
+                    # als hierboven — anders sluit deze lus alsnog de posities
+                    # van een andere wallet.
+                    if (trade.get("status") == "OPEN" and _is_own_book(trade)
+                            and base not in hl_open_bases and (not is_xyz or _xyz_ok)):
                         trade["status"] = "CLOSED"
                         trade["close_reason"] = "GHOST_POSITION_SYNC"
                         trade["exit_time"] = now.isoformat()
@@ -2713,31 +2749,65 @@ class SwarmMonitor:
         lines = ["🚨 *Swarm Monitor Alert*", f"_Detected at {now.strftime('%H:%M UTC')}_", ""]
         for f in new_findings:
             sev_emoji = "🔴" if f["severity"] == "HIGH" else "🟡"
-            lines.append(f"{sev_emoji} *{f['type']}* — `{f.get('agent', '?')}`")
-            lines.append(f"   {f['message'][:200]}")
+            # Escape the interpolated fields: none of them is meant as opmaak,
+            # and one unpaired _ or * costs the entire batch (zie _send_telegram).
+            agent = str(f.get("agent", "?")).replace("`", "")
+            lines.append(f"{sev_emoji} *{_md_escape(f['type'])}* — `{agent}`")
+            lines.append(f"   {_md_escape(str(f['message'])[:200])}")
             if "detail" in f:
-                lines.append(f"```\n{f['detail'][:1500]}\n```")
+                detail = str(f["detail"])[:1500].replace("`", "")
+                lines.append(f"```\n{detail}\n```")
             lines.append("")
 
         message = "\n".join(lines)
         self._send_telegram(message)
 
     def _send_telegram(self, text: str):
-        """Send message via Telegram Bot API."""
-        try:
-            import urllib.request
-            import urllib.parse
-            url = f"https://api.telegram.org/bot{_telegram_token()}/sendMessage"
-            params = urllib.parse.urlencode({
-                "chat_id": _telegram_chat_id(),
-                "text": text,
-                "parse_mode": "Markdown",
-            }).encode()
+        """Send message via Telegram Bot API.
+
+        Telegram's legacy Markdown parser rejects the ENTIRE message with HTTP
+        400 on one unpaired `_` or `*`. Alert types are SCREAMING_SNAKE
+        (DB_ERROR, NO_OUTPUT, AGENT_STALE), so a single odd underscore silently
+        binned the whole batch — including the healthy findings bundled with it.
+        Measured 2026-08-25: 8 of 51 sends failed this way, going back to at
+        least 22 August.
+
+        A failed alarm is worse than no alarm, so a 400 is retried once without
+        parse_mode. Formatting is cosmetic; delivery is not. The 48 call sites
+        write their own Markdown, which is why the guarantee lives here rather
+        than at each of them.
+        """
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        url = f"https://api.telegram.org/bot{_telegram_token()}/sendMessage"
+        payload = {"chat_id": _telegram_chat_id(), "text": text}
+
+        def _post(extra: dict) -> int:
+            params = urllib.parse.urlencode({**payload, **extra}).encode()
             req = urllib.request.Request(url, data=params, method="POST")
             with urllib.request.urlopen(req, timeout=10) as resp:
-                logger.info(f"✅ Telegram alert sent (status {resp.status})")
+                return resp.status
+
+        try:
+            status = _post({"parse_mode": "Markdown"})
+            logger.info(f"✅ Telegram alert sent (status {status})")
+            return
+        except urllib.error.HTTPError as e:
+            if e.code != 400:
+                logger.warning(f"Failed to send Telegram alert: {e}")
+                return
+            logger.warning("Telegram weigerde de Markdown (400) — opnieuw als platte tekst")
         except Exception as e:
             logger.warning(f"Failed to send Telegram alert: {e}")
+            return
+
+        try:
+            status = _post({})
+            logger.info(f"✅ Telegram alert sent as plain text (status {status})")
+        except Exception as e:
+            logger.warning(f"Failed to send Telegram alert (plain-text retry): {e}")
 
 
 # ──────────────────────────────────────────────
