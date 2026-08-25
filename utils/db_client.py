@@ -33,10 +33,20 @@ class CircuitBreaker:
         self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
     
     def record_success(self):
-        """Record successful operation."""
+        """Record successful operation.
+
+        Meldt alleen een ECHTE overgang. Hiervoor logde deze regel bij elke
+        geslaagde aanroep "Connection restored" — tientallen regels per minuut,
+        ook als er nooit iets kapot was geweest. Gevolg: wie in de logs zocht
+        naar een storing, zocht in ruis. Bij het diagnosticeren van de sleeve op
+        2026-08-24 moest elke grep deze regel eruit filteren om iets te kunnen
+        zien.
+        """
+        hersteld = self.state != "CLOSED" or self.failure_count > 0
         self.failure_count = 0
         self.state = "CLOSED"
-        logger.info("Circuit breaker: Connection restored")
+        if hersteld:
+            logger.info("Circuit breaker: verbinding hersteld")
     
     def record_failure(self):
         """Record failed operation."""
