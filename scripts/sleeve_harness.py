@@ -133,6 +133,59 @@ def _cache_schrijven(dagen: int, kern: dict) -> None:
         logger.warning("cache niet weggeschreven: %s", e)
 
 
+
+def _fetch_uur(ex, sym, since_ms):
+    """Uurcandles. Sleutel is het uur-stempel, niet de dag."""
+    import time
+    hl = sym + "/USDC:USDC"
+    out, cur = [], since_ms
+    for _ in range(30):
+        try:
+            b = ex.fetch_ohlcv(hl, "1h", since=cur, limit=5000)
+        except Exception:
+            return None
+        if not b:
+            break
+        out += b
+        if len(b) < 2:
+            break
+        cur = b[-1][0] + 1
+        time.sleep(0.1)
+    if not out:
+        return None
+    return {int(r[0]): float(r[4]) for r in out}
+
+
+def _laad_uur(conf, dagen: int, ververs: bool = False):
+    """Uurreeksen, apart gecachet. Alleen voor de UITSTAP-controle -- de
+    instapsignalen blijven op dagkoersen, want zo rekent _pullback_score en
+    zo werkt de live-pijplijn ook."""
+    import time
+    from agents.technical_analyst import _get_shared_exchange
+    pad = "sleeve_harness_uur_%dd.json" % dagen
+    if not ververs:
+        try:
+            with open(pad, encoding="utf-8") as fh:
+                rauw = json.load(fh)
+            print("Uurkoersen uit cache (%d tickers)." % len(rauw))
+            return {t: {int(k): float(v) for k, v in r.items()} for t, r in rauw.items()}
+        except (IOError, ValueError):
+            pass
+    ex = _get_shared_exchange()
+    since = int(time.time() * 1000) - dagen * 24 * 3600 * 1000
+    UUR = {}
+    for t in conf:
+        d = _fetch_uur(ex, t, since)
+        if d and len(d) >= 100:
+            UUR[t] = d
+    try:
+        with open(pad, "w", encoding="utf-8") as fh:
+            json.dump(UUR, fh)
+    except IOError:
+        pass
+    print("Uurkoersen opgehaald en gecachet (%d tickers)." % len(UUR))
+    return UUR
+
 def _signalen(lab, conf, themes, DATA, eqs):
     """Scores, breadth en circuit-breaker per dag. Eén keer rekenen, twee keer
     gebruiken — zo verschillen de twee modellen GARANDEERD alleen in kapitaal."""
@@ -168,7 +221,8 @@ def _signalen(lab, conf, themes, DATA, eqs):
 # ---------------------------------------------------------------- naspeling
 
 def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
-             variant: dict = None, vanaf: int = 0, kosten_pct: float = 0.0):
+             variant: dict = None, vanaf: int = 0, kosten_pct: float = 0.0,
+             UUR: dict = None, uren_per_dag: dict = None):
     """Speelt de sleeve na over de reeks.
 
     beperkt=False  → het huidige model: onbeperkt geld en plekken.
@@ -210,64 +264,73 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
         sc = dag["scores"]
 
         # ── beheer bestaande posities ───────────────────────────────────
-        for t in list(posities):
-            if day not in DATA[t]:
-                continue
-            p = posities[t]
-            mark = DATA[t][day]
-            waarde = p["stuks"] * mark
-            gain = (mark - p["entry"]) / p["entry"] * 100
-            p["piek_waarde"] = max(p["piek_waarde"], waarde)
-            p["piek_gain"] = max(p["piek_gain"], gain)
-            p["min_gain"] = min(p["min_gain"], gain)
-            trail = _trail_fraction(p["piek_gain"])
+        # Op UURBASIS als die data er is. De live-sleeve controleert exits elke
+        # ~5 minuten op de markprijs, niet één keer per dag op de slotkoers, en
+        # dat verschil is niet neutraal: een winstdoel dat intraday geraakt
+        # wordt maar niet standhoudt tot de close, mist de dag-naspeling
+        # volledig. Alleen de EXITS gaan fijner -- de instapsignalen blijven
+        # dagelijks, want zo rekent _pullback_score en zo werkt de live-pijplijn.
+        stempels = (uren_per_dag.get(day) or []) if UUR else [None]
+        for stempel in stempels:
+            for t in list(posities):
+                mark = (UUR.get(t, {}).get(stempel) if stempel is not None
+                        else DATA[t].get(day))
+                if mark is None:
+                    continue
+                p = posities[t]
+                waarde = p["stuks"] * mark
+                gain = (mark - p["entry"]) / p["entry"] * 100
+                p["piek_waarde"] = max(p["piek_waarde"], waarde)
+                p["piek_gain"] = max(p["piek_gain"], gain)
+                p["min_gain"] = min(p["min_gain"], gain)
+                trail = _trail_fraction(p["piek_gain"])
 
-            fractie, sport = 0.0, None
-            if gain <= -SLEEVE_MAX_DRAWDOWN_STOP_PCT:
-                fractie = 1.0
-            elif (trail_start is not None and p["piek_gain"] >= trail_start
-                  and gain <= p["piek_gain"] - trail_gap):
-                fractie = 1.0        # meegelopen winst teruggevallen: eruit
-            elif winst_uit is not None and gain >= winst_uit:
-                fractie = 1.0        # vast winstdoel gehaald: hele positie eruit
-            elif z_uit is not None and sc.get(t, {}).get("pullback_z", 99) < z_uit:
-                fractie = 1.0        # de daling is uitgewerkt: these afgerond
-            elif max_dagen is not None and (day - p["dag_in"]) >= max_dagen:
-                fractie = 1.0        # te lang vast, ongeacht de stand
-            elif gain >= 100 and not p["s3"]:
-                fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s3"
-            elif gain >= 60 and not p["s2"]:
-                fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s2"
-            elif gain >= eerste_sport and not p["s1"]:
-                fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s1"
-            elif gain > 0 and waarde < p["piek_waarde"] * trail:
-                fractie = 1.0
+                fractie, sport = 0.0, None
+                if gain <= -SLEEVE_MAX_DRAWDOWN_STOP_PCT:
+                    fractie = 1.0
+                elif (trail_start is not None and p["piek_gain"] >= trail_start
+                      and gain <= p["piek_gain"] - trail_gap):
+                    fractie = 1.0        # meegelopen winst teruggevallen: eruit
+                elif winst_uit is not None and gain >= winst_uit:
+                    fractie = 1.0        # vast winstdoel gehaald: hele positie eruit
+                elif z_uit is not None and sc.get(t, {}).get("pullback_z", 99) < z_uit:
+                    fractie = 1.0        # de daling is uitgewerkt: these afgerond
+                elif max_dagen is not None and (day - p["dag_in"]) >= max_dagen:
+                    fractie = 1.0        # te lang vast, ongeacht de stand
+                elif gain >= 100 and not p["s3"]:
+                    fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s3"
+                elif gain >= 60 and not p["s2"]:
+                    fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s2"
+                elif gain >= eerste_sport and not p["s1"]:
+                    fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s1"
+                elif gain > 0 and waarde < p["piek_waarde"] * trail:
+                    fractie = 1.0
 
-            # Te kleine winnaar → helemaal dicht (regel van 2026-08-24).
-            # Alleen in het beperkte model: de $10-vloer is een BEDRAG, en in
-            # het fractie-model is de inleg 1,0 'eenheid'. Zou je hem daar ook
-            # toepassen, dan werd élke winst-sport een volledige sluiting en
-            # verschilden de modellen door eenheden in plaats van door kapitaal.
-            if beperkt and sport and waarde * fractie < SLEEVE_MIN_TRIM_NOTIONAL_USD:
-                fractie, sport = 1.0, None
+                # Te kleine winnaar → helemaal dicht (regel van 2026-08-24).
+                # Alleen in het beperkte model: de $10-vloer is een BEDRAG, en in
+                # het fractie-model is de inleg 1,0 'eenheid'. Zou je hem daar ook
+                # toepassen, dan werd élke winst-sport een volledige sluiting en
+                # verschilden de modellen door eenheden in plaats van door kapitaal.
+                if beperkt and sport and waarde * fractie < SLEEVE_MIN_TRIM_NOTIONAL_USD:
+                    fractie, sport = 1.0, None
 
-            if fractie <= 0:
-                continue
-            if beperkt and fractie < 1.0 and waarde * fractie < SLEEVE_MIN_TRIM_NOTIONAL_USD:
-                continue                                   # order zou falen
+                if fractie <= 0:
+                    continue
+                if beperkt and fractie < 1.0 and waarde * fractie < SLEEVE_MIN_TRIM_NOTIONAL_USD:
+                    continue                                   # order zou falen
 
-            stuks_weg = p["stuks"] * fractie
-            kas += stuks_weg * mark * (1 - kosten_pct / 100.0)   # verkoopkosten
-            p["opbrengst"] += stuks_weg * mark * (1 - kosten_pct / 100.0)
-            p["stuks"] -= stuks_weg
-            p["piek_waarde"] *= (1.0 - fractie)            # piek schaalt mee
-            if sport:
-                p[sport] = True
-            if p["stuks"] <= 1e-9:
-                gesloten.append((p["opbrengst"] - p["inleg"]) / p["inleg"])
-                gerealiseerd += p["opbrengst"] - p["inleg"]
-                duur_dicht.append(day - p["dag_in"])
-                del posities[t]
+                stuks_weg = p["stuks"] * fractie
+                kas += stuks_weg * mark * (1 - kosten_pct / 100.0)   # verkoopkosten
+                p["opbrengst"] += stuks_weg * mark * (1 - kosten_pct / 100.0)
+                p["stuks"] -= stuks_weg
+                p["piek_waarde"] *= (1.0 - fractie)            # piek schaalt mee
+                if sport:
+                    p[sport] = True
+                if p["stuks"] <= 1e-9:
+                    gesloten.append((p["opbrengst"] - p["inleg"]) / p["inleg"])
+                    gerealiseerd += p["opbrengst"] - p["inleg"]
+                    duur_dicht.append(day - p["dag_in"])
+                    del posities[t]
 
         # ── nieuwe instap ───────────────────────────────────────────────
         if dag["cb"]:
@@ -379,7 +442,8 @@ def vergelijk(all_days, per_dag, DATA, conf, budget):
           "eind nooit zijn uitgestapt.")
 
 
-def verdeling(all_days, per_dag, DATA, conf, budget, n_vensters=12, kosten_pct=0.0):
+def verdeling(all_days, per_dag, DATA, conf, budget, n_vensters=12, kosten_pct=0.0,
+              UUR=None, uren_per_dag=None):
     """Elke variant over VEEL startmomenten, en dan de spreiding tonen.
 
     Een venster zegt niets: dezelfde regel gaf -$9,01 over 365 dagen en
@@ -403,7 +467,7 @@ def verdeling(all_days, per_dag, DATA, conf, budget, n_vensters=12, kosten_pct=0
         for st in starts:
             r = speel_na(all_days, per_dag, DATA, conf, beperkt=True,
                          budget=budget, variant=opties, vanaf=st,
-                         kosten_pct=kosten_pct)
+                         kosten_pct=kosten_pct, UUR=UUR, uren_per_dag=uren_per_dag)
             uit.append(r["gerealiseerd"])
         uit.sort()
         print("%-22s %10s %10s %10s %11s %7d/%d" % (
@@ -418,6 +482,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dagen", type=int, default=180)
     ap.add_argument("--budget", type=float, default=LIVE_BUDGET)
+    ap.add_argument("--uur", action="store_true",
+                    help="exits op UURbasis controleren i.p.v. op de dagslotkoers")
     ap.add_argument("--kosten", type=float, default=0.0,
                     help="handelskosten in %% per kant (HL taker ~0,045)")
     ap.add_argument("--verdeling", action="store_true",
@@ -443,9 +509,23 @@ def main() -> int:
           % (len(DATA), len(all_days), args.budget, MAX_CONCURRENT_NAMES, per_naam))
     print()
 
+    UUR, uren_per_dag = None, None
+    if args.uur:
+        UUR = _laad_uur(conf, args.dagen, ververs=args.ververs)
+        # elk uur-stempel bij zijn dag: de exits lopen per uur, de instap
+        # blijft eens per dag op dezelfde signalen als hiervoor.
+        uren_per_dag = {}
+        for reeks in UUR.values():
+            for ts in reeks:
+                uren_per_dag.setdefault(ts // 86400000, set()).add(ts)
+        uren_per_dag = {d: sorted(v) for d, v in uren_per_dag.items()}
+        print("Uurdata: %d dagen met gemiddeld %.1f controles per dag."
+              % (len(uren_per_dag),
+                 sum(len(v) for v in uren_per_dag.values()) / max(len(uren_per_dag), 1)))
+
     if args.verdeling:
         verdeling(all_days, per_dag, DATA, conf, args.budget,
-                  kosten_pct=args.kosten)
+                  kosten_pct=args.kosten, UUR=UUR, uren_per_dag=uren_per_dag)
         return 0
 
     if args.varianten:
