@@ -3,6 +3,8 @@
 
     python -m scripts.sleeve_harness            # 180 dagen
     python -m scripts.sleeve_harness --dagen 365
+    python -m scripts.sleeve_harness --dagen 365 --budget 1250   # zelfde cache
+    python -m scripts.sleeve_harness --ververs                   # koersen verversen
 
 WAAROM DIT BESTAAT
 ------------------
@@ -54,31 +56,81 @@ LIVE_BUDGET = 255.0
 
 # --------------------------------------------------------------------- data
 
-def _laad_data(dagen: int):
-    """Dagkoersen per ticker + de XYZ100-reeks voor de circuit-breaker."""
+def _laad_data(dagen: int, ververs: bool = False):
+    """Dagkoersen per ticker + de XYZ100-reeks voor de circuit-breaker.
+
+    MET CACHE, en dat is geen snelheidstruc maar een meetvereiste. De ophaal via
+    ccxt is niet deterministisch: twee runs achter elkaar leverden 36 en 33
+    tickers op, omdat losse fetches falen. Twee configuraties tegen elkaar
+    afzetten op een verschillende dataset meet het verschil in de DATA, niet in
+    de configuratie — precies het soort definitiefout waar dit project vaker in
+    is gelopen.
+
+    De cache wordt weggeschreven per `dagen`. Gebruik `--ververs` om opnieuw op
+    te halen; doe dat NIET halverwege een vergelijking.
+    """
     import time
     import pandas as pd
     from utils.sleeve_revalidation import _fetch_daily
     from agents.technical_analyst import _get_shared_exchange
 
-    ex = _get_shared_exchange()
     with open(THEMES_BESTAND) as f:
         cfg = json.load(f)
     conf = {t: c for t, c in cfg.get("tickers", {}).items()
             if c.get("status") == "CONFIRMED" and c.get("real_symbol")}
-    since = int(time.time() * 1000) - dagen * 24 * 3600 * 1000
 
-    DATA = {}
-    for t in conf:
-        d = _fetch_daily(ex, t, since)
-        if d and len(d) >= 25:
-            DATA[t] = d
+    kern = _cache_lezen(dagen) if not ververs else None
+    if kern is None:
+        ex = _get_shared_exchange()
+        since = int(time.time() * 1000) - dagen * 24 * 3600 * 1000
+        DATA = {}
+        for t in conf:
+            d = _fetch_daily(ex, t, since)
+            if d and len(d) >= 25:
+                DATA[t] = d
+        eq = _fetch_daily(ex, "XYZ-XYZ100", since)
+        kern = {"tickers": DATA, "xyz100": eq or {},
+                "opgehaald_op": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        _cache_schrijven(dagen, kern)
+        print("Koersen opgehaald en gecachet (%d tickers)." % len(DATA))
+    else:
+        print("Koersen uit cache van %s (%d tickers) — gebruik --ververs om opnieuw op te halen."
+              % (kern["opgehaald_op"], len(kern["tickers"])))
+
+    DATA = kern["tickers"]
     if len(DATA) < 3:
         sys.exit("te weinig data (%d tickers) — draai dit in de container" % len(DATA))
-
-    eq = _fetch_daily(ex, "XYZ-XYZ100", since)
+    eq = kern["xyz100"]
     eqs = pd.Series(dict(sorted(eq.items()))) if eq else None
     return conf, cfg.get("themes", {}), DATA, eqs
+
+
+def _cache_pad(dagen: int) -> str:
+    return "sleeve_harness_cache_%dd.json" % dagen
+
+
+def _cache_lezen(dagen: int):
+    """JSON maakt van int-sleutels strings; die moeten terug, anders vergelijkt
+    de dag-lus straks een string met een int en valt alles stil zonder fout."""
+    try:
+        with open(_cache_pad(dagen), encoding="utf-8") as fh:
+            rauw = json.load(fh)
+    except (IOError, ValueError):
+        return None
+    return {
+        "opgehaald_op": rauw.get("opgehaald_op", "?"),
+        "tickers": {t: {int(d): float(c) for d, c in reeks.items()}
+                    for t, reeks in rauw.get("tickers", {}).items()},
+        "xyz100": {int(d): float(c) for d, c in rauw.get("xyz100", {}).items()},
+    }
+
+
+def _cache_schrijven(dagen: int, kern: dict) -> None:
+    try:
+        with open(_cache_pad(dagen), "w", encoding="utf-8") as fh:
+            json.dump(kern, fh)
+    except IOError as e:
+        logger.warning("cache niet weggeschreven: %s", e)
 
 
 def _signalen(lab, conf, themes, DATA, eqs):
@@ -132,6 +184,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
     per_naam = budget / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
 
     kas = budget
+    instap_namen = []
     gerealiseerd = 0.0      # winst/verlies uit VOLLEDIG gesloten posities
     posities = {}
     gesloten = []          # rendement per positie (fractie)
@@ -221,6 +274,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
             else:
                 inleg = 1.0                                # fractie-model
             prijs = DATA[t][day]
+            instap_namen.append(t)
             posities[t] = {"entry": prijs, "stuks": inleg / prijs, "inleg": inleg,
                            "opbrengst": 0.0, "piek_waarde": inleg, "piek_gain": 0.0,
                            "min_gain": 0.0, "s1": False, "s2": False, "s3": False}
@@ -244,6 +298,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
         "gerealiseerd": round(gerealiseerd, 2) if beperkt else None,
         "op_papier": round(kas + open_waarde - budget - gerealiseerd, 2) if beperkt else None,
         "n_gesloten": n - len(posities),
+        "instap_namen": instap_namen,
         "open_waarde": round(open_waarde, 2) if beperkt else None,
         "gemist_vol": gemist_vol,
         "gemist_kas": gemist_kas,
@@ -254,6 +309,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dagen", type=int, default=180)
     ap.add_argument("--budget", type=float, default=LIVE_BUDGET)
+    ap.add_argument("--ververs", action="store_true",
+                    help="koersen opnieuw ophalen i.p.v. de cache gebruiken")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.WARNING)
@@ -261,7 +318,7 @@ def main() -> int:
         ThematicExposureLab, MAX_CONCURRENT_NAMES, TRANCHE_PCTS)
 
     lab = ThematicExposureLab()
-    conf, themes, DATA, eqs = _laad_data(args.dagen)
+    conf, themes, DATA, eqs = _laad_data(args.dagen, ververs=args.ververs)
     all_days, per_dag = _signalen(lab, conf, themes, DATA, eqs)
 
     per_naam = args.budget / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
@@ -291,6 +348,10 @@ def main() -> int:
           % ("gerealiseerd", "$%+.2f" % echt["gerealiseerd"], echt["n_gesloten"]))
     print("  %-30s %14s   (%d posities nog open, marktwaarde)"
           % ("nog op papier", "$%+.2f" % echt["op_papier"], echt["n"] - echt["n_gesloten"]))
+    print()
+    print()
+    print("Welke namen werden gekocht (in volgorde):")
+    print("  " + ", ".join(echt["instap_namen"]))
     print()
     print("Signalen die NIET gekocht konden worden:")
     print("  %5d x geen plek vrij" % echt["gemist_vol"])

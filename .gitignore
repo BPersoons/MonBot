@@ -157,3 +157,9 @@ research/screen_result.json
 docs/overzicht.html
 docs/overzicht_artifact.html
 nav_snapshot.json
+
+# Onderzoeks-caches: afgeleide data, geen bron. Ze horen niet in git omdat
+# ze per machine en per ophaalmoment verschillen -- juist dat verschil maakte
+# twee harness-runs onvergelijkbaar (zie scripts/sleeve_harness.py).
+divergence_cache.json
+sleeve_harness_cache_*.json
