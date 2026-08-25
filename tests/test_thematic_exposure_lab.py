@@ -782,14 +782,22 @@ class TestWinstbescherming(ThematicExposureLabTestBase):
         self.lab._manage_exits()
         self.assertEqual(self._positie()["status"], "CLOSED")
 
-    def test_onder_30_procent_blijft_de_oude_20_procent_regel(self):
+    def test_meelopende_bescherming_gaat_voor_de_oude_nav_trail(self):
+        """Sinds 2026-08-25 sluit de MEELOPENDE bescherming dit eerder af.
+
+        Deze toets eiste tot dan dat een positie met piek +20% bij een koers
+        van +3,5% nog OPEN bleef, want -16,5% van de piekWAARDE haalt de oude
+        -20%-regel niet. De meelopende bescherming rekent in procentPUNTEN en
+        vuurt wel: piek 20 - gat 3 = 17, en +3,5% ligt daar ruim onder. Dat is
+        de bedoelde verandering, niet een regressie.
+        """
         self._seed_positie(0.5, 100.0)
         self.exchange.get_market_price.return_value = 120.0   # piek +20%
         self.lab._manage_exits()
-        # -14% vanaf de piek mag bij een kleine winnaar nog NIET sluiten
-        self.exchange.get_market_price.return_value = 103.5
-        self.lab._manage_exits()
         self.assertEqual(self._positie()["status"], "OPEN")
+        self.exchange.get_market_price.return_value = 103.5   # +3,5%
+        self.lab._manage_exits()
+        self.assertEqual(self._positie()["status"], "CLOSED")
 
     # ── het $10-minimum: tranche bewaren, niet verbranden ────────────────
     def test_close_or_trim_bewaart_een_te_kleine_deelexit(self):
@@ -925,6 +933,82 @@ class TestSectorCircuitBreaker(ThematicExposureLabTestBase):
 
     def test_net_onder_de_drempel_laat_door(self):
         self._advance(tel.SLEEVE_CIRCUIT_BREAKER_DD_PCT - 0.1)
+        self.exchange.create_order.assert_called_once()
+
+
+
+
+class TestMeelopendeWinstbescherming(ThematicExposureLabTestBase):
+    """Vanaf +10% winst schuift de uitstap mee op 3pp onder de hoogste stand.
+
+    Gekozen op scripts/sleeve_harness.py over 12 vensters op UURresolutie:
+    12/12 positief met een slechtste uitkomst van +$16,82, tegen 2/12 en
+    -$43,45 voor de regels die het vervangt. Op DAGkoersen gaf diezelfde meting
+    het tegengestelde antwoord -- vandaar dat deze toetsen de grenzen hard
+    vastleggen: ze zijn gemeten, niet gekozen.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.exchange = MagicMock()
+        self.exchange.get_amount_precision.return_value = 0.0001
+        self.exchange.create_order.return_value = {"id": "mock-trail-1"}
+        self.lab = ThematicExposureLab(exchange_client=self.exchange)
+
+    def _positie_met_piek(self, piek_pct, nu_pct, entry=100.0, stuks=0.5):
+        """Zet een positie neer die ooit op `piek_pct` stond en nu op `nu_pct`."""
+        data = self.lab._load_positions()
+        data["positions"] = {"XYZ-NVDA": {
+            "themes": {"semiconductors": 0.4}, "tranche_stage": 1, "status": "OPEN",
+            "quantity": stuks, "avg_entry_price": entry,
+            "cost_basis_usd": stuks * entry,
+            "peak_gain_pct": piek_pct,
+            "peak_value_usd": stuks * entry * (1 + piek_pct / 100),
+            "opened_at": tel._now_iso(),
+        }}
+        self.lab._save_positions(data)
+        self.exchange.get_market_price.return_value = entry * (1 + nu_pct / 100)
+
+    def _status(self):
+        return self.lab._load_positions()["positions"]["XYZ-NVDA"]["status"]
+
+    def test_vuurt_bij_terugval_voorbij_het_gat(self):
+        self._positie_met_piek(20.0, 16.0)          # 4pp terugval, piek boven +10%
+        self.lab._manage_exits()
+        self.assertEqual(self._status(), "CLOSED")
+        self.exchange.create_order.assert_called_once()
+        _, kwargs = self.exchange.create_order.call_args
+        self.assertEqual(kwargs.get("leverage"), 1)
+        self.assertEqual(kwargs.get("margin_mode"), "isolated")
+
+    def test_vuurt_niet_binnen_het_gat(self):
+        """Tegenproef: zonder deze zou een regel die ALTIJD sluit ook slagen."""
+        self._positie_met_piek(20.0, 18.0)          # 2pp terugval, binnen het gat
+        self.lab._manage_exits()
+        self.assertEqual(self._status(), "OPEN")
+        self.exchange.create_order.assert_not_called()
+
+    def test_vuurt_niet_onder_de_startdrempel(self):
+        """Piek onder +10%: de bescherming is nog niet geactiveerd."""
+        self._positie_met_piek(8.0, 1.0)            # 7pp terugval, maar piek te laag
+        self.lab._manage_exits()
+        self.assertEqual(self._status(), "OPEN")
+        self.exchange.create_order.assert_not_called()
+
+    def test_grenzen_liggen_precies_waar_ze_gemeten_zijn(self):
+        """Exact op de drempel EN exact op het gat moet hij sluiten (>= en <=)."""
+        self.assertEqual(tel.SLEEVE_PROFIT_TRAIL_START_PCT, 10.0)
+        self.assertEqual(tel.SLEEVE_PROFIT_TRAIL_GAP_PP, 3.0)
+        piek = tel.SLEEVE_PROFIT_TRAIL_START_PCT
+        self._positie_met_piek(piek, piek - tel.SLEEVE_PROFIT_TRAIL_GAP_PP)
+        self.lab._manage_exits()
+        self.assertEqual(self._status(), "CLOSED")
+
+    def test_verliesstop_gaat_voor(self):
+        """Een positie diep onder water sluit op de downside-stop, niet hierop."""
+        self._positie_met_piek(20.0, -30.0)
+        self.lab._manage_exits()
+        self.assertEqual(self._status(), "CLOSED")   # sluit hoe dan ook
         self.exchange.create_order.assert_called_once()
 
 

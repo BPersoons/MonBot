@@ -139,6 +139,36 @@ SLEEVE_MIN_TRIM_NOTIONAL_USD = 10.0    # HL weigert orders <$10; daaronder tranc
 SLEEVE_TRAIL_LADDER = ((100.0, 0.92), (60.0, 0.88), (30.0, 0.85))
 SLEEVE_TRAIL_BASE = 0.80   # onder +30%: ongewijzigd t.o.v. de oude vaste regel
 
+# ── meelopende winstbescherming (2026-08-25) ──────────────────────────────
+# Vanaf +10% winst schuift de uitstap mee op 3 procentPUNT onder de hoogste
+# stand die de positie ooit had. Op +14% ligt hij dus op +11%; loopt hij door
+# naar +20%, dan schuift hij mee naar +17%.
+#
+# NIET te verwarren met SLEEVE_TRAIL_LADDER hierboven, die in PROCENT VAN DE
+# PIEKWAARDE rekent (-20% van de piek). Deze rekent in procentPUNTEN winst en
+# is dus veel strakker: bij +14% winst staat hij op +11%, niet op +11,2% van de
+# waarde. Beide blijven staan; deze komt er eerder in de keten uit.
+#
+# Gemeten met scripts/sleeve_harness.py over 12 verschoven vensters, 180 dagen,
+# uurresolutie (23,9 controles per dag -- de live-sleeve kijkt elke ~5 min, de
+# oude naspeling keek eens per dag naar de slotkoers en dat gaf het TEGENGESTELDE
+# antwoord):
+#
+#   huidige regels      mediaan $ -4,88   slechtste $-43,45    2/12 positief
+#   vast uit op +6%     mediaan $+26,60   slechtste $ -2,05   10/12
+#   meelopend 6% / 1pp  mediaan $+27,36   slechtste $ -8,63   11/12
+#   meelopend 10% / 3pp mediaan $+62,76   slechtste $+16,82   12/12  <-- gekozen
+#
+# Waarom 3pp en niet 1pp: een krap gat wordt door gewone ruis uitgeschud, ook
+# per uur. Waarom vanaf +10%: daaronder vuurt hij te vroeg op posities die nog
+# niets bewezen hebben.
+#
+# BEPERKING VAN HET BEWIJS: 180 dagen, overlappende vensters, één universum, een
+# grotendeels stijgende markt. En uur is nog steeds grover dan de ~5 minuten van
+# productie. Beter onderbouwd dan de regels die het vervangt, geen zekerheid.
+SLEEVE_PROFIT_TRAIL_START_PCT = 10.0   # vanaf deze winst loopt de bescherming mee
+SLEEVE_PROFIT_TRAIL_GAP_PP = 3.0       # zoveel procentPUNT onder de hoogste stand
+
 # Hoeveel er per winst-sport wordt afgeroomd. Stond drie keer los in de code;
 # de regel hieronder rekent ermee, dus hij moet op één plek staan.
 SLEEVE_PROFIT_TRIM_FRACTION = 0.25
@@ -1227,6 +1257,25 @@ class ThematicExposureLab:
             # tail; backtest: minimale edge-kost, worst −44%→−33%.
             if gain_pct <= -SLEEVE_MAX_DRAWDOWN_STOP_PCT:
                 exit_reason, exit_fraction = f"downside-stop {SLEEVE_MAX_DRAWDOWN_STOP_PCT:.0f}%", 1.0
+            elif (pos["peak_gain_pct"] >= SLEEVE_PROFIT_TRAIL_START_PCT
+                  and gain_pct <= (pos["peak_gain_pct"]
+                                   - SLEEVE_PROFIT_TRAIL_GAP_PP + 1e-9)):
+                # Meelopende winstbescherming — zie het constants-blok. Staat
+                # bewust VOOR de winst-sporten: hij vervangt ze functioneel,
+                # want een positie haalt +30% zelden nog als hij al 3pp is
+                # teruggevallen vanaf een piek boven +10%.
+                #
+                # De 1e-9 is geen slordigheid maar een drijvende-komma-rand: bij
+                # een piek van 10,0% en een koers op exact +7,0% komt gain_pct
+                # uit op 7.000000000000001, en dan is `<= 7.0` onwaar. In
+                # productie vuurt hij vijf minuten later alsnog, maar een grens
+                # die niet doet wat de documentatie zegt is precies het soort
+                # stille afwijking dat hier vaker geld heeft gekost.
+                exit_reason, exit_fraction = (
+                    "meelopende winstbescherming: piek stond op +%.1f%%, nu +%.1f%% "
+                    "(%.1fpp terugval)"
+                    % (pos["peak_gain_pct"], gain_pct,
+                       pos["peak_gain_pct"] - gain_pct), 1.0)
             elif gain_pct >= 100 and not pos.get("profit_tranche_3_done"):
                 exit_reason = "winst-tranche +100%"
                 exit_fraction = SLEEVE_PROFIT_TRIM_FRACTION
