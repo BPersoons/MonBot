@@ -187,6 +187,13 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
     max_dagen = variant.get("max_dagen")    # uitstap na zoveel dagen
     eerste_sport = variant.get("eerste_sport", 30.0)
     winst_uit = variant.get("winst_uit")    # VOLLEDIG eruit op een vast winstdoel
+    # Meelopende winstbescherming: vanaf `trail_start` winst schuift de
+    # uitstap mee op `trail_gap` procentpunt onder de hoogste stand. Anders
+    # dan de bestaande NAV-trailing-stop, die in PROCENT VAN DE PIEKWAARDE
+    # rekent (-20%) -- dit rekent in procentPUNTEN winst, en is dus veel
+    # strakker: op +7% winst staat de uitstap op +6%, niet op +5,6%.
+    trail_start = variant.get("trail_start")
+    trail_gap = variant.get("trail_gap", 1.0)
 
     per_naam = budget / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
 
@@ -218,6 +225,9 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
             fractie, sport = 0.0, None
             if gain <= -SLEEVE_MAX_DRAWDOWN_STOP_PCT:
                 fractie = 1.0
+            elif (trail_start is not None and p["piek_gain"] >= trail_start
+                  and gain <= p["piek_gain"] - trail_gap):
+                fractie = 1.0        # meegelopen winst teruggevallen: eruit
             elif winst_uit is not None and gain >= winst_uit:
                 fractie = 1.0        # vast winstdoel gehaald: hele positie eruit
             elif z_uit is not None and sc.get(t, {}).get("pullback_z", 99) < z_uit:
@@ -329,21 +339,16 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
 
 VARIANTEN = [
     ("huidig",              {}),
-    ("volledig uit op +3%",  {"winst_uit": 3.0}),
-    ("volledig uit op +5%",  {"winst_uit": 5.0}),
-    ("volledig uit op +6%",  {"winst_uit": 6.0}),
-    ("volledig uit op +8%",  {"winst_uit": 8.0}),
-    ("volledig uit op +10%", {"winst_uit": 10.0}),
-    ("volledig uit op +12%", {"winst_uit": 12.0}),
-    ("volledig uit op +15%", {"winst_uit": 15.0}),
-    ("volledig uit op +20%", {"winst_uit": 20.0}),
-    ("volledig uit op +30%", {"winst_uit": 30.0}),
-    ("uit op signaal z<1.0", {"z_uit": 1.0}),
-    ("uit op signaal z<0.5", {"z_uit": 0.5}),
-    ("uit na 60 dagen",     {"max_dagen": 60}),
-    ("uit na 90 dagen",     {"max_dagen": 90}),
-    ("eerste sport +15%",   {"eerste_sport": 15.0}),
-    ("eerste sport +20%",   {"eerste_sport": 20.0}),
+    ("vast uit op +5%",     {"winst_uit": 5.0}),
+    ("vast uit op +6%",     {"winst_uit": 6.0}),
+    ("vast uit op +8%",     {"winst_uit": 8.0}),
+    ("meelopend 6% / 1pp",  {"trail_start": 6.0, "trail_gap": 1.0}),
+    ("meelopend 6% / 2pp",  {"trail_start": 6.0, "trail_gap": 2.0}),
+    ("meelopend 6% / 3pp",  {"trail_start": 6.0, "trail_gap": 3.0}),
+    ("meelopend 5% / 1pp",  {"trail_start": 5.0, "trail_gap": 1.0}),
+    ("meelopend 8% / 2pp",  {"trail_start": 8.0, "trail_gap": 2.0}),
+    ("meelopend 10% / 3pp", {"trail_start": 10.0, "trail_gap": 3.0}),
+    ("meelopend 15% / 5pp", {"trail_start": 15.0, "trail_gap": 5.0}),
 ]
 
 
