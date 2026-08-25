@@ -289,6 +289,25 @@ def _finite(x, default=0.0):
         return default
 
 
+def sleeve_nav_usd(positions: dict) -> float:
+    """Huidige waarde van het potje: vrije kas + marktwaarde van open posities.
+
+    Eén formule, twee gebruikers: de inzetberekening hieronder en
+    `utils/sleeve_nav.py`, die hetzelfde uit het bestand op schijf leest. Stond
+    die berekening twee keer, dan zou de sleeve op een ander getal handelen dan
+    hij rapporteert -- en dat soort verschil is in dit project al vaker een dag
+    zoeken geweest.
+    """
+    kas = _finite(positions.get("cash_usd"),
+                  _finite(positions.get("budget_usd"), DEFAULT_BUDGET_USD))
+    open_waarde = sum(
+        _finite(p.get("current_value_usd"))
+        for p in (positions.get("positions") or {}).values()
+        if p.get("status") == "OPEN"
+    )
+    return max(0.0, kas + open_waarde)
+
+
 def _trail_fraction(peak_gain_pct: float) -> float:
     """Welk deel van de piekwaarde een winnaar mag behouden voor hij dichtgaat.
 
@@ -1044,9 +1063,18 @@ class ThematicExposureLab:
                            f"{sorted(TRANCHE_PCTS)} — {ticker} overgeslagen")
             return
 
-        budget = _finite(positions.get("budget_usd"), DEFAULT_BUDGET_USD)
-        cash = _finite(positions.get("cash_usd"), budget)
-        per_name_budget = budget / MAX_CONCURRENT_NAMES
+        gestort = _finite(positions.get("budget_usd"), DEFAULT_BUDGET_USD)
+        cash = _finite(positions.get("cash_usd"), gestort)
+        # De inzet volgt de HUIDIGE waarde van het potje, niet het bedrag dat er
+        # ooit in gestort is. Hier stond `gestort / MAX_CONCURRENT_NAMES`, en dat
+        # betekende dat de sleeve voor altijd posities van $42,50 kocht: winst
+        # stroomde naar cash_usd en kon nooit meer op grotere schaal worden
+        # ingezet. Gemeten op zestien jaar aandelenhistorie (2026-08-25,
+        # `sleeve_harness.py --aandelen`) is dat over zo'n venster het DOMINANTE
+        # effect -- +405% met vaste inzet tegen +1710% met meegroeiende inzet,
+        # bij exact dezelfde regels en dezelfde data. Een strategie die niet
+        # herbelegt verandert vanzelf in een mix met een groeiende kasstapel.
+        per_name_budget = sleeve_nav_usd(positions) / MAX_CONCURRENT_NAMES
         tranche_usd = per_name_budget * TRANCHE_PCTS[stage]
         if tranche_usd > cash:
             logger.info(f"ThematicExposureLab: onvoldoende cash voor T{stage} {ticker} (${tranche_usd:.2f} > ${cash:.2f})")

@@ -219,13 +219,10 @@ class SleeveNAV:
         except Exception:
             return 0.0
         try:
-            cash = float(data.get("cash_usd", 0.0) or 0.0)
-            positions_value = sum(
-                float(p.get("current_value_usd", 0.0) or 0.0)
-                for p in (data.get("positions") or {}).values()
-                if p.get("status") == "OPEN"
-            )
-            return max(0.0, cash + positions_value)
+            # Dezelfde formule als waarop de sleeve zijn INZET baseert. Stonden
+            # die los, dan handelt hij op een ander getal dan hij rapporteert.
+            from utils.thematic_exposure_lab import sleeve_nav_usd
+            return sleeve_nav_usd(data)
         except Exception as e:
             logger.warning(f"thematic_exposure_positions.json niet leesbaar: {e}")
             return 0.0
