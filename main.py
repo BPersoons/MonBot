@@ -963,14 +963,20 @@ def main():
                                     changed = True
                                     project_lead.add_active_asset(_ticker)
                                     try:
-                                        project_lead.execution_agent.db.log_trade({
+                                        # NIET execution_agent.log_trade(): die
+                                        # schrijft ook naar trade_log.json en de
+                                        # regel staat hier al in all_trades.
+                                        # (`db.log_trade` bestond niet — de
+                                        # aanroep eindigde altijd in de except,
+                                        # en die slikte hem zonder logregel.)
+                                        project_lead.execution_agent.db.log_trade_with_reasoning({
                                             "ticker": _ticker, "action": _action, "conviction": 0.0,
                                             "price": _entry, "quantity": _qty,
                                             "risk_metrics": {"source": "RECONCILED", "take_profit": _tp, "stop_loss": _sl},
                                             "analyst_signals": {},
-                                        })
-                                    except Exception:
-                                        pass
+                                        }, {})
+                                    except Exception as _dbe:
+                                        logger.warning(f"Reconcile: Supabase-log mislukt voor {_ticker}: {_dbe}")
                                     try:
                                         report_status(
                                             f"⚠️ RECONCILE: Ghost position {_ticker} recovered from Hyperliquid. "

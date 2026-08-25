@@ -253,12 +253,17 @@ class ExecutionAgent:
             open_tickers.add(base)
             added += 1
             try:
-                self.db.log_trade({
+                # NIET self.log_trade(): die schrijft de regel OOK naar
+                # trade_log.json, en die staat hier al in `trades` — dat geeft
+                # een dubbele boeking. Alleen de Supabase-kant is hier gewenst.
+                # (`self.db.log_trade` bestond niet; elke aanroep eindigde in de
+                # except hieronder, gemeten 2026-08-25.)
+                self.db.log_trade_with_reasoning({
                     "ticker": ticker, "action": action, "conviction": 0.0,
                     "price": entry_price, "quantity": qty,
                     "risk_metrics": {"source": "HL_POSITION_SYNC", "take_profit": tp, "stop_loss": sl, "sl_pct": sl_pct},
                     "analyst_signals": {},
-                })
+                }, {})
             except Exception as _dbe:
                 self.logger.warning(f"Startup sync: Supabase log failed for {ticker}: {_dbe}")
 

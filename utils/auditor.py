@@ -20,6 +20,7 @@ class PerformanceAuditor:
         self.auto_params = AutoParams()
         self.cost_tracker = CostTracker()
         self.shadow_comparator = ShadowComparator()
+        self._last_cost_snapshot = 0.0  # zie _snapshot_costs()
 
         # Fallback files (used when DB unavailable)
         self.trade_log_file = "trade_log.json"
@@ -120,6 +121,32 @@ class PerformanceAuditor:
 
         return changes_made
 
+    _COST_SNAPSHOT_INTERVAL_S = 3600
+
+    def _snapshot_costs(self):
+        """Zet de dagstaat in cost_log.json — hooguit één keer per uur.
+
+        Dit stond nergens in de lus. `get_daily_summary()` werd alleen
+        aangeroepen vanuit `_tune_all_params` (staat uit achter AUDITOR_ENABLED)
+        en vanuit `_build_rsi_digest`, dus de kostenboekhouding was een
+        BIJVERSCHIJNSEL van een RSI-bericht. Gemeten 2026-08-25: cost_log.json
+        stond drie dagen stil. Dat bestand is de noemer waartegen de
+        kostenhorde uit docs/PLAN_2026-08.md wordt gerekend — te belangrijk om
+        van een digest af te hangen.
+
+        De teller staat in het geheugen, dus na een herstart volgt meteen een
+        verse momentopname. Dat is gewenst: juist een herstart is het moment
+        waarop je wil weten of de dag nog geboekt is.
+        """
+        now = time.time()
+        if now - self._last_cost_snapshot < self._COST_SNAPSHOT_INTERVAL_S:
+            return
+        try:
+            self.cost_tracker.get_daily_summary()
+            self._last_cost_snapshot = now
+        except Exception as e:
+            self.logger.warning(f"Kostenmomentopname mislukt: {e}")
+
     def run_audit_cycle(self):
         """
         Main entry point for the Auditor.
@@ -128,6 +155,8 @@ class PerformanceAuditor:
         3. Tune parameters in auto_params.json.
         """
         self.logger.info("Running Audit Cycle...")
+
+        self._snapshot_costs()
 
         # Learning source (2026-07-21 fix): the auditor now learns from the
         # OPERATIONAL source of truth — trade_log.json — NOT the Supabase mirror,
