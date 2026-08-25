@@ -387,6 +387,7 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
     # strakker: op +7% winst staat de uitstap op +6%, niet op +5,6%.
     trail_start = variant.get("trail_start")
     trail_gap = variant.get("trail_gap", 1.0)
+    min_dip = variant.get("min_dip", 0.0)   # minimale ABSOLUTE daling om in te stappen
 
     per_naam = budget / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
 
@@ -484,6 +485,11 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
             (t for t in sc
              if t not in posities
              and sc[t]["pullback_z"] >= PULLBACK_VOL_THRESHOLD
+             # ABSOLUTE dalingseis, naast de vol-genormaliseerde z-score. De
+             # z-score zegt "diep voor deze naam"; min_dip zegt "diep, punt".
+             # Bij een rustige naam is 8% al z>2, en dat is een ander soort
+             # kans dan een echte inzinking van 20%.
+             and sc[t]["drawdown_pct"] >= min_dip
              and sc[t]["stabilized"]
              and max((dag["breadth"].get(th, 0.0)
                       for th in (conf[t].get("themes") or {})), default=0.0) >= BREADTH_THRESHOLD),
@@ -557,6 +563,14 @@ VARIANTEN = [
     ("meelopend 8% / 2pp",  {"trail_start": 8.0, "trail_gap": 2.0}),
     ("meelopend 10% / 3pp", {"trail_start": 10.0, "trail_gap": 3.0}),
     ("meelopend 15% / 5pp", {"trail_start": 15.0, "trail_gap": 5.0}),
+    # Voorstel van Bart (2026-08-25): wacht op een ECHTE inzinking en pak dan
+    # een vaste winst. De huidige regels stappen in op een z-score, niet op een
+    # absolute daling -- dit is dus een ander filter, niet een andere knop.
+    ("dip>=20% -> uit op +10%", {"min_dip": 20.0, "winst_uit": 10.0}),
+    ("dip>=20% -> uit op +20%", {"min_dip": 20.0, "winst_uit": 20.0}),
+    ("dip>=20% -> meelop. 10/3", {"min_dip": 20.0, "trail_start": 10.0, "trail_gap": 3.0}),
+    ("dip>=30% -> uit op +10%", {"min_dip": 30.0, "winst_uit": 10.0}),
+    ("dip>=20% -> huidige exits", {"min_dip": 20.0}),
 ]
 
 
