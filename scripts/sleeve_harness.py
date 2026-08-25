@@ -167,7 +167,8 @@ def _signalen(lab, conf, themes, DATA, eqs):
 
 # ---------------------------------------------------------------- naspeling
 
-def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
+def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
+             variant: dict = None):
     """Speelt de sleeve na over de reeks.
 
     beperkt=False  → het huidige model: onbeperkt geld en plekken.
@@ -180,6 +181,11 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
         PULLBACK_VOL_THRESHOLD, BREADTH_THRESHOLD, MAX_CONCURRENT_NAMES,
         TRANCHE_PCTS, SLEEVE_MAX_DRAWDOWN_STOP_PCT, SLEEVE_MIN_TRIM_NOTIONAL_USD,
         SLEEVE_PROFIT_TRIM_FRACTION, _trail_fraction)
+
+    variant = variant or {}
+    z_uit = variant.get("z_uit")            # uitstap als de daling is uitgewerkt
+    max_dagen = variant.get("max_dagen")    # uitstap na zoveel dagen
+    eerste_sport = variant.get("eerste_sport", 30.0)
 
     per_naam = budget / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
 
@@ -211,11 +217,15 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
             fractie, sport = 0.0, None
             if gain <= -SLEEVE_MAX_DRAWDOWN_STOP_PCT:
                 fractie = 1.0
+            elif z_uit is not None and sc.get(t, {}).get("pullback_z", 99) < z_uit:
+                fractie = 1.0        # de daling is uitgewerkt: these afgerond
+            elif max_dagen is not None and (day - p["dag_in"]) >= max_dagen:
+                fractie = 1.0        # te lang vast, ongeacht de stand
             elif gain >= 100 and not p["s3"]:
                 fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s3"
             elif gain >= 60 and not p["s2"]:
                 fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s2"
-            elif gain >= 30 and not p["s1"]:
+            elif gain >= eerste_sport and not p["s1"]:
                 fractie, sport = SLEEVE_PROFIT_TRIM_FRACTION, "s1"
             elif gain > 0 and waarde < p["piek_waarde"] * trail:
                 fractie = 1.0
@@ -311,10 +321,50 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float):
     }
 
 
+
+VARIANTEN = [
+    ("huidig",              {}),
+    ("uit op signaal z<1.0", {"z_uit": 1.0}),
+    ("uit op signaal z<0.5", {"z_uit": 0.5}),
+    ("uit na 60 dagen",     {"max_dagen": 60}),
+    ("uit na 90 dagen",     {"max_dagen": 90}),
+    ("eerste sport +15%",   {"eerste_sport": 15.0}),
+    ("eerste sport +20%",   {"eerste_sport": 20.0}),
+]
+
+
+def vergelijk(all_days, per_dag, DATA, conf, budget):
+    """Alle uitstap-varianten tegen DEZELFDE data en dezelfde signalen.
+
+    Beoordeel op GEREALISEERD, niet op portefeuille: dat laatste bevat
+    marktwaarde van posities die nog open staan, en juist het uitstappen is
+    wat we hier vergelijken. Een variant die alles vasthoudt scoort op
+    portefeuille-rendement goed en heeft nog niets bewezen."""
+    print()
+    print("Uitstap-varianten, zelfde data en zelfde signalen")
+    print("=" * 78)
+    print("%-22s %11s %11s %9s %8s %9s" % (
+        "", "portef.", "GEREAL.", "nog open", "instap", "med.duur"))
+    print("-" * 78)
+    for naam, opties in VARIANTEN:
+        r = speel_na(all_days, per_dag, DATA, conf, beperkt=True,
+                     budget=budget, variant=opties)
+        do = r["duur_open"]
+        dd = r["duur_dicht"]
+        print("%-22s %10.2f%% %10s %9s %8d %9s" % (
+            naam, r["portefeuille_pct"], "$%+.2f" % r["gerealiseerd"],
+            "%d van %d" % (r["n"] - r["n_gesloten"], r["n"]), r["n"],
+            "%d d" % (dd[len(dd)//2] if dd else 0)))
+    print("-" * 78)
+    print("GEREAL. = winst die echt geboekt is. 'nog open' = posities die aan het",
+          "eind nooit zijn uitgestapt.")
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dagen", type=int, default=180)
     ap.add_argument("--budget", type=float, default=LIVE_BUDGET)
+    ap.add_argument("--varianten", action="store_true",
+                    help="vergelijk de uitstap-varianten i.p.v. de standaardrun")
     ap.add_argument("--ververs", action="store_true",
                     help="koersen opnieuw ophalen i.p.v. de cache gebruiken")
     args = ap.parse_args()
@@ -333,6 +383,10 @@ def main() -> int:
     print("%d tickers · %d handelsdagen · budget $%.0f · %d plekken · $%.2f per instap"
           % (len(DATA), len(all_days), args.budget, MAX_CONCURRENT_NAMES, per_naam))
     print()
+
+    if args.varianten:
+        vergelijk(all_days, per_dag, DATA, conf, args.budget)
+        return 0
 
     vrij = speel_na(all_days, per_dag, DATA, conf, beperkt=False, budget=args.budget)
     echt = speel_na(all_days, per_dag, DATA, conf, beperkt=True, budget=args.budget)
