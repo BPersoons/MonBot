@@ -361,7 +361,7 @@ def _signalen(lab, conf, themes, DATA, eqs):
 def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
              variant: dict = None, vanaf: int = 0, kosten_pct: float = 0.0,
              UUR: dict = None, uren_per_dag: dict = None,
-             instap_dagen: set = None):
+             instap_dagen: set = None, herbeleggen: bool = False):
     """Speelt de sleeve na over de reeks.
 
     beperkt=False  → het huidige model: onbeperkt geld en plekken.
@@ -505,10 +505,20 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
                 if len(posities) >= MAX_CONCURRENT_NAMES:
                     gemist_vol += 1
                     continue
-                if kas < per_naam:
+                # Herbeleggen: inzet meegroeien met het potje. Zonder dit koopt
+                # de sleeve na zestien jaar nog steeds posities van $42,50
+                # terwijl er $1.274 in zit -- dan meet je een strategie die zijn
+                # winst NIET herbelegt, en dat is over zo'n venster het
+                # dominante effect, niet de regels.
+                deze_inleg = per_naam
+                if herbeleggen:
+                    eigen = kas + sum(p["stuks"] * DATA[t2].get(day, p["entry"])
+                                      for t2, p in posities.items())
+                    deze_inleg = eigen / MAX_CONCURRENT_NAMES * TRANCHE_PCTS[1]
+                if kas < deze_inleg:
                     gemist_kas += 1
                     continue
-                inleg = per_naam
+                inleg = deze_inleg
                 kas -= inleg
                 kas -= inleg * kosten_pct / 100.0        # instapkosten
             else:
@@ -718,6 +728,8 @@ def main() -> int:
     ap.add_argument("--regime", action="store_true",
                     help="twee boeken met een CAUSALE regimepoort (NDX vs 200d-MA): "
                          "long-op-dips in bull, short-op-oplevingen in bear")
+    ap.add_argument("--herbeleggen", action="store_true",
+                    help="inzet meegroeien met het potje i.p.v. vast op $42,50")
     ap.add_argument("--ma", type=int, default=200,
                     help="venster van het voortschrijdend gemiddelde voor --regime")
     args = ap.parse_args()
@@ -788,7 +800,9 @@ def main() -> int:
         return 0
 
     vrij = speel_na(all_days, per_dag, DATA, conf, beperkt=False, budget=args.budget)
-    echt = speel_na(all_days, per_dag, DATA, conf, beperkt=True, budget=args.budget)
+    echt = speel_na(all_days, per_dag, DATA, conf, beperkt=True, budget=args.budget,
+                    kosten_pct=args.kosten, UUR=UUR, uren_per_dag=uren_per_dag,
+                    herbeleggen=args.herbeleggen)
 
     print("%-34s %14s %14s" % ("", "ONBEPERKT", "ECHT"))
     print("%-34s %14s %14s" % ("", "(huidig model)", "($255, 6 plek)"))
