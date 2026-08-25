@@ -134,6 +134,23 @@ def _cache_schrijven(dagen: int, kern: dict) -> None:
 
 
 
+# ── Waarom UUR en niet fijner (gemeten 2026-08-25) ────────────────────────
+# Voor de hand liggende volgende stap: 5 minuten, want zo vaak kijkt productie.
+# Dat kan niet, en het gaat ook nooit kunnen. Hyperliquid bewaart per
+# tijdsinterval ongeveer 5000 candles en niet meer -- de vroegste beschikbare
+# candle is dezelfde of je nu limit=200 of limit=5000 vraagt, en een expliciet
+# venster verder terug geeft leeg terug:
+#
+#     5m  -> 17 dagen        15m -> 52 dagen
+#     1h  -> 208 dagen       1d  -> 279 dagen
+#
+# Een venster van 180 dagen is dus alleen op UURbasis te meten. Uur is hier
+# geen keuze maar het plafond.
+#
+# Tweede, onafhankelijke blokkade: over 60 dagen sluit deze strategie ~1
+# positie (6 van de 7 staan aan het eind nog open). Een vergelijking op een
+# venster van 52 dagen -- het maximum voor 15m -- wordt dus beslist door een
+# of twee trades. Dat meet padgeluk, geen exit-regel.
 def _fetch_uur(ex, sym, since_ms):
     """Uurcandles. Sleutel is het uur-stempel, niet de dag."""
     import time
