@@ -45,20 +45,20 @@
   ],
   "staat": {
     "Koda": {
-      "floor_usd": 1754.31,
-      "vol24_usd": 16498.93,
-      "gemeten": "2026-09-04T11:58:56+00:00"
+      "floor_usd": 1670.94,
+      "vol24_usd": 0.0,
+      "gemeten": "2026-09-05T11:08:42+00:00"
     },
     "Otherdeed Expanded": {
-      "floor_usd": 171.59,
-      "vol24_usd": 3912.52,
-      "gemeten": "2026-09-04T11:58:56+00:00"
+      "floor_usd": 166.81,
+      "vol24_usd": 897.48,
+      "gemeten": "2026-09-05T11:08:42+00:00"
     },
     "Gemesis": {
-      "floor_usd": 26.76,
-      "vol24_usd": 1553.43,
-      "gemeten": "2026-09-04T11:58:56+00:00"
+      "floor_usd": 25.53,
+      "vol24_usd": 846.59,
+      "gemeten": "2026-09-05T11:08:42+00:00"
     }
   },
-  "laatst_gedraaid": "2026-09-04T11:58:56+00:00"
+  "laatst_gedraaid": "2026-09-05T11:08:42+00:00"
 }

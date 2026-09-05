@@ -3,26 +3,26 @@
     "Ethereum/USDC": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 15.56,
-      "pool_usd": 8186890,
+      "waarde_usd": 14.52,
+      "pool_usd": 7629675,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/USDT": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.17,
-      "pool_usd": 279718,
+      "pool_usd": 267116,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/PNKSTR": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 107.56,
-      "pool_usd": 1334606,
+      "waarde_usd": 103.04,
+      "pool_usd": 1292298,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/TOADSTR": {
       "basis_levend": false,
@@ -30,7 +30,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/CWEB": {
       "basis_levend": false,
@@ -38,7 +38,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/WBTC": {
       "basis_levend": false,
@@ -46,7 +46,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/BIRBSTR": {
       "basis_levend": false,
@@ -54,15 +54,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/SHIB": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 1.65,
-      "pool_usd": 41887,
+      "waarde_usd": 39.57,
+      "pool_usd": 285808,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/DOG": {
       "basis_levend": false,
@@ -70,7 +70,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/TIPJA": {
       "basis_levend": false,
@@ -78,7 +78,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/RUNIX": {
       "basis_levend": false,
@@ -86,7 +86,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/PLANET": {
       "basis_levend": false,
@@ -94,7 +94,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/BALPHA": {
       "basis_levend": false,
@@ -102,7 +102,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/MON": {
       "basis_levend": false,
@@ -110,15 +110,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/HEX": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 775265,
+      "pool_usd": 734552,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/AUSDT": {
       "basis_levend": false,
@@ -126,15 +126,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/WETH": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 139655,
+      "pool_usd": 134460,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/cLOOKS": {
       "basis_levend": false,
@@ -142,7 +142,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/PEP": {
       "basis_levend": false,
@@ -150,7 +150,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/Luna Community Refund (terraluna.cloud)": {
       "basis_levend": false,
@@ -158,7 +158,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/NXAN": {
       "basis_levend": false,
@@ -166,7 +166,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/FIFO": {
       "basis_levend": false,
@@ -174,7 +174,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/GMIBOT": {
       "basis_levend": false,
@@ -182,7 +182,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/VRTX": {
       "basis_levend": false,
@@ -190,7 +190,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/ANFD": {
       "basis_levend": false,
@@ -198,7 +198,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/WOOL": {
       "basis_levend": false,
@@ -206,7 +206,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/?": {
       "basis_levend": false,
@@ -214,7 +214,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/TIP": {
       "basis_levend": false,
@@ -222,7 +222,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/MWAT": {
       "basis_levend": false,
@@ -230,7 +230,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/LUFFY": {
       "basis_levend": false,
@@ -238,7 +238,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/NIFT": {
       "basis_levend": false,
@@ -246,7 +246,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/1UP": {
       "basis_levend": false,
@@ -254,7 +254,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/mbird.fun": {
       "basis_levend": false,
@@ -262,15 +262,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/YIELD": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
       "pool_usd": 0,
-      "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "geen_paar": true,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/MORT": {
       "basis_levend": false,
@@ -278,7 +278,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/TBET": {
       "basis_levend": false,
@@ -286,7 +286,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/TAP": {
       "basis_levend": false,
@@ -294,7 +294,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/INKZ": {
       "basis_levend": false,
@@ -302,15 +302,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/KYL": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 0.26,
-      "pool_usd": 326,
-      "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "waarde_usd": 0.0,
+      "pool_usd": 0,
+      "geen_paar": true,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/MORC": {
       "basis_levend": false,
@@ -318,15 +318,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/INFI": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 1,
-      "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "pool_usd": 0,
+      "geen_paar": true,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/mbBASED": {
       "basis_levend": false,
@@ -334,7 +334,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/Rainbows": {
       "basis_levend": false,
@@ -342,7 +342,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/DEX": {
       "basis_levend": false,
@@ -350,7 +350,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/Otherside Gas Refund (OTHR.claims)": {
       "basis_levend": false,
@@ -358,7 +358,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/Otherside Gas Refund (koda.family)": {
       "basis_levend": false,
@@ -366,7 +366,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/ERCAI": {
       "basis_levend": false,
@@ -374,7 +374,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/SUPERX": {
       "basis_levend": false,
@@ -382,7 +382,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/PMAI": {
       "basis_levend": false,
@@ -390,7 +390,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/SBX": {
       "basis_levend": false,
@@ -398,7 +398,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/INX": {
       "basis_levend": false,
@@ -406,7 +406,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/FOMO": {
       "basis_levend": false,
@@ -414,7 +414,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/CAI": {
       "basis_levend": false,
@@ -422,7 +422,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/MCAT": {
       "basis_levend": false,
@@ -430,7 +430,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/DAD": {
       "basis_levend": false,
@@ -438,7 +438,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/BIT": {
       "basis_levend": false,
@@ -446,15 +446,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/DOGE": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 19095,
-      "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "pool_usd": 0,
+      "geen_paar": true,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/MASK": {
       "basis_levend": false,
@@ -462,15 +462,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/WAR": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 13086,
-      "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "pool_usd": 0,
+      "geen_paar": true,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/POOLZ": {
       "basis_levend": false,
@@ -478,7 +478,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/XCHART": {
       "basis_levend": false,
@@ -486,7 +486,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/ROFLCOPTER": {
       "basis_levend": false,
@@ -494,7 +494,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/MB": {
       "basis_levend": false,
@@ -502,7 +502,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/PEPES": {
       "basis_levend": false,
@@ -510,7 +510,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/KAKA": {
       "basis_levend": false,
@@ -518,7 +518,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/ETHG": {
       "basis_levend": false,
@@ -526,7 +526,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/BEN": {
       "basis_levend": false,
@@ -534,7 +534,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/ySUSD": {
       "basis_levend": false,
@@ -542,15 +542,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/yRise": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 3782,
-      "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "pool_usd": 0,
+      "geen_paar": true,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/PBETS": {
       "basis_levend": false,
@@ -558,7 +558,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/AICC": {
       "basis_levend": false,
@@ -566,7 +566,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/LIQUID": {
       "basis_levend": false,
@@ -574,7 +574,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/REB": {
       "basis_levend": false,
@@ -582,7 +582,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/UNI-V2": {
       "basis_levend": false,
@@ -590,7 +590,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/FORG": {
       "basis_levend": false,
@@ -598,7 +598,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Ethereum/RMPL": {
       "basis_levend": false,
@@ -606,39 +606,40 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/USDC": {
       "basis_levend": true,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 0.0,
-      "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "waarde_usd": 8141.82,
+      "pool_usd": 114780,
+      "geen_paar": false,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/FP": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 130.19,
-      "pool_usd": 744312,
+      "waarde_usd": 210.08,
+      "pool_usd": 739042,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00",
+      "laatste_melding": "2026-09-05T11:09:01+00:00"
     },
     "Base/WETH": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 41.37,
-      "pool_usd": 114359196,
+      "waarde_usd": 42.74,
+      "pool_usd": 117498906,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/TOBY": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 3.62,
-      "pool_usd": 75,
+      "waarde_usd": 3.47,
+      "pool_usd": 74,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/DOG": {
       "basis_levend": false,
@@ -646,7 +647,7 @@
       "waarde_usd": 1.88,
       "pool_usd": 122,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/RIZ": {
       "basis_levend": false,
@@ -654,23 +655,23 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/POOP": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 1.56,
-      "pool_usd": 4421,
+      "waarde_usd": 1.58,
+      "pool_usd": 4477,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/BASED": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 0.27,
-      "pool_usd": 7219,
+      "waarde_usd": 0.28,
+      "pool_usd": 7412,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/YOYO": {
       "basis_levend": false,
@@ -678,47 +679,47 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/BENTO": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.02,
-      "pool_usd": 28025,
+      "pool_usd": 28910,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/AEROBUD": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.01,
-      "pool_usd": 160417,
+      "pool_usd": 158486,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/PEEZY": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 70616,
+      "pool_usd": 71918,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SALUKI": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "pool_usd": 3608,
+      "geen_paar": false,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/USA": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 26885,
+      "pool_usd": 28082,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/BETS": {
       "basis_levend": false,
@@ -726,15 +727,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/WGC": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 11602,
+      "pool_usd": 11957,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SHG": {
       "basis_levend": false,
@@ -742,7 +743,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/PTH": {
       "basis_levend": false,
@@ -750,7 +751,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/GooG": {
       "basis_levend": false,
@@ -758,7 +759,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ELW": {
       "basis_levend": false,
@@ -766,7 +767,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/MEGA": {
       "basis_levend": false,
@@ -774,15 +775,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/MEC": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 128,
-      "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "pool_usd": 0,
+      "geen_paar": true,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/QC": {
       "basis_levend": false,
@@ -790,7 +791,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/MC": {
       "basis_levend": false,
@@ -798,7 +799,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/GMI": {
       "basis_levend": false,
@@ -806,7 +807,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/WOT": {
       "basis_levend": false,
@@ -814,23 +815,23 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SHAI": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 66,
+      "pool_usd": 68,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/WAI": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "pool_usd": 89,
+      "geen_paar": false,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/MFST": {
       "basis_levend": false,
@@ -838,7 +839,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/LYD": {
       "basis_levend": false,
@@ -846,15 +847,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/HOI": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "pool_usd": 117,
+      "geen_paar": false,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/TTM": {
       "basis_levend": false,
@@ -862,7 +863,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/TIX": {
       "basis_levend": false,
@@ -870,15 +871,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/APEX": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
       "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "geen_paar": false,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/KIBSHI": {
       "basis_levend": false,
@@ -886,7 +887,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/COG": {
       "basis_levend": false,
@@ -894,7 +895,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/TERMINUS": {
       "basis_levend": false,
@@ -902,7 +903,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/QUACK": {
       "basis_levend": false,
@@ -910,7 +911,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/BIDDY": {
       "basis_levend": false,
@@ -918,7 +919,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/KNG": {
       "basis_levend": false,
@@ -926,7 +927,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/MEASLES": {
       "basis_levend": false,
@@ -934,7 +935,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SHL": {
       "basis_levend": false,
@@ -942,15 +943,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ANTHRAX": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 19590,
+      "pool_usd": 20190,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/NOROVIRUS": {
       "basis_levend": false,
@@ -958,15 +959,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SQZ": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 0.0,
-      "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "waarde_usd": 0.02,
+      "pool_usd": 46,
+      "geen_paar": false,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ANIME": {
       "basis_levend": false,
@@ -974,7 +975,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/CL": {
       "basis_levend": false,
@@ -982,15 +983,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SWOL": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 68,
+      "pool_usd": 170,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/TKT": {
       "basis_levend": false,
@@ -998,7 +999,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/WMEME": {
       "basis_levend": false,
@@ -1006,7 +1007,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/CHC": {
       "basis_levend": false,
@@ -1014,7 +1015,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/VRA": {
       "basis_levend": false,
@@ -1022,7 +1023,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ULTI": {
       "basis_levend": false,
@@ -1030,7 +1031,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/CMW": {
       "basis_levend": false,
@@ -1038,7 +1039,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SHIB": {
       "basis_levend": false,
@@ -1046,7 +1047,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ELVT": {
       "basis_levend": false,
@@ -1054,7 +1055,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/LOL": {
       "basis_levend": false,
@@ -1062,7 +1063,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/LINA": {
       "basis_levend": false,
@@ -1070,7 +1071,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ITRUMP": {
       "basis_levend": false,
@@ -1078,7 +1079,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/aeon": {
       "basis_levend": false,
@@ -1086,7 +1087,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/FFAV": {
       "basis_levend": false,
@@ -1094,7 +1095,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/DONE": {
       "basis_levend": false,
@@ -1102,7 +1103,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/MECA": {
       "basis_levend": false,
@@ -1110,15 +1111,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/mLINK": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "pool_usd": 161,
+      "geen_paar": false,
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/FRUIT": {
       "basis_levend": false,
@@ -1126,7 +1127,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/BASE": {
       "basis_levend": false,
@@ -1134,7 +1135,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/MARVIN": {
       "basis_levend": false,
@@ -1142,7 +1143,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/FIVESTAR": {
       "basis_levend": false,
@@ -1150,7 +1151,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/DUDE": {
       "basis_levend": false,
@@ -1158,7 +1159,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/CHIP": {
       "basis_levend": false,
@@ -1166,7 +1167,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/CRB": {
       "basis_levend": false,
@@ -1174,7 +1175,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/L2GPT": {
       "basis_levend": false,
@@ -1182,7 +1183,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/cbXRP": {
       "basis_levend": false,
@@ -1190,7 +1191,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/XRP": {
       "basis_levend": false,
@@ -1198,7 +1199,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/4W": {
       "basis_levend": false,
@@ -1206,7 +1207,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/DeepSeek": {
       "basis_levend": false,
@@ -1214,7 +1215,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/xADA": {
       "basis_levend": false,
@@ -1222,7 +1223,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/BOOBS": {
       "basis_levend": false,
@@ -1230,7 +1231,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/MEME": {
       "basis_levend": false,
@@ -1238,7 +1239,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/TOILET": {
       "basis_levend": false,
@@ -1246,7 +1247,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/$FB": {
       "basis_levend": false,
@@ -1254,7 +1255,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/EZ": {
       "basis_levend": false,
@@ -1262,7 +1263,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/FLR": {
       "basis_levend": false,
@@ -1270,7 +1271,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ETF": {
       "basis_levend": false,
@@ -1278,7 +1279,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ELIZ": {
       "basis_levend": false,
@@ -1286,7 +1287,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SHAKA": {
       "basis_levend": false,
@@ -1294,7 +1295,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/FOFAR": {
       "basis_levend": false,
@@ -1302,7 +1303,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/ECOBIT": {
       "basis_levend": false,
@@ -1310,7 +1311,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/BATTLEBITS": {
       "basis_levend": false,
@@ -1318,7 +1319,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/SOL": {
       "basis_levend": false,
@@ -1326,7 +1327,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/Web3": {
       "basis_levend": false,
@@ -1334,7 +1335,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/WW": {
       "basis_levend": false,
@@ -1342,15 +1343,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/9MM": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 20800,
+      "pool_usd": 20919,
       "geen_paar": false,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/OOMER": {
       "basis_levend": false,
@@ -1358,7 +1359,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Base/wRIZ": {
       "basis_levend": false,
@@ -1366,24 +1367,24 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-02T11:58:29+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/NAKA": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 181.59,
-      "pool_usd": 46021,
+      "waarde_usd": 183.19,
+      "pool_usd": 46244,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00",
+      "gemeten": "2026-09-05T11:09:01+00:00",
       "laatste_melding": "2026-08-27T18:07:00+00:00"
     },
     "Polygon/USDC": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 13.58,
-      "pool_usd": 1156806,
+      "pool_usd": 1132151,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00",
+      "gemeten": "2026-09-05T11:09:01+00:00",
       "laatste_melding": "2026-08-24T07:58:03+00:00"
     },
     "Polygon/FTW": {
@@ -1392,7 +1393,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/PFI": {
       "basis_levend": false,
@@ -1400,7 +1401,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/ALM": {
       "basis_levend": false,
@@ -1408,7 +1409,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/DEDU": {
       "basis_levend": false,
@@ -1416,7 +1417,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/COC": {
       "basis_levend": false,
@@ -1424,7 +1425,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/[cutt.ly/MAGA-2024] ": {
       "basis_levend": false,
@@ -1432,7 +1433,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/404C": {
       "basis_levend": false,
@@ -1440,7 +1441,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/swap for 9800MATIC(polygbridge.vercel.app": {
       "basis_levend": false,
@@ -1448,7 +1449,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/WAEG": {
       "basis_levend": false,
@@ -1456,7 +1457,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/ELON": {
       "basis_levend": false,
@@ -1464,7 +1465,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/EAT": {
       "basis_levend": false,
@@ -1472,7 +1473,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/TARDU": {
       "basis_levend": false,
@@ -1480,7 +1481,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/RAFFLE TICKET": {
       "basis_levend": false,
@@ -1488,7 +1489,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/SIM": {
       "basis_levend": false,
@@ -1496,7 +1497,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/XPND": {
       "basis_levend": false,
@@ -1504,7 +1505,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/ABYS": {
       "basis_levend": false,
@@ -1512,7 +1513,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Polygon/WGC": {
       "basis_levend": false,
@@ -1520,23 +1521,23 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Optimism/WETH": {
       "basis_levend": true,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 921.03,
-      "pool_usd": 118689152,
+      "waarde_usd": 895.76,
+      "pool_usd": 117498906,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Optimism/OP": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 13.72,
-      "pool_usd": 127977,
+      "waarde_usd": 13.36,
+      "pool_usd": 123793,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Optimism/GRG": {
       "basis_levend": false,
@@ -1544,7 +1545,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Optimism/OPT": {
       "basis_levend": false,
@@ -1552,7 +1553,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Optimism/BEARY": {
       "basis_levend": false,
@@ -1560,23 +1561,23 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Arbitrum/USDC": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 3.94,
-      "pool_usd": 36296408,
+      "pool_usd": 35873231,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Arbitrum/AIDOGE": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 1.02,
-      "pool_usd": 500470,
+      "waarde_usd": 0.99,
+      "pool_usd": 486482,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Arbitrum/ARB": {
       "basis_levend": false,
@@ -1584,15 +1585,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Arbitrum/MAGIC": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.12,
-      "pool_usd": 178283,
+      "pool_usd": 177758,
       "geen_paar": false,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Arbitrum/AKITAAI": {
       "basis_levend": false,
@@ -1600,7 +1601,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Arbitrum/FARB": {
       "basis_levend": false,
@@ -1608,7 +1609,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Arbitrum/YHDL": {
       "basis_levend": false,
@@ -1616,7 +1617,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Arbitrum/PET": {
       "basis_levend": false,
@@ -1624,7 +1625,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Gnosis/worldcoin.pm": {
       "basis_levend": false,
@@ -1632,7 +1633,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     },
     "Gnosis/USDC": {
       "basis_levend": false,
@@ -1640,8 +1641,8 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-09-04T11:59:14+00:00"
+      "gemeten": "2026-09-05T11:09:01+00:00"
     }
   },
-  "laatst_gedraaid": "2026-09-04T11:59:14+00:00"
+  "laatst_gedraaid": "2026-09-05T11:09:01+00:00"
 }
