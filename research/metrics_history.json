@@ -184,6 +184,13 @@
       "gross_profit_usd": 658965000.0,
       "operating_income_usd": 111309000.0,
       "revenue_usd": 830235000.0
+    },
+    "2026-07": {
+      "eps": 0.4,
+      "fcf_quarter_usd": 295757000.0,
+      "gross_profit_usd": 697874000.0,
+      "operating_income_usd": 117621000.0,
+      "revenue_usd": 875746000.0
     }
   },
   "HUBS": {
