@@ -1,0 +1,29 @@
+# Besluitenlog
+
+Alleen toevoegen, nooit herschrijven. Een besluit terugdraaien is een **nieuwe regel** die
+naar de oude verwijst. Doel: afgesloten keuzes niet opnieuw bediscussiëren zonder nieuwe
+data, en zien wanneer een besluit herzien moet worden.
+
+Details staan in `docs/PLAN_2026-08.md`, de commits en `docs/audits/`. Hier alleen de kern.
+
+| Datum | Besluit | Reden (kort) | Maatstaf / poort | Herzien wanneer |
+|---|---|---|---|---|
+| 2026-08-10 | **Handelsbot gepauzeerd** — `score_threshold` 0,40, armed-gate AAN | 800/800 NO_GO, −$27 over 170 trades, F1 `edge_ok=false`. `armed_mode=false` zou de funnel juist openen | — | alleen na een gevalideerde her-tune |
+| 2026-08-10 | Koers: **onderzoekscadans i.p.v. handelssysteem**; Fase A = 60% veilig / 40% wereldindex | vier families richtingsvoorspelling weerlegd | poort selectie ~10-02-2027: versla WEBN over 6 mnd, ≥20 namen | bij €25k (Fase B) |
+| 2026-08-12 | VM **niet** opheffen (alles naar GitHub Actions afgewezen) | hartslag, monitor en reactietijd zijn nodig bij groter kapitaal; $73/jaar verdampt bij schaal | — | — |
+| 2026-08-12 | Crypto vasthouden: target $550 → **$130** (5%) | Fase A laat geen crypto-been van $550 toe | — | Fase B |
+| 2026-08-17 | Wereldindexfonds = **WEBN** (Amundi Prime All Country World) | 0,07%, ontwikkeld + opkomend, herbeleggend | `docs/KERN_ETF_KEUZE.md` | — |
+| 2026-08-18 | **Twee potjes naast elkaar**: crypto/USDC blijft, DeGiro met verse euro's; uitstap-route in de ijskast | geen conversie, geen netwerkrisico | — | alleen met een reden om tussen crypto en fiat te schuiven |
+| 2026-08-20 | WEBN gekocht (156); 20 verkocht voor GRID-testpositie | GRID-test financieren — **bewust tegen plan-regel 5** | kern-doel 40% blijft | 2026-09-25 |
+| 2026-08-20 | Thema-volgorde volgt de kaarten: **stroom en net** slot 1, halfgeleiders geschrapt; brug XYZ-SMH gesloten | halfgeleiders dupliceren de kern en zijn het drukste thema | opent pas bij €25k | €25k, met verse afweging |
+| 2026-08-24 | Scorekaart meet tegen **WEBN in euro's** (niet URTH in USD) | meet tegen wat je bezit, in één valuta | — | — |
+| 2026-08-25 | Bijstorten kern (~€220) **uitgesteld**, doel 40% blijft | eerst de swarm operationeel bewezen zien | — | 2026-09-25 |
+| 2026-08-25 | Dip-koper: inzet groeit mee met het potje; meelopende winstbescherming live | vaste inzet mat een strategie die nooit herbelegt | — | 2026-09-25 (maand live) |
+| 2026-09-15 | Dip-koper **door zonder extra geld** | verlies in bear begrensd (~$50); regime-poort voegde over 16 jaar niets toe | `experimenten.json` alarm DD 15% | 2026-09-25 |
+| 2026-09-15 | Aave (veilig) **laten staan**, kern vullen met verse euro's | Fase A zoals besloten | H2 | — |
+| 2026-09-15 | **Handelspijplijn uit** (`subsystem_handelspijplijn_enabled=false`) + VM naar **e2-micro** | vijf weken gepauzeerd maar scande nog; kosten > opbrengst | M4-poort: 24u container < 450 MiB | — |
+| 2026-09-15 | Doel: **project netto winstgevend** via structurele bronnen; verliesbudget experimenten **$250**; HLP ≤ **1/3 van veilig** | richting voorspellen werkt niet; rente, market-making en funding wel | H1–H5, mijlpalen M1–M7 | 2026-12-31 (M7) |
+| 2026-09-15 | Scorekaart: NaN nooit meer stil; 16 meetdagen hersteld | drie weken NaN met een groene CI | `test_ledger.py` faalt op NaN | — |
+| 2026-09-15 | **Controle-agent met veto** op deploys van code die geld raakt (A1) en kapitaalbewegingen (A2) | vrijwel elke dure fout werd pas bij een tweede blik gevonden | eigen KPI's in `docs/audits/logboek.md` | M5: drie reviews zonder waarde → alleen A1/A2 |
+| 2026-09-15 | Fluid: **geen geforceerde volledige switch** — de risico-gecorrigeerde regel (1,5pp) blijft | het profiel ophogen zou een poort oprekken | M3 | na 14 dagen gemeten APR |
+| vóór 2026-08-23 | Ethereum-wallet (~$37.800) **bewust buiten het plan** | eigen besluit van Bart | — | niet opnieuw voorstellen |
