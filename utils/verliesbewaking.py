@@ -131,6 +131,37 @@ def _erc4626_share_price(vault):
     return prijs
 
 
+def _saldi_onchain(protocollen):
+    """({protocol_id: USDC}, USDC op de treasury-wallet), rechtstreeks on-chain.
+
+    Raiset bij elke mislukte uitlezing: een half gelezen potje is onmeetbaar, geen
+    kleiner potje. Een geslaagde 0 is dus een échte 0 — een leeggetrokken protocol.
+    """
+    from utils.treasury_yield_oracle import _eth_call
+    from utils.treasury_executor import _TREASURY_WALLET
+    adres = _TREASURY_WALLET.lower().replace("0x", "").zfill(64)
+
+    def uint(to, data):
+        raw = _eth_call(to, data)
+        if not raw or raw == "0x":
+            raise ValueError("leeg antwoord van %s" % to)
+        return int(raw, 16)
+
+    saldi = {}
+    for p in protocollen:
+        if not p.get("automated"):
+            continue
+        if p.get("type") == "aave_v3" and p.get("receipt_token"):
+            saldi[p["id"]] = uint(p["receipt_token"], "0x70a08231" + adres) / 1e6
+        elif p.get("type") == "erc4626" and p.get("vault_address"):
+            aandelen = uint(p["vault_address"], "0x70a08231" + adres)
+            saldi[p["id"]] = (uint(p["vault_address"],
+                                   "0x07a2d13a" + hex(aandelen)[2:].zfill(64)) / 1e6
+                              if aandelen else 0.0)
+    wallet = uint(USDC_ARB, "0x70a08231" + adres) / 1e6
+    return saldi, wallet
+
+
 def _usdc_prijs():
     d = _http_json("https://coins.llama.fi/prices/current/arbitrum:%s" % USDC_ARB)
     return float(next(iter(d["coins"].values()))["price"])
@@ -152,22 +183,25 @@ def lees_metingen(register, nu=None):
 
     m["aave_liquidity_index"] = _veilig(_aave_liquidity_index)
 
-    ts = _lees_json(TREASURY_STATE_FILE, {}) or {}
-    yield_bal = _getal(ts.get("total_yield"))
-    wallet = _getal(ts.get("treasury_wallet_usdc"))
-    # treasury_wallet_usdc hoort bij yield_core (config/sleeves.json): tijdens een
-    # YIELD_SWITCH staat het geld even op de wallet en is het dus geen verlies.
-    m["yield_totaal_usd"] = (yield_bal + (wallet or 0.0)) if yield_bal is not None else None
-    m["yield_ts"] = flows._epoch(ts.get("timestamp"))
+    # Saldi ON-CHAIN, elke ronde — niet uit treasury_state.json. Dat bestand wordt maar
+    # eens per uur geschreven, en get_*_balance geeft 0.0 bij een RPC-fout. Hier raiset een
+    # mislukte eth_call, dus onmeetbaar is None en een 0 is een echte 0: een leeggetrokken
+    # protocol wordt binnen één ronde een KILL (A1-audit ronde 2). De wallet telt mee,
+    # zodat een switch tussen protocollen het totaal niet verandert.
+    lijst = (_lees_json(PROTOCOLS_FILE, {}) or {}).get("protocols") or []
+    protocollen = {p.get("id"): p for p in lijst}
+    onchain = _veilig(_saldi_onchain, lijst)
+    if onchain is None:
+        m["yield_totaal_usd"], m["yield_balances"] = None, {}
+    else:
+        saldi, wallet_usdc = onchain
+        m["yield_balances"] = saldi
+        m["yield_totaal_usd"] = round(sum(saldi.values()) + wallet_usdc, 6)
 
-    m["yield_balances"] = {pid: _getal(v) for pid, v in (ts.get("yield_balances") or {}).items()}
-
-    protocollen = {p.get("id"): p for p in
-                   ((_lees_json(PROTOCOLS_FILE, {}) or {}).get("protocols") or [])}
     m["share_prices"] = {}
-    for pid, bal in (ts.get("yield_balances") or {}).items():
+    for pid, bal in (m.get("yield_balances") or {}).items():
         cfg = protocollen.get(pid) or {}
-        if cfg.get("type") == "erc4626" and cfg.get("vault_address") and (_getal(bal) or 0) > 1.0:
+        if cfg.get("type") == "erc4626" and cfg.get("vault_address") and (bal or 0) > 1.0:
             m["share_prices"][pid] = _veilig(_erc4626_share_price, cfg["vault_address"])
 
     try:
@@ -253,41 +287,38 @@ def evalueer(m, state, register, stromen=(), nu=None):
                  vi.get("kill_actie"))
         koersen[pid] = max(vorige or 0.0, prijs)
 
-    totaal, yts = m.get("yield_totaal_usd"), m.get("yield_ts")
+    totaal = m.get("yield_totaal_usd")
     vorig = st.get("yield_saldo")
-    # Kasbeheer boekt een stroom pas bij DEPLOYED/COMPLETED, maar het geld telt al eerder
-    # mee (op de treasury-wallet) of verdwijnt eerder (bij de opname), en proposals gaan
-    # één stap per run verder. Een stroom of transit sinds de basislijn maakt het saldo
-    # daardoor onvergelijkbaar: geen oordeel, basislijn opnieuw (A1-audit 2026-09-15 —
-    # anders een valse KILL van 4-28% na elke DEPLOY_YIELD vanaf HL). De share-price-
-    # checks hierboven blijven wél oordelen; die raakt een overboeking niet.
-    beweging = bool(m.get("kasbeheer_onderweg")) or (vorig is not None and any(
-        vorig["ts"] < f["ts"] <= nu and "yield_core" in (f.get("van"), f.get("naar"))
-        for f in stromen))
-    # Stille nul: get_aave_balance/get_erc4626_balance geven 0.0 bij een RPC-fout. Een
-    # protocol dat eerder geld had en nu 0 meldt zonder stroom is onmeetbaar, geen verlies.
-    vorige_saldi = st.get("yield_balances") or {}
-    huidige_saldi = m.get("yield_balances") or {}
-    if not beweging and any((v or 0) > 1.0 and not huidige_saldi.get(pid)
-                            for pid, v in vorige_saldi.items()):
-        totaal = None
-    if not onmeetbaar("yield_totaal_usd", "veilig_integriteit", totaal) and yts:
-        if beweging:
-            st["yield_saldo"] = {"usd": totaal, "ts": yts}
+    max_uit_uur = float(globaal.get("saldo_check_max_uit_uur", 6))
+    if not onmeetbaar("yield_totaal_usd", "veilig_integriteit", totaal):
+        if m.get("kasbeheer_onderweg"):
+            # Geld onderweg (bridge, halverwege een switch): geen oordeel, en de basislijn
+            # BLIJFT staan. Na de transit vergelijken we met de stand van vóór de transit
+            # plus de stromen die kasbeheer inmiddels heeft geboekt. Zo verdwijnt een
+            # verlies tijdens een transit niet stil in een nieuwe basislijn (A1-audit
+            # ronde 2), en is er geen race met het tijdstip waarop een stroom geboekt wordt.
+            if vorig:
+                sinds = st.setdefault("saldo_check_uit_sinds", nu)
+                uren = (nu - sinds) / 3600.0
+                if uren > max_uit_uur:
+                    meld("saldo_check_uit", "alarm", "veilig_integriteit",
+                         "Saldo-check van het veilige potje staat al %.1f uur uit: kasbeheer "
+                         "heeft geld onderweg — controleer of die transit vastzit" % uren)
         else:
-            if vorig and yts > vorig["ts"] and vorig["usd"] > 0:
-                daling = (vorig["usd"] - totaal) / vorig["usd"] * 100.0
+            st.pop("saldo_check_uit_sinds", None)
+            if vorig and vorig["usd"] > 0:
+                verwacht = vorig["usd"] + flows.netto_flow(stromen, "yield_core", vorig["ts"], nu)
+                daling = (verwacht - totaal) / verwacht * 100.0 if verwacht > 0 else 0.0
                 if daling >= float(vi.get("kill_saldo_daling_pct", 1.0)):
                     meld("yield_saldo", "kill", "veilig_integriteit",
-                         "Veilig potje %.2f%% gedaald ($%.2f -> $%.2f) zonder overboeking"
-                         % (daling, vorig["usd"], totaal), vi.get("kill_actie"))
+                         "Veilig potje %.2f%% lager dan verwacht ($%.2f i.p.v. $%.2f, na "
+                         "correctie voor overboekingen)" % (daling, totaal, verwacht),
+                         vi.get("kill_actie"))
                 elif daling >= float(vi.get("alarm_saldo_daling_pct", 0.5)):
                     meld("yield_saldo", "alarm", "veilig_integriteit",
-                         "Veilig potje %.2f%% gedaald ($%.2f -> $%.2f) zonder overboeking"
-                         % (daling, vorig["usd"], totaal))
-            if not vorig or yts > vorig["ts"]:
-                st["yield_saldo"] = {"usd": totaal, "ts": yts}
-        st["yield_balances"] = {k: v for k, v in huidige_saldi.items() if v is not None}
+                         "Veilig potje %.2f%% lager dan verwacht ($%.2f i.p.v. $%.2f)"
+                         % (daling, totaal, verwacht))
+            st["yield_saldo"] = {"usd": totaal, "ts": nu}
 
     # ── USDC-peg ─────────────────────────────────────────────────────────
     peg = controles.get("usdc_peg") or {}

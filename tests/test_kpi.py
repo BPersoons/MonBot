@@ -56,6 +56,14 @@ def test_dag_zonder_kosten_telt_niet_mee(register):
     assert uit["h2"]["rendement_jaar_pct"] is None
 
 
+def test_gat_in_de_reeks_telt_alle_kosten_van_het_gat(register):
+    """A1-audit ronde 2: mist de snapshot van 09-11, dan horen beide kostendagen erbij."""
+    hist = [_snap(0, yield_core=1000.0), _snap(2, yield_core=1002.0)]
+    kosten = {"2026-09-10": 0.44, "2026-09-11": 0.44}
+    uit = kpi.bereken(hist, [], register, kosten, {}, {}, {}, "2026-09-12")
+    assert uit["h1"]["kosten_usd"] == 0.88 and uit["h1"]["opbrengst_usd"] == 2.0
+
+
 def test_h3_experimentverlies_negeert_de_inleg(register):
     # house: 0 -> 500 (inleg, geen winst) -> 480 (verlies 20)
     hist = [_snap(0, house=0.0), _snap(1, house=500.0), _snap(2, house=480.0)]

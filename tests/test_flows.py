@@ -52,13 +52,23 @@ def test_fund_trading_en_alle_transitstatussen():
     s = flows.uit_proposals([{"id": "G", "type": "FUND_TRADING", "status": "COMPLETED",
                               "amount_usd": 60.0, "completed_at": "2026-09-07T10:00:00"}])
     assert (s[0]["van"], s[0]["naar"], s[0]["bedrag_usd"]) == ("yield_core", "swarm", 60.0)
-    for status in ("BRIDGING_TO_HL", "NEEDS_MANUAL_WITHDRAWAL"):
-        assert flows.kasbeheer_onderweg([{"status": status}]), status
+    for soort, status in (("REBALANCE", "BRIDGING_TO_HL"), ("DEPLOY_YIELD", "NEEDS_MANUAL_WITHDRAWAL")):
+        assert flows.kasbeheer_onderweg([{"type": soort, "status": status}]), status
 
 
 def test_kasbeheer_onderweg():
-    assert flows.kasbeheer_onderweg([{"status": "BRIDGED"}]) is True
+    assert flows.kasbeheer_onderweg([{"type": "DEPLOY_YIELD", "status": "BRIDGED"}]) is True
     assert flows.kasbeheer_onderweg(_proposals()) is False
+
+
+def test_alleen_transits_die_het_veilige_potje_raken_tellen():
+    """A1-audit ronde 2: FUND_SLEEVE loopt HL -> dip-koper en mag de saldo-check niet uitzetten."""
+    assert flows.kasbeheer_onderweg([{"type": "FUND_SLEEVE", "status": "APPROVED"}]) is False
+    assert flows.kasbeheer_onderweg([{"type": "SLEEVE_REBALANCE", "status": "APPROVED"}]) is False
+    assert flows.kasbeheer_onderweg([{"type": "YIELD_SWITCH", "status": "SWITCHING"}]) is True
+    # FUND_TRADING is een handmatige bridge die al tijdens PENDING kan gebeuren
+    assert flows.kasbeheer_onderweg([{"type": "FUND_TRADING", "status": "PENDING"}]) is True
+    assert flows.kasbeheer_onderweg([{"type": "DEPLOY_YIELD", "status": "PENDING"}]) is False
 
 
 def test_boek_flow_schrijft_in_place_en_weigert_onzin(tmp_path):

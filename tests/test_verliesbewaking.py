@@ -60,39 +60,76 @@ def test_saldo_daling_na_flowcorrectie(register):
     assert not any(x["sleutel"] == "yield_saldo" for x in g), "overboeking gezien als verlies"
 
 
-def test_geld_onderweg_geeft_geen_oordeel_en_zet_basislijn_opnieuw(register):
+def test_geld_onderweg_houdt_basislijn_en_meldt_als_het_te_lang_duurt(register):
     st = {"yield_saldo": {"usd": 1000.0, "ts": NU - 3600}}
-    g, nieuw = vb.evalueer(_basis(yield_totaal_usd=600.0, kasbeheer_onderweg=True), st, register)
-    assert not any(x["sleutel"] == "yield_saldo" for x in g)
-    assert nieuw["yield_saldo"]["usd"] == 600.0, "na een transit vergelijken we vanaf nu"
+    g, st = vb.evalueer(_basis(yield_totaal_usd=600.0, kasbeheer_onderweg=True), st, register, [], nu=NU)
+    assert not g and st["yield_saldo"]["usd"] == 1000.0, "tijdens een transit blijft de basislijn staan"
+    g, st = vb.evalueer(_basis(yield_totaal_usd=600.0, kasbeheer_onderweg=True), st, register, [],
+                        nu=NU + 7 * 3600)
+    assert "saldo_check_uit:alarm" in _sleutels(g), "een transit die blijft hangen moet opvallen"
+
+
+def test_verlies_tijdens_transit_wordt_na_de_transit_gezien(register):
+    """A1-audit ronde 2: een verlies tijdens een transit mag niet in de basislijn verdwijnen."""
+    st = {"yield_saldo": {"usd": 1000.0, "ts": NU - 3600}}
+    _, st = vb.evalueer(_basis(yield_totaal_usd=700.0, kasbeheer_onderweg=True), st, register, [], nu=NU)
+    # Transit klaar: REBALANCE van $100 naar HL geboekt — maar het potje staat op $700, niet $900.
+    stroom = [{"ts": NU + 60, "van": "yield_core", "naar": "swarm", "bedrag_usd": 100.0}]
+    g, _ = vb.evalueer(_basis(yield_totaal_usd=700.0), st, register, stroom, nu=NU + 300)
+    assert "yield_saldo:kill" in _sleutels(g)
 
 
 def test_geen_valse_kill_na_deploy_yield_race(register):
-    """Het scenario uit de A1-audit: geld telt al mee vóór de stroom geboekt is."""
+    """A1-audit ronde 1: geld telt al mee vóór de stroom geboekt is."""
     st = {"yield_saldo": {"usd": 1000.0, "ts": NU - 7200}}
-    # T1: $300 staat al op de treasury-wallet, proposal BRIDGED.
-    g1, st = vb.evalueer(_basis(yield_totaal_usd=1300.0, yield_ts=NU - 3600,
-                                kasbeheer_onderweg=True), st, register, [], nu=NU - 3500)
-    # T3: proposal DEPLOYED (stroom geboekt); treasury_state is nog die van T1.
+    # $300 staat al op de treasury-wallet, proposal BRIDGED.
+    g1, st = vb.evalueer(_basis(yield_totaal_usd=1300.0, kasbeheer_onderweg=True), st, register, [],
+                         nu=NU - 3500)
+    # Proposal DEPLOYED, stroom geboekt.
     stroom = [{"ts": NU - 3000, "van": "swarm", "naar": "yield_core", "bedrag_usd": 300.0}]
-    g2, st = vb.evalueer(_basis(yield_totaal_usd=1300.0, yield_ts=NU - 3600), st, register,
-                         stroom, nu=NU - 2900)
-    # T5: nieuwe treasury_state met hetzelfde saldo.
-    g3, st = vb.evalueer(_basis(yield_totaal_usd=1300.0, yield_ts=NU), st, register,
-                         stroom, nu=NU + 60)
+    g2, st = vb.evalueer(_basis(yield_totaal_usd=1300.0), st, register, stroom, nu=NU - 2900)
+    g3, st = vb.evalueer(_basis(yield_totaal_usd=1300.0), st, register, stroom, nu=NU + 60)
     assert not any(x["sleutel"] == "yield_saldo" for x in g1 + g2 + g3), "valse kill na DEPLOY_YIELD"
     # Daarna weer gewoon oordelen: 1,15% daling zonder stroom -> kill.
-    g4, _ = vb.evalueer(_basis(yield_totaal_usd=1285.0, yield_ts=NU + 3600), st, register,
-                        stroom, nu=NU + 3660)
+    g4, _ = vb.evalueer(_basis(yield_totaal_usd=1285.0), st, register, stroom, nu=NU + 3660)
     assert "yield_saldo:kill" in _sleutels(g4), "de bewaking moet na de stroom weer werken"
 
 
-def test_protocol_saldo_nul_na_rpc_fout_is_onmeetbaar(register):
-    st = {"yield_saldo": {"usd": 1000.0, "ts": NU - 3600}, "yield_balances": {"aave": 1000.0}}
-    g, nieuw = vb.evalueer(_basis(yield_totaal_usd=0.0, yield_balances={"aave": 0.0}), st, register)
+def test_leeggetrokken_protocol_is_een_kill_binnen_een_ronde(register):
+    """A1-audit ronde 2: een geslaagde on-chain 0 is een echt verlies, geen 'onmeetbaar'."""
+    st = {"yield_saldo": {"usd": 2490.0, "ts": NU - 300}}
+    g, _ = vb.evalueer(_basis(yield_totaal_usd=0.0, yield_balances={"aave": 0.0}), st, register, [], nu=NU)
+    assert "yield_saldo:kill" in _sleutels(g)
+
+
+def test_mislukte_onchain_uitlezing_is_onmeetbaar_geen_nul(register):
+    st = {"yield_saldo": {"usd": 2490.0, "ts": NU - 300}}
+    g, st = vb.evalueer(_basis(yield_totaal_usd=None), st, register, [], nu=NU)
     assert not any(x["sleutel"] == "yield_saldo" for x in g), "RPC-fout gezien als verlies"
-    assert nieuw["yield_saldo"]["usd"] == 1000.0, "basislijn mag niet naar 0"
-    assert nieuw["onmeetbaar"]["yield_totaal_usd"] == 1
+    assert st["yield_saldo"]["usd"] == 2490.0 and st["onmeetbaar"]["yield_totaal_usd"] == 1
+
+
+def test_saldi_onchain_rekent_aave_vault_en_wallet(monkeypatch):
+    import utils.treasury_yield_oracle as yo
+    antwoorden = {
+        ("0xatoken", "0x70a08231"): hex(2_490_150_079),
+        ("0xvault", "0x70a08231"): hex(500 * 10 ** 18),
+        ("0xvault", "0x07a2d13a"): hex(565_000_000),
+        (vb.USDC_ARB, "0x70a08231"): hex(12_500_000),
+    }
+    monkeypatch.setattr(yo, "_eth_call", lambda to, data: antwoorden[(to, data[:10])])
+    protocollen = [
+        {"id": "aave", "type": "aave_v3", "automated": True, "receipt_token": "0xatoken"},
+        {"id": "fluid", "type": "erc4626", "automated": True, "vault_address": "0xvault"},
+        {"id": "uit", "type": "erc4626", "automated": False, "vault_address": "0xnooit"},
+    ]
+    saldi, wallet = vb._saldi_onchain(protocollen)
+    assert saldi == {"aave": 2490.150079, "fluid": 565.0} and wallet == 12.5
+
+    def kapot(to, data):
+        raise RuntimeError("alle RPC's weg")
+    monkeypatch.setattr(yo, "_eth_call", kapot)
+    assert vb._veilig(vb._saldi_onchain, protocollen) is None, "een mislukte uitlezing is geen 0"
 
 
 def test_dip_koper_stilstand(register):

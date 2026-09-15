@@ -86,10 +86,15 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
     datums = []
     for vorige, huidige in zip(stukken, stukken[1:]):
         d = huidige["date"]
-        # Snapshots vallen rond 00:05 UTC: het interval (gisteren, vandaag] is vrijwel
-        # helemaal GISTEREN. De kosten van die dag horen erbij, niet die van vandaag.
-        kosten_dag = vorige["date"]
-        if kosten_dag not in kosten_per_dag:
+        # Snapshots vallen rond 00:05 UTC: het interval (vorige, huidige] beslaat de dagen
+        # vanaf de vorige snapshotdatum tot vóór de huidige. Normaal is dat één dag
+        # (gisteren); bij een gat in de reeks meer, en die kosten horen er dan allemaal bij
+        # (A1-audit ronde 2 — anders viel H1 te gunstig uit).
+        d0 = datetime.strptime(vorige["date"], "%Y-%m-%d").date()
+        d1 = datetime.strptime(d, "%Y-%m-%d").date()
+        kosten_dagen = [(d0 + timedelta(days=i)).isoformat() for i in range(max(1, (d1 - d0).days))]
+        bekend = [k for k in kosten_dagen if k in kosten_per_dag]
+        if not bekend:
             continue    # zonder kosten geen eerlijke netto-dag
         t0, t1 = flows._epoch(vorige.get("ts")), flows._epoch(huidige.get("ts"))
         if t0 is None or t1 is None:
@@ -106,7 +111,7 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
         _, r = _dietz(v0c, v1c, fc)
         if r is not None:
             groei *= (1.0 + r)
-        kosten += float(kosten_per_dag[kosten_dag])
+        kosten += sum(float(kosten_per_dag[k]) for k in bekend)
         dagen += 1
         datums.append(d)
 

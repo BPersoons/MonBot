@@ -111,10 +111,24 @@ def uit_proposals(proposals):
     return uit
 
 
+# Alleen proposals waarbij geld het veilige potje in of uit gaat, of tussen protocollen
+# schuift. FUND_SLEEVE/SLEEVE_REBALANCE lopen tussen HL en de dip-koper en raken yield_core
+# niet; die als transit tellen zette de saldo-check onnodig uit (A1-audit ronde 2).
+ONDERWEG_TYPES = {"DEPLOY_YIELD", "REBALANCE", "YIELD_SWITCH", "FUND_TRADING"}
+
+
 def kasbeheer_onderweg(proposals):
-    """True als kasbeheer op dit moment geld in transit heeft."""
-    return any(isinstance(p, dict) and p.get("status") in ONDERWEG_STATUSSEN
-               for p in _proposal_lijst(proposals))
+    """True als kasbeheer geld van, naar of binnen het veilige potje in transit heeft."""
+    for p in _proposal_lijst(proposals):
+        if not isinstance(p, dict) or p.get("type") not in ONDERWEG_TYPES:
+            continue
+        status = p.get("status")
+        if status in ONDERWEG_STATUSSEN:
+            return True
+        # FUND_TRADING is een handmatige bridge: die kan al gebeuren terwijl hij PENDING staat.
+        if p.get("type") == "FUND_TRADING" and status == "PENDING":
+            return True
+    return False
 
 
 def laad_flows(proposals_pad=PROPOSALS_FILE, handmatig_pad=FLOWS_FILE):
