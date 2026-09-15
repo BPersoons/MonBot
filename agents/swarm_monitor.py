@@ -1294,7 +1294,7 @@ class SwarmMonitor:
         self._sent_alerts[alert_key] = now
         self._send_telegram(
             f"🔴 THEMATIC WALLET DRAWDOWN {dd:.1f}% (peak ${peak:.0f} -> ${balance:.0f}, "
-            f"limit {self.THEMATIC_DRAWDOWN_ALERT_PCT:.0f}%)\n"
+            f"limit {self._dip_koper_alarm_pct():.0f}%)\n"
             "Deze sleeve valt buiten de hoofd-CircuitBreaker — overweeg handmatig "
             "ingrijpen (t2_t4_enabled uitzetten / posities sluiten)."
         )

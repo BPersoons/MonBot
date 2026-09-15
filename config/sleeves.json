@@ -30,9 +30,9 @@
       "morpho": 40.0
     },
     "max_sleeve_drawdown_pct": {
-      "yield_core": 1.0,
-      "basis": 2.0,
-      "house": 8.0,
+      "yield_core": 3.0,
+      "basis": 5.0,
+      "house": 20.0,
       "swarm": 15.0,
       "lab": 30.0,
       "tradfi": 25.0,

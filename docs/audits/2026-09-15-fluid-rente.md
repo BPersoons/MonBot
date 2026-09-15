@@ -47,6 +47,23 @@
 ---
 
 ## Audit
-*(in te vullen door de controle-agent)*
+**Oordeel A2 (controle-agent, 11,5 min): STOP.** Kern van de bevindingen:
+
+| # | Ernst | Bevinding | Bewijs |
+|---|---|---|---|
+| 1 | blokkerend | Diversificatie vanuit **Aave** negeert `switch_amount_usd` en neemt het **hele** saldo op; ~$915 gaat naar Fluid, de rest wordt via DEPLOY_YIELD (APPROVED) alsnog naar de beste bestemming (Fluid) gezet → 65–100% in Fluid, niet 35%. Bestaande pre-flight-toets dekt dit niet. | `utils/treasury_executor.py:1112-1129`, `:1286-1292`; `agents/treasury_agent.py:817`, `:1930-1938` |
+| 2 | blokkerend | `round(live_bal, 2)` kan boven het echte aUSDC-saldo uitkomen (2490,137 → 2490,14) → Aave-withdraw revert; `_simulate_tx` behandelt de JSON-RPC-error als "RPC unavailable" en verstuurt toch → FAILED + gas + 12u cooldown | `treasury_executor.py:126-137`, `:187-193`, `:1129` |
+| 3 | blokkerend | Volledige APY-switch vuurt zodra Fluid ≥ ~4,90% — op 123 van de laatste 180 dagen — dan gaat 100% naar Fluid zonder besluit | DeFiLlama-charts; `treasury_agent.py:1364` |
+| 4 | blokkerend | M2 (Check 24) staat nog niet in de container | `docker exec … os.path.exists` → False |
+| 5 | belangrijk | Gasbuffer treasury-wallet 0,000124 ETH (~9 tx) | `treasury_executor.py:70` |
+| 6 | belangrijk | Terugdraaien met `automated: false` terwijl er geld in Fluid staat → valse drawdown | `treasury_executor.py:854`, `risk_manager.py:286` |
+| 7 | belangrijk | Mislukte deposit → onbegrensde DEPLOY_YIELD-retry-lus | `treasury_executor.py:1327-1332` |
+| 8–9 | klein | 2/3-opneembaar-regel niet gehandhaafd in code; Morpho-pool-id wijst op DeFiLlama naar een ander product | — |
+
+Gecontroleerd zonder bevinding: approve + deposit in fUSDC werken (state-override-simulatie: 871 USDC → 770,99 shares); opnamelimiet nu ruim ($13,3M withdrawable); Morpho kan geen bestemming worden (<$5M TVL); APY is puur base.
 
 ## Reactie bouwer
+- **Fluid geparkeerd** (`automated: false`, `_status`-toelichting in `config/treasury_protocols.json`): allocator, switch en diversificatie filteren op `automated`, er staat nog geen geld in Fluid, dus bevinding 6 speelt niet. De M2-deploy verplaatst hierdoor geen kapitaal.
+- **Bevinding 1, 2 en 7 zijn bestaande kasbeheer-bugs** die ook zonder Fluid bij elke toekomstige switch vanuit Aave toeslaan. Ze krijgen een eigen spoor (fix + toetsen + A1), vóór Fluid opnieuw ter A2 komt.
+- **Bevinding 3 vraagt een besluit:** een harde cap per protocol in code (voorstel: max 65% van het veilige potje in één niet-Aave-protocol) is risicoverlagend en valt binnen de kaders; wordt voorgesteld in het volgende claimblad.
+- **Bevinding 5:** ETH bijvullen is een handeling met eigen geld → wordt aan Bart gevraagd vóór de volgende Fluid-poging.

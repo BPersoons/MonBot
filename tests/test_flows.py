@@ -48,6 +48,14 @@ def test_netto_flow_telt_richting_en_venster():
                             t("2026-09-30T00:00:00")) == pytest.approx(-100.0)
 
 
+def test_fund_trading_en_alle_transitstatussen():
+    s = flows.uit_proposals([{"id": "G", "type": "FUND_TRADING", "status": "COMPLETED",
+                              "amount_usd": 60.0, "completed_at": "2026-09-07T10:00:00"}])
+    assert (s[0]["van"], s[0]["naar"], s[0]["bedrag_usd"]) == ("yield_core", "swarm", 60.0)
+    for status in ("BRIDGING_TO_HL", "NEEDS_MANUAL_WITHDRAWAL"):
+        assert flows.kasbeheer_onderweg([{"status": status}]), status
+
+
 def test_kasbeheer_onderweg():
     assert flows.kasbeheer_onderweg([{"status": "BRIDGED"}]) is True
     assert flows.kasbeheer_onderweg(_proposals()) is False

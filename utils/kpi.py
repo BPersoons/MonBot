@@ -68,6 +68,13 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
     """Puur. `hist` = sleeve_nav-historie; de rest zijn dicts {datum: waarde}."""
     hist = sorted((h for h in hist if h.get("date") and h.get("sleeves") is not None),
                   key=lambda h: h["date"])
+    # Eerst de hele reeks op NaN/inf, los van kosten en venster. Anders glipt een NaN
+    # stil door op elke dag waarvoor (nog) geen kosten bekend zijn — de lus slaat die
+    # dag dan over en leest de waarde nooit (gevonden door de pre-deploy-poort).
+    vuil_invoer = niet_eindig([h.get("sleeves") for h in hist])
+    if vuil_invoer:
+        raise ValueError("Potjesreeks bevat NaN/inf op %s — geen KPI berekend"
+                         % ", ".join(vuil_invoer[:5]))
     onmeetbaar = []
 
     # ── H1 + H2 over het venster ─────────────────────────────────────────
@@ -79,7 +86,10 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
     datums = []
     for vorige, huidige in zip(stukken, stukken[1:]):
         d = huidige["date"]
-        if d not in kosten_per_dag:
+        # Snapshots vallen rond 00:05 UTC: het interval (gisteren, vandaag] is vrijwel
+        # helemaal GISTEREN. De kosten van die dag horen erbij, niet die van vandaag.
+        kosten_dag = vorige["date"]
+        if kosten_dag not in kosten_per_dag:
             continue    # zonder kosten geen eerlijke netto-dag
         t0, t1 = flows._epoch(vorige.get("ts")), flows._epoch(huidige.get("ts"))
         if t0 is None or t1 is None:
@@ -96,7 +106,7 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
         _, r = _dietz(v0c, v1c, fc)
         if r is not None:
             groei *= (1.0 + r)
-        kosten += float(kosten_per_dag[d])
+        kosten += float(kosten_per_dag[kosten_dag])
         dagen += 1
         datums.append(d)
 
@@ -213,7 +223,9 @@ def update_kpi(nu=None, kpi_pad=KPI_FILE):
         logger.error("KPI: %s", e)
         stromen, onmeetbaar_extra = [], ["flows"]
 
-    kosten = {e["date"]: e["kosten_usd"] for e in oud if e.get("kosten_usd") is not None}
+    # Kosten per dag blijven in kpi.json bewaard: cost_log houdt maar 30 dagen bij.
+    # Waarden uit cost_log overschrijven eerdere (een dag is pas af als hij voorbij is).
+    kosten = dict(bestand.get("kosten_per_dag") or {})
     for d, regel in ((_lees(COST_LOG_FILE, {}) or {}).get("history") or {}).items():
         try:
             v = float(regel.get("total_cost_usd"))
@@ -258,7 +270,9 @@ def update_kpi(nu=None, kpi_pad=KPI_FILE):
     if map_:
         os.makedirs(map_, exist_ok=True)
     with open(kpi_pad, "w", encoding="utf-8") as fh:   # in-place: data/ is een bind mount
-        json.dump({"history": historie, "laatste": regel}, fh, indent=2, ensure_ascii=False)
+        json.dump({"history": historie, "laatste": regel,
+                   "kosten_per_dag": dict(sorted(kosten.items())[-MAX_HISTORIE:])},
+                  fh, indent=2, ensure_ascii=False)
     logger.info("[KPI] %s: netto $%s over %d dagen, verschil vs Aave %s pp",
                 vandaag, uitkomst["h1"]["netto_usd"], uitkomst["h1"]["dagen"],
                 uitkomst["h2"]["verschil_pp"])

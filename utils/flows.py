@@ -34,13 +34,16 @@ _PROPOSAL_FLOWS = {
     "REBALANCE": ("COMPLETED", "yield_core", "swarm", "amount_usd"),
     "FUND_SLEEVE": ("DEPLOYED", "swarm", "thematic_exposure", "amount_usd"),
     "SLEEVE_REBALANCE": ("DEPLOYED", "thematic_exposure", "swarm", "amount_usd"),
+    # Handmatige bridge van de treasury-wallet naar HL; voltooid als het HL-saldo stijgt.
+    "FUND_TRADING": ("COMPLETED", "yield_core", "swarm", "amount_usd"),
 }
 _TS_VELDEN = ("deployed_at", "completed_at", "updated_at", "created_at")
 
 # Statussen waarin kasbeheer geld ONDERWEG heeft. Tijdens zo'n transit klopt geen
 # enkel saldo met de boeken; de verliesbewaking slaat de saldo-check dan over.
-ONDERWEG_STATUSSEN = {"APPROVED", "WITHDRAWING", "BRIDGED", "REBALANCING",
-                      "SWITCHING", "BRIDGE_BACK_NEEDED", "MONITORING"}
+ONDERWEG_STATUSSEN = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED",
+                      "REBALANCING", "SWITCHING", "BRIDGE_BACK_NEEDED", "BRIDGING_TO_HL",
+                      "MONITORING"}
 
 
 class FlowsOnleesbaar(Exception):

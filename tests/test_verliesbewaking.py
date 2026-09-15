@@ -60,11 +60,64 @@ def test_saldo_daling_na_flowcorrectie(register):
     assert not any(x["sleutel"] == "yield_saldo" for x in g), "overboeking gezien als verlies"
 
 
-def test_geld_onderweg_geeft_geen_oordeel_en_houdt_basislijn(register):
+def test_geld_onderweg_geeft_geen_oordeel_en_zet_basislijn_opnieuw(register):
     st = {"yield_saldo": {"usd": 1000.0, "ts": NU - 3600}}
     g, nieuw = vb.evalueer(_basis(yield_totaal_usd=600.0, kasbeheer_onderweg=True), st, register)
     assert not any(x["sleutel"] == "yield_saldo" for x in g)
-    assert nieuw["yield_saldo"]["usd"] == 1000.0
+    assert nieuw["yield_saldo"]["usd"] == 600.0, "na een transit vergelijken we vanaf nu"
+
+
+def test_geen_valse_kill_na_deploy_yield_race(register):
+    """Het scenario uit de A1-audit: geld telt al mee vóór de stroom geboekt is."""
+    st = {"yield_saldo": {"usd": 1000.0, "ts": NU - 7200}}
+    # T1: $300 staat al op de treasury-wallet, proposal BRIDGED.
+    g1, st = vb.evalueer(_basis(yield_totaal_usd=1300.0, yield_ts=NU - 3600,
+                                kasbeheer_onderweg=True), st, register, [], nu=NU - 3500)
+    # T3: proposal DEPLOYED (stroom geboekt); treasury_state is nog die van T1.
+    stroom = [{"ts": NU - 3000, "van": "swarm", "naar": "yield_core", "bedrag_usd": 300.0}]
+    g2, st = vb.evalueer(_basis(yield_totaal_usd=1300.0, yield_ts=NU - 3600), st, register,
+                         stroom, nu=NU - 2900)
+    # T5: nieuwe treasury_state met hetzelfde saldo.
+    g3, st = vb.evalueer(_basis(yield_totaal_usd=1300.0, yield_ts=NU), st, register,
+                         stroom, nu=NU + 60)
+    assert not any(x["sleutel"] == "yield_saldo" for x in g1 + g2 + g3), "valse kill na DEPLOY_YIELD"
+    # Daarna weer gewoon oordelen: 1,15% daling zonder stroom -> kill.
+    g4, _ = vb.evalueer(_basis(yield_totaal_usd=1285.0, yield_ts=NU + 3600), st, register,
+                        stroom, nu=NU + 3660)
+    assert "yield_saldo:kill" in _sleutels(g4), "de bewaking moet na de stroom weer werken"
+
+
+def test_protocol_saldo_nul_na_rpc_fout_is_onmeetbaar(register):
+    st = {"yield_saldo": {"usd": 1000.0, "ts": NU - 3600}, "yield_balances": {"aave": 1000.0}}
+    g, nieuw = vb.evalueer(_basis(yield_totaal_usd=0.0, yield_balances={"aave": 0.0}), st, register)
+    assert not any(x["sleutel"] == "yield_saldo" for x in g), "RPC-fout gezien als verlies"
+    assert nieuw["yield_saldo"]["usd"] == 1000.0, "basislijn mag niet naar 0"
+    assert nieuw["onmeetbaar"]["yield_totaal_usd"] == 1
+
+
+def test_dip_koper_stilstand(register):
+    g, _ = vb.evalueer(_basis(dip_koper_stilstand_min=240.0), {}, register)
+    assert "dip_koper_stilstand:alarm" in _sleutels(g)
+    g, _ = vb.evalueer(_basis(dip_koper_stilstand_min=12.0), {}, register)
+    assert "dip_koper_stilstand:alarm" not in _sleutels(g)
+
+
+def test_share_price_rekent_met_decimalen():
+    def nep_call(to, data):
+        if data == "0x313ce567":
+            return hex(18)
+        assert data.startswith("0x07a2d13a") and int(data[10:], 16) == 10 ** 18
+        return hex(1_050_000)   # 1,05 USDC per heel aandeel
+    with patch("utils.treasury_yield_oracle._eth_call", nep_call):
+        assert vb._erc4626_share_price("0xvault") == 1.05
+    with patch("utils.treasury_yield_oracle._eth_call",
+               lambda to, data: hex(18) if data == "0x313ce567" else "0x0"):
+        assert vb._veilig(vb._erc4626_share_price, "0xvault") is None, "prijs 0 is onmeetbaar"
+
+
+def test_hlp_niet_gevonden_is_onmeetbaar():
+    with patch.object(vb, "_http_json", return_value=[]):
+        assert vb._veilig(vb._hlp_equity, "0xuser", "0xvault") is None
 
 
 def test_usdc_peg(register):

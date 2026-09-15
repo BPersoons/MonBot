@@ -32,7 +32,8 @@ def test_h1_h2_flowgecorrigeerd_met_de_hand(register):
     hist = [_snap(0, yield_core=1000.0), _snap(1, yield_core=1001.0),
             _snap(2, yield_core=1502.0)]
     stromen = [{"ts": T0 + DAG + 3600, "van": "swarm", "naar": "yield_core", "bedrag_usd": 500.0}]
-    kosten = {"2026-09-11": 0.44, "2026-09-12": 0.44}
+    # Kosten horen bij de BEGINdatum van het interval (snapshot om 00:05 = gisteren).
+    kosten = {"2026-09-10": 0.44, "2026-09-11": 0.44}
     aave = {"2026-09-11": 2.5, "2026-09-12": 2.7}
     dip = {"2026-09-11": 20.0, "2026-09-12": 23.5}
     uit = kpi.bereken(hist, stromen, register, kosten, aave, dip, {}, "2026-09-12")
@@ -80,7 +81,33 @@ def test_h5_telt_gaten_vanaf_de_eerste_meting(register):
     assert not uit["h5"]["doel_gehaald"]
 
 
+def test_kosten_blijven_bewaard_als_cost_log_ze_kwijt_is(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "sleeve_nav.json").write_text(json.dumps(
+        {"history": [_snap(0, yield_core=1000.0), _snap(1, yield_core=1000.5)]}), encoding="utf-8")
+    # cost_log kent 09-10 niet meer (rolt na 30 dagen); kpi.json heeft hem nog.
+    (tmp_path / "cost_log.json").write_text(json.dumps(
+        {"history": {"2026-09-11": {"total_cost_usd": 0.44}}}), encoding="utf-8")
+    kpi_pad = tmp_path / "data" / "kpi.json"
+    kpi_pad.write_text(json.dumps({"history": [], "kosten_per_dag": {"2026-09-10": 0.40}}),
+                       encoding="utf-8")
+    monkeypatch.setattr(kpi, "REGISTER_FILE", os.path.join(REPO, "config", "experimenten.json"))
+    regel = kpi.update_kpi(nu=datetime(2026, 9, 11, 0, 10, tzinfo=timezone.utc), kpi_pad=str(kpi_pad))
+    assert regel["h1"]["dagen"] == 1 and regel["h1"]["kosten_usd"] == 0.40
+    opgeslagen = json.loads(kpi_pad.read_text(encoding="utf-8"))
+    assert opgeslagen["kosten_per_dag"] == {"2026-09-10": 0.40, "2026-09-11": 0.44}
+
+
 def test_nan_wordt_geweigerd(register):
     hist = [_snap(0, yield_core=1000.0), _snap(1, yield_core=float("nan"))]
     with pytest.raises(ValueError):
-        kpi.bereken(hist, [], register, {"2026-09-11": 0.44}, {}, {}, {}, "2026-09-11")
+        kpi.bereken(hist, [], register, {"2026-09-10": 0.44}, {}, {}, {}, "2026-09-11")
+
+
+def test_nan_op_een_dag_zonder_kosten_wordt_ook_geweigerd(register):
+    """Zonder de scan vooraf sloeg de lus deze dag over en las de NaN nooit."""
+    hist = [_snap(0, yield_core=1000.0), _snap(1, yield_core=float("nan"))]
+    with pytest.raises(ValueError):
+        kpi.bereken(hist, [], register, {}, {}, {}, {}, "2026-09-11")

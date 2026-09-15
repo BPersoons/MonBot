@@ -43,6 +43,7 @@ SLEEVE_NAV_FILE = "data/sleeve_nav.json"
 KPI_FILE = "data/kpi.json"
 TREASURY_STATE_FILE = "treasury_state.json"
 PROTOCOLS_FILE = "config/treasury_protocols.json"
+THEMATIC_FILE = "thematic_exposure_positions.json"
 
 ALARM_COOLDOWN_S = 6 * 3600
 KILL_COOLDOWN_S = 24 * 3600
@@ -113,10 +114,21 @@ def _aave_liquidity_index():
 
 
 def _erc4626_share_price(vault):
-    """convertToAssets(1 share-eenheid) — de prijs van een vault-aandeel in USDC."""
+    """Prijs van één heel vault-aandeel in USDC: convertToAssets(10**decimals) / 1e6.
+
+    Niet met een vaste 1e6: MetaMorpho-aandelen hebben 18 decimalen, dan geeft
+    convertToAssets(1e6) 0 en is de check dood (A1-audit 2026-09-15). Een prijs van 0
+    is onmeetbaar, geen koers.
+    """
     from utils.treasury_yield_oracle import _eth_call
-    raw = _eth_call(vault, "0x07a2d13a" + hex(10 ** 6)[2:].zfill(64))
-    return int(raw, 16) / 1e6
+    decimalen = int(_eth_call(vault, "0x313ce567"), 16)
+    if not 0 < decimalen <= 36:
+        raise ValueError("onwaarschijnlijke decimals %r voor %s" % (decimalen, vault))
+    raw = _eth_call(vault, "0x07a2d13a" + hex(10 ** decimalen)[2:].zfill(64))
+    prijs = int(raw, 16) / 1e6
+    if prijs <= 0:
+        raise ValueError("share price 0 voor %s" % vault)
+    return prijs
 
 
 def _usdc_prijs():
@@ -129,7 +141,8 @@ def _hlp_equity(user, vault):
     for r in rijen or []:
         if str(r.get("vaultAddress", "")).lower() == str(vault).lower():
             return float(r.get("equity"))
-    return 0.0
+    # Niet gevonden is onmeetbaar, geen $0: anders een valse HLP-kill van 100%.
+    raise ValueError("vault %s niet in userVaultEquities" % vault)
 
 
 def lees_metingen(register, nu=None):
@@ -146,6 +159,8 @@ def lees_metingen(register, nu=None):
     # YIELD_SWITCH staat het geld even op de wallet en is het dus geen verlies.
     m["yield_totaal_usd"] = (yield_bal + (wallet or 0.0)) if yield_bal is not None else None
     m["yield_ts"] = flows._epoch(ts.get("timestamp"))
+
+    m["yield_balances"] = {pid: _getal(v) for pid, v in (ts.get("yield_balances") or {}).items()}
 
     protocollen = {p.get("id"): p for p in
                    ((_lees_json(PROTOCOLS_FILE, {}) or {}).get("protocols") or [])}
@@ -167,6 +182,14 @@ def lees_metingen(register, nu=None):
     if isinstance(hlp, dict) and _getal(hlp.get("inleg_netto_usd")):
         m["hlp_inleg_usd"] = _getal(hlp.get("inleg_netto_usd"))
         m["hlp_equity_usd"] = _veilig(_hlp_equity, hlp.get("user"), hlp.get("vault"))
+
+    # Stops van de dip-koper bestaan alleen in software. Werkt hij zijn open posities
+    # niet meer bij, dan staat het beheer stil — zonder logregel (CLAUDE.md).
+    them = _lees_json(THEMATIC_FILE, {}) or {}
+    open_pos = [p for p in (them.get("positions") or {}).values()
+                if isinstance(p, dict) and str(p.get("status", "")).upper() == "OPEN"]
+    laatst_bij = max((flows._epoch(p.get("last_updated")) or 0.0 for p in open_pos), default=0.0)
+    m["dip_koper_stilstand_min"] = ((nu - laatst_bij) / 60.0) if open_pos and laatst_bij else None
 
     hist = (_lees_json(SLEEVE_NAV_FILE, {}) or {}).get("history") or []
     laatste = flows._epoch(hist[-1].get("ts")) if hist else None
@@ -231,26 +254,40 @@ def evalueer(m, state, register, stromen=(), nu=None):
         koersen[pid] = max(vorige or 0.0, prijs)
 
     totaal, yts = m.get("yield_totaal_usd"), m.get("yield_ts")
+    vorig = st.get("yield_saldo")
+    # Kasbeheer boekt een stroom pas bij DEPLOYED/COMPLETED, maar het geld telt al eerder
+    # mee (op de treasury-wallet) of verdwijnt eerder (bij de opname), en proposals gaan
+    # één stap per run verder. Een stroom of transit sinds de basislijn maakt het saldo
+    # daardoor onvergelijkbaar: geen oordeel, basislijn opnieuw (A1-audit 2026-09-15 —
+    # anders een valse KILL van 4-28% na elke DEPLOY_YIELD vanaf HL). De share-price-
+    # checks hierboven blijven wél oordelen; die raakt een overboeking niet.
+    beweging = bool(m.get("kasbeheer_onderweg")) or (vorig is not None and any(
+        vorig["ts"] < f["ts"] <= nu and "yield_core" in (f.get("van"), f.get("naar"))
+        for f in stromen))
+    # Stille nul: get_aave_balance/get_erc4626_balance geven 0.0 bij een RPC-fout. Een
+    # protocol dat eerder geld had en nu 0 meldt zonder stroom is onmeetbaar, geen verlies.
+    vorige_saldi = st.get("yield_balances") or {}
+    huidige_saldi = m.get("yield_balances") or {}
+    if not beweging and any((v or 0) > 1.0 and not huidige_saldi.get(pid)
+                            for pid, v in vorige_saldi.items()):
+        totaal = None
     if not onmeetbaar("yield_totaal_usd", "veilig_integriteit", totaal) and yts:
-        vorig = st.get("yield_saldo")
-        if m.get("kasbeheer_onderweg"):
-            pass   # geld onderweg: geen oordeel, en de basislijn blijft staan
+        if beweging:
+            st["yield_saldo"] = {"usd": totaal, "ts": yts}
         else:
             if vorig and yts > vorig["ts"] and vorig["usd"] > 0:
-                verwacht = vorig["usd"] + flows.netto_flow(stromen, "yield_core",
-                                                           vorig["ts"], yts)
-                daling = (verwacht - totaal) / verwacht * 100.0 if verwacht > 0 else 0.0
+                daling = (vorig["usd"] - totaal) / vorig["usd"] * 100.0
                 if daling >= float(vi.get("kill_saldo_daling_pct", 1.0)):
                     meld("yield_saldo", "kill", "veilig_integriteit",
-                         "Veilig potje %.2f%% lager dan verwacht ($%.2f i.p.v. $%.2f, "
-                         "na correctie voor overboekingen)" % (daling, totaal, verwacht),
-                         vi.get("kill_actie"))
+                         "Veilig potje %.2f%% gedaald ($%.2f -> $%.2f) zonder overboeking"
+                         % (daling, vorig["usd"], totaal), vi.get("kill_actie"))
                 elif daling >= float(vi.get("alarm_saldo_daling_pct", 0.5)):
                     meld("yield_saldo", "alarm", "veilig_integriteit",
-                         "Veilig potje %.2f%% lager dan verwacht ($%.2f i.p.v. $%.2f)"
-                         % (daling, totaal, verwacht))
+                         "Veilig potje %.2f%% gedaald ($%.2f -> $%.2f) zonder overboeking"
+                         % (daling, vorig["usd"], totaal))
             if not vorig or yts > vorig["ts"]:
                 st["yield_saldo"] = {"usd": totaal, "ts": yts}
+        st["yield_balances"] = {k: v for k, v in huidige_saldi.items() if v is not None}
 
     # ── USDC-peg ─────────────────────────────────────────────────────────
     peg = controles.get("usdc_peg") or {}
@@ -315,6 +352,12 @@ def evalueer(m, state, register, stromen=(), nu=None):
     if m.get("kpi_onmeetbaar"):
         meld("meting_kpi", "alarm", "meting",
              "KPI's onmeetbaar: %s" % ", ".join(map(str, m["kpi_onmeetbaar"])))
+    stil = m.get("dip_koper_stilstand_min")
+    max_stil = float(globaal.get("dip_koper_max_stilstand_minuten", 180))
+    if stil is not None and stil > max_stil:
+        meld("dip_koper_stilstand", "alarm", "meting",
+             "Dip-koper heeft zijn open posities %.0f min niet bijgewerkt — het beheer "
+             "(stops bestaan alleen in software) staat mogelijk stil" % stil)
 
     return gebeurtenissen, st
 

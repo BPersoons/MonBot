@@ -180,9 +180,14 @@ class SleeveNAV:
         except Exception as e:
             logger.warning(f"Broker-waardering faalde: {e}")
             return None
-        if any(p.get("status") != "ok" or p.get("waarde_usd") is None for p in potjes):
+        import math
+        try:
+            waarden = [float(p["waarde_usd"]) for p in potjes if p.get("status") == "ok"]
+        except (TypeError, ValueError, KeyError):
             return None
-        return round(sum(float(p["waarde_usd"]) for p in potjes), 2)
+        if len(waarden) != len(potjes) or not all(math.isfinite(w) for w in waarden):
+            return None
+        return round(sum(waarden), 2)
 
     @staticmethod
     def _conviction_value():

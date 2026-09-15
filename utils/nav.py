@@ -28,6 +28,7 @@ Wie dit getal gebruikt om te beslissen, hoort eerst `compleet` te lezen.
 
 import json
 import logging
+import math
 import os
 from datetime import datetime, timezone
 
@@ -178,8 +179,14 @@ def _koers(ticker):
     een 'fout'-potje van, want een niet-uitgelezen koers is geen nulwaarde."""
     try:
         import yfinance as yf
-        h = yf.Ticker(ticker).history(period="5d")["Close"]
-        return float(h.iloc[-1]) if len(h) else None
+        h = yf.Ticker(ticker).history(period="5d")["Close"].dropna()
+        if not len(h):
+            return None
+        # Rond 00:05 UTC — precies wanneer SleeveNAV zijn snapshot neemt — geeft
+        # yfinance een lege NaN-rij voor vandaag. float(nan) is geen None en zou als
+        # $0 in de reeks belanden; dezelfde fout zette de scorekaart drie weken op NaN.
+        v = float(h.iloc[-1])
+        return v if math.isfinite(v) else None
     except Exception as e:
         logger.warning("NAV: koers %s faalde (%s)", ticker, str(e)[:80])
         return None
