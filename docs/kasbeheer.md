@@ -6,6 +6,7 @@
 > - Fluid fUSDC (Arbitrum, ERC-4626) is op 2026-09-15 toegevoegd aan `_TRACKED`, `treasury_protocols.json` en `_PROFILES` (nog niet gedeployed; A2-review). Verwacht effect: diversificatie verschuift ~35% van Aave naar Fluid.
 > - `tests/pre_flight/check_treasury.py`: 129 controles (was 124).
 > - Integriteit van renteprotocollen (share price, liquidityIndex, saldo, USDC-peg) wordt bewaakt door SwarmMonitor Check 24 (`utils/verliesbewaking.py`).
+> - ⚠️ **Dry-run was schijnveiligheid (gevonden 2026-09-15, gerepareerd in `5c636a8`, deploy na A1-GO).** De dry-run van supply/deposit stond vóór de approve en revertte daardoor altijd; dat bleef onzichtbaar omdat `_rpc` reverts als "RPC unavailable" inslikte. Nu: revert raiset direct, dry-run ná approve + allowance-check, revert → approve intrekken. Verder: cap max 65% per niet-benchmark-protocol (strikte on-chain saldi), retry-rem na 2 mislukte deploys/switches in 24u, diversificatie vanuit Aave neemt alleen het deelbedrag op, volledige Aave-opname met `uint256.max`.
 
 ## Treasury System
 
