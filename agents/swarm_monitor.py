@@ -81,6 +81,23 @@ LOG_ERROR_PATTERNS = [
 
 EXPECTED_AGENTS = ["Heartbeat", "ProjectLead", "Scout", "PerformanceAuditor", "ProductOwner"]
 
+# Agents die alleen iets doen als de handelspijplijn aan staat.
+PIJPLIJN_AGENTS = ("Scout", "ProjectLead")
+
+
+def _pijplijn_aan() -> bool:
+    """Staat de handelspijplijn aan (subsystem_handelspijplijn_enabled)?
+
+    Staat hij uit, dan zijn stilte, geen trades en geen beslissingen het BEDOELDE
+    gedrag. Zonder deze vraag stuurde de monitor vijf weken lang elke dag een
+    droogte-alarm over een bewuste pauze. Faalt open: bij twijfel alarmeren.
+    """
+    try:
+        from utils.auto_params import subsysteem_aan
+        return subsysteem_aan("handelspijplijn")
+    except Exception:
+        return True
+
 
 class SwarmMonitor:
     """
@@ -189,6 +206,10 @@ class SwarmMonitor:
 
         logger.info(f"🔍 SwarmMonitor: running check #{self._check_count}")
 
+        # Staat de handelspijplijn uit, dan slaan de checks die op zijn uitvoer
+        # wachten over: stilte en geen trades zijn dan bedoeld gedrag, geen storing.
+        pijplijn_aan = _pijplijn_aan()
+
         # ── Check 1: Supabase swarm_health ──────────
         db_issues = self._safe_check(self._check_supabase_health, now) or []
         findings.extend(db_issues)
@@ -202,7 +223,8 @@ class SwarmMonitor:
             all_ok = False
 
         # ── Check 3: Pipeline output analysis ────────
-        pipeline_issues = self._safe_check(self._check_pipeline_output, now) or []
+        pipeline_issues = ((self._safe_check(self._check_pipeline_output, now) or [])
+                           if pijplijn_aan else [])
         findings.extend(pipeline_issues)
         if pipeline_issues:
             all_ok = False
@@ -217,19 +239,22 @@ class SwarmMonitor:
         self._safe_check(self._check_auto_executor)
 
         # ── Check 7: Pipeline null-signal detection ───────
-        self._safe_check(self._check_signal_health, now)
+        if pijplijn_aan:
+            self._safe_check(self._check_signal_health, now)
 
         # ── Check 8: Wallet balance ────────────────────
         self._safe_check(self._check_wallet_balance)
 
         # ── Check 9: Threshold deadlock ────────────────
-        self._safe_check(self._check_threshold_deadlock, now)
+        if pijplijn_aan:
+            self._safe_check(self._check_threshold_deadlock, now)
 
         # ── Check 10: HL position sync ─────────────────
         self._safe_check(self._check_position_sync, now)
 
         # ── Check 11: BUILD_CASE orphan detection ──────
-        self._safe_check(self._check_build_case_orphan, now)
+        if pijplijn_aan:
+            self._safe_check(self._check_build_case_orphan, now)
 
         # ── Check 12: 3-day P&L digest ─────────────────
         self._safe_check(self._check_pnl_digest, now)
@@ -244,16 +269,19 @@ class SwarmMonitor:
         self._safe_check(self._check_stuck_proposals, now)
 
         # ── Check 15: MONITOR deadlock per ticker ──────
-        self._safe_check(self._check_monitor_deadlock, now)
+        if pijplijn_aan:
+            self._safe_check(self._check_monitor_deadlock, now)
 
         # ── Check 16: XYZ zero-execute detection ───────
-        self._safe_check(self._check_xyz_zero_execute, now)
+        if pijplijn_aan:
+            self._safe_check(self._check_xyz_zero_execute, now)
 
         # ── Check 17: Treasury state staleness ─────────
         self._safe_check(self._check_treasury_staleness, now)
 
         # Check 18: trade drought — silent funnel halt, threshold-independent
-        self._safe_check(self._check_trade_drought, now)
+        if pijplijn_aan:
+            self._safe_check(self._check_trade_drought, now)
 
         # ── Check 19: HL API wallet expiry warning ──────
         self._safe_check(self._check_api_key_expiry, now)
@@ -262,7 +290,8 @@ class SwarmMonitor:
         self._safe_check(self._check_thematic_wallet)
 
         # ── Check 21: directional pathology (G2, flag-only) ──
-        self._safe_check(self._check_directional_pathology, now)
+        if pijplijn_aan:
+            self._safe_check(self._check_directional_pathology, now)
 
         # ── Check 22: Thematic sleeve xyz perp-dex collateral ──
         self._safe_check(self._check_thematic_xyz_collateral)
@@ -326,6 +355,7 @@ class SwarmMonitor:
                      "agent": "SwarmMonitor"}]
 
         agent_map = {a["agent_name"]: a for a in agents}
+        pijplijn_aan = _pijplijn_aan()
 
         # Check each expected agent
         for agent_name in EXPECTED_AGENTS:
@@ -333,6 +363,8 @@ class SwarmMonitor:
                 continue  # Don't check ourselves
             if agent_name == "ProductOwner":
                 continue  # Disabled to reduce Gemini API costs — no pulse expected
+            if agent_name in PIJPLIJN_AGENTS and not pijplijn_aan:
+                continue  # handelspijplijn bewust uit — geen pulse verwacht
 
             agent = agent_map.get(agent_name)
 

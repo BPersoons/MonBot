@@ -143,13 +143,10 @@ def _subsysteem_aan(naam: str, standaard: bool = True) -> bool:
     Default TRUE: ontbreekt de sleutel, dan verandert er niets.
     """
     try:
-        from utils.auto_params import AutoParams
-        v = AutoParams().get_candidate_value(f"subsystem_{naam}_enabled")
-        if v is not None:
-            return str(v).strip().lower() not in ("false", "0", "no", "off")
+        from utils.auto_params import subsysteem_aan
+        return subsysteem_aan(naam, standaard)
     except Exception:
-        pass
-    return standaard
+        return standaard
 
 
 def main():
@@ -275,14 +272,22 @@ def main():
         swarm_learner = None
 
     # --- ShadowBook (virtual-outcome feedback engine) ---
+    # Registreert beslissingen van de handelspijplijn; staat die uit, dan valt er
+    # niets te registreren. Zelfde schakelaar als de pijplijn zelf.
     shadow_book = None
+    _pijplijn_bij_start = _subsysteem_aan("handelspijplijn")
     try:
+        if not _pijplijn_bij_start:
+            logger.info("   ⏸️  ShadowBook UITGEZET: handelspijplijn staat uit — dit is geen fout")
+            raise _SubsysteemUit()
         logger.info("   → Initializing ShadowBook...")
         from utils.shadow_book import ShadowBook
         shadow_book = ShadowBook(
             exchange_client=project_lead.execution_agent.exchange if project_lead and hasattr(project_lead, 'execution_agent') else None,
         )
         logger.info("   ✅ ShadowBook initialized successfully")
+    except _SubsysteemUit:
+        shadow_book = None
     except Exception as e:
         logger.error(f"   ⚠️ ShadowBook FAILED (non-critical): {e}")
         shadow_book = None
@@ -488,7 +493,7 @@ def main():
         # via ran_at_epoch) of de equity-gated tech-LONG edge nog intact is op trailing
         # 90d. De-riskt autonoom (pauzeert) alleen als revalidation_autopause_enabled=True;
         # anders observeert + alarmeert. Elke ~60 cycli aangeroepen (24u-throttle binnen).
-        if cycle_count % 60 == 30:
+        if cycle_count % 60 == 30 and _subsysteem_aan("handelspijplijn"):
             try:
                 from utils.directional_revalidation import run_revalidation
                 run_revalidation()
@@ -622,6 +627,13 @@ def main():
         
         try:
             # ... (Rest of loop logic remains same until next ticker loop) ...
+
+            # Handelspijplijn (Scout -> analisten -> ProjectLead -> orders). Sinds
+            # 2026-09-15 UIT via subsystem_handelspijplijn_enabled: de handelsbot stond al
+            # vijf weken gepauzeerd (score_threshold 0,40) maar scande nog elke cyclus.
+            # Per cyclus gelezen, dus terugzetten werkt zonder herstart. Positiebeheer
+            # (Phase 3.5), kasbeheer en de dip-koper lopen hier niet via en blijven aan.
+            _pijplijn_aan = _subsysteem_aan("handelspijplijn")
             
             # Temporary state for this run
             current_market_state = {}
@@ -636,7 +648,7 @@ def main():
             current_time = time.time()
             discovery_data = current_dashboard.get("discovery_pipeline", {})
             
-            if current_time - last_research_run > ticker_state.get_adaptive_scout_interval(len(project_lead.get_active_assets())):
+            if _pijplijn_aan and current_time - last_research_run > ticker_state.get_adaptive_scout_interval(len(project_lead.get_active_assets())):
                  logger.info("   → Triggering Scout (Research Cycle)...")
                  research_start = time.time()
                  # REASONING INJECTION: Scout manages its own health/status via ResearchAgent class
@@ -698,6 +710,20 @@ def main():
                     active_setups.append(s)
                     seen.add(sid)
 
+            if not _pijplijn_aan:
+                # Geen analyse, geen nieuwe orders. Open posities worden hieronder in
+                # Phase 3.5 gewoon beheerd; dat leest trade_log.json, niet active_setups.
+                active_setups = []
+                if cycle_count % 60 == 1:
+                    logger.info("   ⏸️  Handelspijplijn UIT (subsystem_handelspijplijn_enabled) — "
+                                "geen scan, geen analyse. Dit is geen fout.")
+                if health_manager and cycle_count % 10 == 0:
+                    for _pl_agent in ("Scout", "ProjectLead"):
+                        health_manager.report_health(_pl_agent, "IDLE", cycle_count, metadata={
+                            "current_task": "Uitgeschakeld via subsystem_handelspijplijn_enabled",
+                            "last_activity": "Handelspijplijn staat uit — geen fout",
+                        })
+
             logger.info(f"   → Analyzing {len(active_setups)} setups (Positions: {len(open_setups)}, Scout: {len(candidates)})")
             
             cycle_decisions = []
@@ -740,7 +766,7 @@ def main():
                 t for t in active_trades_cache
                 if t.get('source') in ('RECONCILED', 'HL_POSITION_SYNC')
                 and not t.get('analyst_signals')
-            ]
+            ] if _pijplijn_aan else []  # herbeoordeling draait de hele analistenraad
             for _rt in _recovered_pending:
                 _rt_ticker = _rt.get('ticker', '')
                 _rt_action = _rt.get('action', 'BUY')

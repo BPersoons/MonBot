@@ -41,6 +41,24 @@ BOUNDS: Dict[str, tuple] = {
 MAX_DRIFT_FRACTION = 0.30
 
 
+def subsysteem_aan(naam: str, standaard: bool = True) -> bool:
+    """Staat een optioneel subsysteem aan? Leest `subsystem_<naam>_enabled`.
+
+    Eén definitie voor main.py en SwarmMonitor. Staat de handelspijplijn uit,
+    dan moeten de checks die op zijn uitvoer wachten dat óók weten — anders
+    alarmeren ze elke dag over een bewuste pauze.
+
+    Default TRUE: ontbreekt de sleutel, dan verandert er niets.
+    """
+    try:
+        v = AutoParams().get_candidate_value(f"subsystem_{naam}_enabled")
+        if v is not None:
+            return str(v).strip().lower() not in ("false", "0", "no", "off")
+    except Exception:
+        pass
+    return standaard
+
+
 class AutoParams:
     """Thread-safe reader/writer for config/auto_params.json."""
 

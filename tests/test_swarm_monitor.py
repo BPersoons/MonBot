@@ -290,3 +290,73 @@ def test_position_sync_sluit_geen_posities_van_een_andere_wallet(tmp_path):
     # Controle op de opstelling zelf: het echte spook MOET zijn opgeruimd,
     # anders bewijst deze toets niets (dan draaide de lus gewoon niet).
     assert na["BTC/USDC"] == "CLOSED", "de opruimlus draaide niet — toets is leeg"
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Handelspijplijn uit (2026-09-15)
+#
+# De handelsbot stond vijf weken gepauzeerd, maar de monitor stuurde elke dag
+# een droogte-alarm, en zou bij een uitgezette pijplijn ook Scout en
+# ProjectLead als 'stale' melden. Stilte is dan bedoeld gedrag.
+# ──────────────────────────────────────────────────────────────────────
+
+PIJPLIJN_CHECKS = (
+    "_check_pipeline_output", "_check_signal_health", "_check_threshold_deadlock",
+    "_check_build_case_orphan", "_check_monitor_deadlock", "_check_xyz_zero_execute",
+    "_check_trade_drought", "_check_directional_pathology",
+)
+# Deze bewaken geld dat ook zonder pijplijn beweegt (dip-koper, kasbeheer) en
+# moeten altijd blijven draaien. 12b (sustained degradation) hoort erbij: hij
+# leest ALLE gesloten trades, dus ook die van de dip-koper.
+ALTIJD_CHECKS = (
+    "_check_supabase_health", "_check_portfolio_health", "_check_position_sync",
+    "_check_pnl_digest", "_check_sustained_degradation", "_check_heartbeat",
+    "_check_stuck_proposals", "_check_treasury_staleness", "_check_thematic_wallet",
+    "_check_thematic_xyz_collateral",
+)
+
+
+def _run_met_nepchecks(monitor, pijplijn_aan, tmp_path, monkeypatch):
+    """Draait _run_checks met elke check vervangen door een teller."""
+    aangeroepen = []
+    for naam in [n for n in dir(SwarmMonitor) if n.startswith("_check_")]:
+        def _nep(*args, _naam=naam):
+            aangeroepen.append(_naam)
+            return []
+        _nep.__name__ = naam
+        setattr(monitor, naam, _nep)
+    monitor._send_telegram = lambda tekst: None
+    monkeypatch.chdir(tmp_path)
+    with patch("agents.swarm_monitor._pijplijn_aan", return_value=pijplijn_aan), \
+         patch.object(SwarmMonitor, "ALERT_STATE_FILE", str(tmp_path / "alert_state.json")):
+        monitor._run_checks()
+    return set(aangeroepen)
+
+
+def test_pijplijn_uit_slaat_alleen_de_pijplijnchecks_over(tmp_path, monkeypatch):
+    gedraaid = _run_met_nepchecks(_make_monitor(), False, tmp_path, monkeypatch)
+    te_veel = gedraaid & set(PIJPLIJN_CHECKS)
+    assert not te_veel, "pijplijncheck draaide terwijl de pijplijn uit staat: %s" % sorted(te_veel)
+    gemist = set(ALTIJD_CHECKS) - gedraaid
+    assert not gemist, "check die altijd moet draaien werd overgeslagen: %s" % sorted(gemist)
+
+
+def test_pijplijn_aan_draait_alle_checks(tmp_path, monkeypatch):
+    gedraaid = _run_met_nepchecks(_make_monitor(), True, tmp_path, monkeypatch)
+    gemist = (set(PIJPLIJN_CHECKS) | set(ALTIJD_CHECKS)) - gedraaid
+    assert not gemist, "met de pijplijn aan werd overgeslagen: %s" % sorted(gemist)
+
+
+def test_pijplijn_uit_geen_stale_alarm_voor_scout_en_projectlead():
+    monitor = _make_monitor()
+    now = datetime.now(tz=timezone.utc)
+    oud = (now - timedelta(hours=5)).isoformat()
+    _mock_db_with_agents(monitor, [_agent(n, cycle_count=3, last_pulse=oud)
+                                   for n in ("Scout", "ProjectLead", "Heartbeat")])
+    with patch("agents.swarm_monitor._pijplijn_aan", return_value=False):
+        uit = {i["agent"] for i in monitor._check_supabase_health(now) if i["type"] == "AGENT_STALE"}
+    with patch("agents.swarm_monitor._pijplijn_aan", return_value=True):
+        aan = {i["agent"] for i in monitor._check_supabase_health(now) if i["type"] == "AGENT_STALE"}
+    assert "Heartbeat" in uit, "de check draaide niet — toets is leeg"
+    assert not uit & {"Scout", "ProjectLead"}, "stale-alarm voor een bewust uitgezette agent"
+    assert {"Scout", "ProjectLead"} <= aan, "met de pijplijn aan moet stale wél gemeld worden"
