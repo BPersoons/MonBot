@@ -44,6 +44,31 @@ aan de inode. Via ssh met een base64-heredoc, anders loop je vast op quoting.
 `kas_eur` uit de transacties afleiden mag, maar markeer het dan als afgeleid en vraag de
 gebruiker het echte saldo te controleren.
 
+### 1b. Stortingen en opnames als kapitaalstroom boeken (sinds 2026-09-15)
+
+De KPI's (`utils/kpi.py`) en de verliesbewaking rekenen **flow-gecorrigeerd**: een storting
+is geen rendement. Zonder deze boeking ziet de meter nieuw geld als winst.
+
+- **Storting** van de bank naar DeGiro → `extern` → `tradfi`.
+- **Opname** van DeGiro naar de bank → `tradfi` → `extern`.
+- **Aankoop of verkoop binnen DeGiro** (kas ↔ fonds): **geen** stroom, dat blijft binnen het potje.
+
+Bedrag in **USD** tegen de EURUSD-koers van die dag (de potjesreeks is in USD). Noteer de
+gebruikte koers in de omschrijving. Boek in de container, want `data/` is gemount:
+
+```bash
+S=$(cat <<'PY'
+from utils.flows import boek_flow
+print(boek_flow("extern", "tradfi", 231.10, "storting DeGiro EUR 200 @ EURUSD 1,1555", ts=None))
+PY
+); B=$(printf '%s' "$S" | base64 -w0)
+gcloud compute ssh agent-trader-swarm-vm --zone=europe-west1-b \
+  --command="echo $B | base64 -d | sudo docker exec -i -w /app agent_trader_swarm python3 -"
+```
+
+Zet `ts` op het moment van de storting (epoch) als die niet vandaag was. Een foute boeking
+herstel je met een **tegenboeking**, nooit door `data/flows.json` te herschrijven.
+
 ### 2. NAV opnieuw meten en de snapshot ophalen
 
 ```
