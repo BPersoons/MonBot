@@ -81,6 +81,26 @@ _MIN_TVL_BY_TIER = {
 _YIELD_SWITCH_MIN_SPREAD = 1.5   # % APY improvement needed to trigger an automatic yield switch
 _YIELD_SWITCH_MIN_USD    = 100   # minimum deployed balance worth switching (gas cost break-even)
 
+
+def _max_aandeel_per_protocol() -> tuple:
+    """(max aandeel van het rendementspotje per niet-benchmark-protocol, benchmark-id).
+
+    Uit config/experimenten.json (één bron voor drempels). A2-audit 2026-09-15: zonder
+    cap zou een switch naar Fluid op 68% van de dagen 100% van het potje verplaatsen,
+    zonder dat iemand dat besloot. Onleesbaar register -> 0,65, niet "geen cap": bij
+    twijfel de risicoverlagende kant.
+    """
+    try:
+        with open("config/experimenten.json", encoding="utf-8") as f:
+            reg = json.load(f)
+        frac = float(reg["globaal"]["max_aandeel_per_rendementsprotocol"])
+        bench = (reg.get("benchmark") or {}).get("id") or "aave-v3-arbitrum-usdc"
+        if 0.0 < frac <= 1.0:
+            return frac, bench
+    except Exception as e:
+        logger.warning(f"TreasuryAgent: protocol-cap niet uit register te lezen ({e}) — 0,65")
+    return 0.65, "aave-v3-arbitrum-usdc"
+
 # Thresholds
 _IDLE_DEPLOY_PCT       = 0.60   # free margin > 60% of HL balance → consider deploying
 _IDLE_TARGET_PCT       = 0.35   # after deployment: keep 35% of HL balance as buffer
@@ -717,6 +737,95 @@ class TreasuryAgent:
 
     # ── Proposals ─────────────────────────────────────────────────────────────
 
+    _DEPLOY_MAX_FOUTEN_24U = 2
+
+    def _deploy_geblokkeerd(self, all_proposals: list) -> bool:
+        """True na herhaald mislukte deploys: dan geen nieuwe deploy-voorstellen.
+
+        A2-audit 2026-09-15: een mislukte deposit laat de USDC op de wallet staan, en de
+        volgende fast-pass maakte meteen een nieuwe DEPLOY_YIELD naar dezelfde
+        bestemming — elke 5 cycli gas, zonder einde. Na twee fouten in 24 uur is dit
+        handwerk, geen herhaling.
+        """
+        grens = datetime.utcnow().timestamp() - 24 * 3600
+        fouten = [
+            p for p in all_proposals
+            if p.get("type") in ("DEPLOY_YIELD", "YIELD_SWITCH") and p.get("status") == "FAILED"
+            and self._parse_ts(p.get("updated_at") or p.get("created_at") or "") > grens
+        ]
+        if len(fouten) < self._DEPLOY_MAX_FOUTEN_24U:
+            return False
+        nu = datetime.utcnow().timestamp()
+        if nu - getattr(self, "_deploy_blok_gemeld", 0.0) > 24 * 3600:
+            self._deploy_blok_gemeld = nu
+            laatste = fouten[-1]
+            self._send_telegram(
+                f"⚠️ *Treasury: deploys gepauzeerd*\n"
+                f"{len(fouten)} mislukte deploys/switches in 24u "
+                f"(laatste `{laatste.get('id')}`: {str(laatste.get('error', ''))[:120]}).\n"
+                f"Er worden geen nieuwe deploy-voorstellen gemaakt tot dit is uitgezocht; "
+                f"USDC blijft op de treasury-wallet."
+            )
+        logger.warning(f"TreasuryAgent: deploys geblokkeerd — {len(fouten)} fouten in 24u")
+        return True
+
+    @staticmethod
+    def _begrens_allocaties(allocations: list, opportunities: list,
+                            yield_balances: dict, to_yield: float) -> list:
+        """Cap per protocol op NIEUW geld (A2-audit 2026-09-15).
+
+        Wat een niet-benchmark-protocol boven het maximale aandeel van het potje zou
+        tillen, gaat naar de benchmark (Aave). Staat de benchmark niet als automatische
+        opportunity klaar, dan blijft dat deel op de wallet: liever geen deploy dan
+        een ongecapte.
+        """
+        cap_frac, bench_id = _max_aandeel_per_protocol()
+        totaal_na = sum(float(v or 0) for v in yield_balances.values()) + float(to_yield or 0)
+        bench_opp = next((o for o in opportunities
+                          if (o.get("protocol_config") or {}).get("id") == bench_id
+                          and o.get("automated")), None)
+        uit: list = []
+        naar_bench = 0.0
+        for a in allocations:
+            pid = a.get("protocol_id", "")
+            bedrag = float(a.get("amount_usd") or 0)
+            if pid == bench_id:
+                uit.append(dict(a))
+                continue
+            al_gepland = sum(float(x["amount_usd"]) for x in uit if x.get("protocol_id") == pid)
+            ruimte = cap_frac * totaal_na - float(yield_balances.get(pid, 0) or 0) - al_gepland
+            toegestaan = max(0.0, min(bedrag, ruimte))
+            if toegestaan < _MIN_DEPLOY_USD:
+                toegestaan = 0.0
+            if toegestaan > 0:
+                b = dict(a)
+                b["amount_usd"] = round(toegestaan, 2)
+                if toegestaan < bedrag:
+                    b["gecapt_op_aandeel"] = cap_frac
+                uit.append(b)
+            if bench_opp is not None:
+                naar_bench += bedrag - toegestaan
+            elif bedrag > toegestaan:
+                logger.warning(
+                    f"TreasuryAgent: ${bedrag - toegestaan:.0f} voor {pid} boven de cap "
+                    f"({cap_frac:.0%}) en geen benchmark beschikbaar — blijft op de wallet"
+                )
+        if naar_bench >= 1.0 and bench_opp is not None:
+            bestaande = next((x for x in uit if x.get("protocol_id") == bench_id), None)
+            if bestaande:
+                bestaande["amount_usd"] = round(float(bestaande["amount_usd"]) + naar_bench, 2)
+            else:
+                uit.append({
+                    "protocol_id":       bench_id,
+                    "protocol_config":   bench_opp.get("protocol_config"),
+                    "tranche":           "liquidity_reserve",
+                    "amount_usd":        round(naar_bench, 2),
+                    "apy":               bench_opp.get("apy", 0),
+                    "risk_adjusted_apy": bench_opp.get("risk_adjusted_apy", bench_opp.get("apy", 0)),
+                    "rationale":         f"Cap per protocol ({cap_frac:.0%}): rest naar de benchmark",
+                })
+        return uit
+
     def generate_proposals(
         self,
         hl: dict,
@@ -794,6 +903,10 @@ class TreasuryAgent:
                         "risk_adjusted_apy": best.get("risk_adjusted_apy", best["apy"]),
                         "rationale":       f"Rule-based: best risk-adjusted APY ({best['label']})",
                     }]
+
+            allocations = self._begrens_allocaties(
+                allocations, opportunities, yield_balances or {}, to_yield
+            )
 
             hl_note = (
                 f" HL top-up van ${hl_topup:.0f} ook aanbevolen (zie FUND_TRADING voorstel)."
@@ -1364,11 +1477,26 @@ class TreasuryAgent:
             if spread_ra < _YIELD_SWITCH_MIN_SPREAD:
                 continue
             spread = best_apy - current_apy
+            # Cap per protocol: een switch naar een niet-benchmark-protocol mag dat
+            # protocol niet boven het maximale aandeel van het potje tillen.
+            switch_amt = float(deployed_bal)
+            cap_frac, bench_id = _max_aandeel_per_protocol()
+            if best_id != bench_id:
+                totaal_yield = sum(float(v or 0) for v in yield_balances.values())
+                ruimte = cap_frac * totaal_yield - float(yield_balances.get(best_id, 0) or 0)
+                switch_amt = min(switch_amt, ruimte)
+                if switch_amt < _YIELD_SWITCH_MIN_USD:
+                    logger.debug(
+                        f"TreasuryAgent: switch naar {best_id} begrensd door cap "
+                        f"({cap_frac:.0%}) — ruimte ${ruimte:.0f}"
+                    )
+                    continue
+            gedeeltelijk = switch_amt < float(deployed_bal) * 0.99
             now_str    = datetime.utcnow().strftime("%Y%m%d_%H%M")
-            monthly    = round(deployed_bal * best_apy / 100 / 12, 2)
-            yearly     = round(deployed_bal * best_apy / 100, 2)
-            extra_mth  = round(deployed_bal * spread / 100 / 12, 2)
-            extra_yr   = round(deployed_bal * spread / 100, 2)
+            monthly    = round(switch_amt * best_apy / 100 / 12, 2)
+            yearly     = round(switch_amt * best_apy / 100, 2)
+            extra_mth  = round(switch_amt * spread / 100 / 12, 2)
+            extra_yr   = round(switch_amt * spread / 100, 2)
 
             proposal = {
                 "id":                   f"TRS_{now_str}",
@@ -1398,6 +1526,10 @@ class TreasuryAgent:
                 ),
                 "created_at": datetime.utcnow().isoformat(),
             }
+            if gedeeltelijk:
+                # Executor neemt dan alleen dit deel op (ook vanuit Aave, sinds 2026-09-15).
+                proposal["switch_amount_usd"] = round(switch_amt, 2)
+                proposal["gecapt_op_aandeel"] = cap_frac
             all_proposals.append(proposal)
             logger.info(
                 f"💱 Treasury: yield switch triggered — {from_cfg.get('label', pid)} "
@@ -1484,6 +1616,15 @@ class TreasuryAgent:
         best_cfg = best.get("protocol_config") or {}
         best_id  = best_cfg.get("id", "")
         best_apy = best.get("apy", 0.0)
+
+        # Cap per protocol ook hier: diversificatie mag de bestemming niet boven het
+        # maximale aandeel tillen (anders ruilt het de ene concentratie voor de andere).
+        cap_frac, bench_id = _max_aandeel_per_protocol()
+        if best_id != bench_id:
+            ruimte = cap_frac * total_yield - float(yield_balances.get(best_id, 0) or 0)
+            move_amount = min(move_amount, ruimte)
+            if move_amount < 50.0:
+                return all_proposals, pending_notifs
 
         protocol_cfgs = {c["id"]: c for c in self._load_protocol_config()}
         from_cfg      = protocol_cfgs.get(overweight_pid, {})
@@ -1913,7 +2054,8 @@ class TreasuryAgent:
             except Exception as e:
                 logger.debug(f"TreasuryAgent fast: yield switch/diversification check failed: {e}")
             try:
-                all_proposals = self._check_hl_excess(hl, all_proposals, cached_opps)
+                if not self._deploy_geblokkeerd(all_proposals):
+                    all_proposals = self._check_hl_excess(hl, all_proposals, cached_opps)
             except Exception as e:
                 logger.debug(f"TreasuryAgent fast: HL excess check failed: {e}")
 
@@ -1927,7 +2069,7 @@ class TreasuryAgent:
             any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in in_flight for p in all_proposals)
             or any(p.get("type") == "YIELD_SWITCH" and p.get("status") == "SWITCHING" for p in all_proposals)
         )
-        if not has_in_flight:
+        if not has_in_flight and not self._deploy_geblokkeerd(all_proposals):
             treasury_usdc = get_arb_usdc_balance(_TREASURY_WALLET)
             if treasury_usdc >= _MIN_DEPLOY_USD:
                 cached_opps = self._load_cached_opportunities()
@@ -1999,7 +2141,7 @@ class TreasuryAgent:
             or any(p.get("type") == "YIELD_SWITCH" and p.get("status") == "SWITCHING" for p in all_proposals)
         )
         new_ones: list[dict] = []
-        if not has_in_flight:
+        if not has_in_flight and not self._deploy_geblokkeerd(all_proposals):
             proposals = self.generate_proposals(
                 hl, opportunities,
                 treasury_usdc=treasury_usdc,
@@ -2013,7 +2155,8 @@ class TreasuryAgent:
         all_proposals = self._check_rebalance_needed(hl, all_proposals)
 
         # Auto HL excess: move surplus above trading target to best yield protocol
-        all_proposals = self._check_hl_excess(hl, all_proposals, opportunities)
+        if not self._deploy_geblokkeerd(all_proposals):
+            all_proposals = self._check_hl_excess(hl, all_proposals, opportunities)
 
         # Auto yield-switch: move capital to highest-APY automated protocol if spread > threshold
         all_proposals, _switch_notifs = self._check_yield_switch(opportunities, yield_balances, all_proposals)

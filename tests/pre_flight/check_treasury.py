@@ -491,6 +491,24 @@ def check_yield_switch_logic(r: _Result):
     else:
         r.fail("_check_yield_switch: switched INTO an epoch-based vault — would trap capital")
 
+    # Case H/I: cap per protocol (A2-audit 2026-09-15). Een switch naar een niet-benchmark-
+    # protocol stopt op het maximale aandeel; zit de bestemming al op de cap, geen switch.
+    opps_h = [_make_opp_ra("aave-v3-arbitrum-usdc", 2.6, 2.5), _make_opp_ra("fluid-x", 9.0, 7.5)]
+    with mock.patch("agents.treasury_agent._max_aandeel_per_protocol",
+                    return_value=(0.65, "aave-v3-arbitrum-usdc")):
+        result_h, _ = agent._check_yield_switch(opps_h, {"aave-v3-arbitrum-usdc": 2000.0}, [])
+        result_i, _ = agent._check_yield_switch(
+            opps_h, {"aave-v3-arbitrum-usdc": 700.0, "fluid-x": 1300.0}, [])
+    sw_h = [p for p in result_h if p.get("type") == "YIELD_SWITCH"]
+    if sw_h and abs(float(sw_h[0].get("switch_amount_usd") or 0) - 1300.0) < 0.01:
+        r.ok("_check_yield_switch: cap per protocol — switch naar niet-benchmark begrensd op 65% ($1300 van $2000)")
+    else:
+        r.fail(f"_check_yield_switch: cap niet toegepast, kreeg {sw_h[0] if sw_h else 'geen switch'}")
+    if not any(p.get("type") == "YIELD_SWITCH" for p in result_i):
+        r.ok("_check_yield_switch: geen switch als de bestemming al op de cap zit")
+    else:
+        r.fail("_check_yield_switch: switchte boven de cap")
+
 
 # ── 9. YIELD_SWITCH APPROVED → SWITCHING routing ─────────────────────────────
 
@@ -535,7 +553,7 @@ def check_yield_switch_approved_routing(r: _Result):
     aave_calls: list = []
     with mock.patch.object(te, "get_aave_balance", return_value=500.0), \
          mock.patch.object(te, "withdraw_aave_to_wallet",
-                           side_effect=lambda amt, pk: aave_calls.append(amt) or "0xfaketx"):
+                           side_effect=lambda amt, pk, **kw: aave_calls.append((amt, kw)) or "0xfaketx"):
         result_b = te.advance_proposal(
             {
                 "status":              "APPROVED",
@@ -561,6 +579,43 @@ def check_yield_switch_approved_routing(r: _Result):
         r.ok("YIELD_SWITCH APPROVED (aave_v3) → SWITCHING")
     else:
         r.fail(f"YIELD_SWITCH APPROVED (aave_v3): expected SWITCHING, got {result_b.get('status')} err={result_b.get('error','')[:80]}")
+
+    # Volledige switch vanuit Aave: type(uint256).max (volledig=True), NIET round(saldo, 2)
+    # — dat kon een cent boven het saldo uitkomen en reverten (A2-audit 2026-09-15).
+    if aave_calls and aave_calls[0][1].get("volledig") is True:
+        r.ok("YIELD_SWITCH (aave_v3, volledig): opname met volledig=True (uint256.max)")
+    else:
+        r.fail(f"YIELD_SWITCH (aave_v3, volledig): verwachtte volledig=True, kreeg {aave_calls}")
+
+    # Test B2: gedeeltelijke switch vanuit Aave neemt ALLEEN switch_amount_usd op, naar
+    # beneden afgerond. Vóór 2026-09-15 nam deze tak het hele saldo op.
+    aave_deel: list = []
+    with mock.patch.object(te, "get_aave_balance", return_value=2490.137054), \
+         mock.patch.object(te, "withdraw_aave_to_wallet",
+                           side_effect=lambda amt, pk, **kw: aave_deel.append((amt, kw)) or "0xfaketx"):
+        result_b2 = te.advance_proposal(
+            {
+                "status":              "APPROVED",
+                "type":                "YIELD_SWITCH",
+                "diversification":     True,
+                "amount_usd":          2490.14,
+                "switch_amount_usd":   871.559,
+                "from_protocol":       "Aave v3",
+                "from_protocol_type":  "aave_v3",
+                "from_protocol_config": {},
+                "protocol":            "Fluid",
+                "protocol_type":       "erc4626",
+                "protocol_config":     {"vault_address": "0x" + "c" * 40},
+                "apy":                 4.3,
+            },
+            private_key=_FAKE_PK,
+        )
+    if aave_deel and aave_deel[0][0] == 871.55 and not aave_deel[0][1].get("volledig"):
+        r.ok("YIELD_SWITCH (aave_v3, gedeeltelijk): alleen switch_amount_usd, afgerond naar beneden")
+    else:
+        r.fail(f"YIELD_SWITCH (aave_v3, gedeeltelijk): verwachtte 871.55 zonder volledig, kreeg {aave_deel}")
+    if result_b2.get("status") != "SWITCHING":
+        r.fail(f"YIELD_SWITCH (aave_v3, gedeeltelijk): verwachtte SWITCHING, kreeg {result_b2.get('status')}")
 
     # Test C: missing private key → FAILED immediately (no funds touched)
     result_c = te.advance_proposal(

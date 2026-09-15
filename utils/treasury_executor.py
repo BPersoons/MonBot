@@ -112,6 +112,7 @@ def _rpc(method: str, params: list) -> object:
     import urllib.error as _urlerr
     payload = json.dumps({"jsonrpc": "2.0", "method": method, "params": params, "id": 1}).encode()
     last_exc = None
+    json_fout = None   # een JSON-RPC-fout is een ANTWOORD (bv. een revert), geen storing
     for rpc_url in _ARB_RPCS:
         for _attempt in range(3):  # retry up to 3x on 429 rate-limit per RPC
             try:
@@ -123,9 +124,6 @@ def _rpc(method: str, params: list) -> object:
                 )
                 with urllib.request.urlopen(req, timeout=15) as r:
                     resp = json.loads(r.read())
-                if "error" in resp:
-                    raise RuntimeError(f"{method}: {resp['error']}")
-                return resp.get("result")
             except _urlerr.HTTPError as e:
                 if e.code == 429 and _attempt < 2:
                     time.sleep(2 ** _attempt)   # 1s, then 2s backoff on rate-limit
@@ -135,6 +133,15 @@ def _rpc(method: str, params: list) -> object:
             except Exception as e:
                 last_exc = e
                 break
+            if "error" in resp:
+                # Niet meteen opgeven (een andere RPC kan een ander antwoord hebben), maar
+                # ook niet laten overschrijven door een transportfout van de volgende RPC:
+                # vóór 2026-09-15 verdween een revert zo achter "RPC 403" (A2-audit).
+                json_fout = RuntimeError(f"{method}: {resp['error']}")
+                break
+            return resp.get("result")
+    if json_fout is not None:
+        raise json_fout
     raise RuntimeError(f"All Arbitrum RPCs failed for {method}: {last_exc}")
 
 
@@ -187,6 +194,12 @@ def _simulate_tx(to: str, data: str, from_addr: str = "") -> None:
     try:
         result = _rpc("eth_call", [call, "latest"])
     except Exception as e:
+        tekst = str(e).lower()
+        if "revert" in tekst or "'code': 3" in tekst or '"code": 3' in tekst:
+            # Een revert is de UITSLAG van de dry-run: de echte TX zou ook reverten en
+            # gas kosten. Vóór 2026-09-15 werd dit als "RPC unavailable" ingeslikt en
+            # ging de TX toch de deur uit (A2-audit, Aave-opname één cent te hoog).
+            raise RuntimeError(f"Dry-run reverted — TX NIET verstuurd: {e}")
         # All RPCs failed (403, auth required, timeout) — warn and proceed.
         # The real TX is the final guard; worst case = gas lost but no USDC moved.
         logger.warning(f"TreasuryExecutor: dry-run skipped (RPC unavailable): {e}")
@@ -1003,8 +1016,14 @@ def withdraw_erc4626_partial(vault_address: str, amount_usd: float, private_key:
     return tx_hash, usdc_before, usdc_after
 
 
-def withdraw_aave_to_wallet(amount_usd: float, private_key: str) -> str:
-    """Withdraw USDC from Aave v3 Arbitrum to the treasury wallet. Returns tx hash."""
+def withdraw_aave_to_wallet(amount_usd: float, private_key: str, volledig: bool = False) -> str:
+    """Withdraw USDC from Aave v3 Arbitrum to the treasury wallet. Returns tx hash.
+
+    volledig=True vraagt type(uint256).max: Aave neemt dan het exacte saldo inclusief
+    opgebouwde rente op. Een bedrag in centen kan boven het echte saldo uitkomen
+    (2490,137 -> 2490,14) en dan revert de opname (A2-audit 2026-09-15). `amount_usd`
+    blijft dan het verwachte bedrag voor de controle achteraf.
+    """
     Account    = _EthAccount
     to_address = Account.from_key(private_key).address
 
@@ -1017,7 +1036,7 @@ def withdraw_aave_to_wallet(amount_usd: float, private_key: str) -> str:
 
     _check_eth_gas(to_address)
 
-    amount          = int(amount_usd * (10 ** _USDC_DECIMALS))
+    amount          = (2 ** 256 - 1) if volledig else int(amount_usd * (10 ** _USDC_DECIMALS))
     withdraw_data   = _encode_aave_withdraw(_USDC_ARB, amount, to_address)
 
     # Dry-run the withdrawal before broadcasting
@@ -1126,7 +1145,16 @@ def _advance_proposal_inner(
                     live_bal   = get_aave_balance(to_address)
                     if live_bal < 1.0:
                         raise RuntimeError(f"Aave balance ${live_bal:.2f} too low to switch")
-                    tx_hash = withdraw_aave_to_wallet(round(live_bal, 2), private_key)
+                    switch_amount = proposal.get("switch_amount_usd")
+                    if switch_amount and float(switch_amount) < live_bal * 0.99:
+                        # Gedeeltelijke switch (diversificatie/cap): alleen het deelbedrag,
+                        # naar beneden afgerond op centen. Vóór 2026-09-15 negeerde deze tak
+                        # switch_amount_usd en nam hij het HELE saldo op; de rest bleef los
+                        # op de wallet en werd daarna alsnog weggezet (A2-audit).
+                        deel = int(float(switch_amount) * 100) / 100
+                        tx_hash = withdraw_aave_to_wallet(deel, private_key)
+                    else:
+                        tx_hash = withdraw_aave_to_wallet(live_bal, private_key, volledig=True)
 
                 proposal.update({
                     "status":               "SWITCHING",

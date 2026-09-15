@@ -13,6 +13,7 @@
     "max_hefboom": 2.0,
     "meting_max_snapshot_leeftijd_uur": 26,
     "dip_koper_max_stilstand_minuten": 180,
+    "max_aandeel_per_rendementsprotocol": 0.65,
     "detectie_doel_minuten": 10
   },
   "controles": {
