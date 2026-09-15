@@ -53,7 +53,9 @@
     },
     "basis_traag": {
       "sleeve": "basis",
-      "status": "onderzoek",
+      "status": "wacht_op_regime",
+      "besluit_2026_09_15": "Backtest-poort gehaald (8,24% netto 2023-2026, elk jaar >= 0), maar huidig regime 180d 4,41% (2x) / 3,31% (1x) < Fluid 5,46%. Spot telt op de unified account niet als onderpand. Niet live; heractiveren op de trigger hieronder.",
+      "heractivatie": {"venster_dagen": 30, "min_funding_apr_boven_fluid_pp": 3.0, "dan": "3 weken shadow, daarna de bestaande poort"},
       "mijlpaal": "M6",
       "hypothese": "Short perp + long spot op BTC/ETH/HYPE, weken vasthouden, levert >= 6% netto APR op kapitaal, elk kalenderjaar >= 0.",
       "kpi": "netto P&L = funding - fees +/- basisbeweging, op ingezet kapitaal",
