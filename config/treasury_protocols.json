@@ -66,6 +66,24 @@
       "_note": "Gains Network gUSDC vault. ERC-4626 verified 2026-05-23. Earns from Gains perp trading fees. Counterparty risk: vault absorbs losses if traders win. TVL ~$5.9M on-chain. immediate_withdraw=false: requires makeWithdrawRequest(shares) + epoch wait before redeem — direct withdraw/redeem reverts."
     },
     {
+      "id": "fluid-fusdc-arbitrum",
+      "label": "Fluid · fUSDC · Arbitrum",
+      "defillama_project": "fluid-lending",
+      "defillama_chain": "Arbitrum",
+      "defillama_symbol": "USDC",
+      "defillama_pool_id": "4c45cc9e-e1a4-43c9-8a3d-687d96abb07c",
+      "type": "erc4626",
+      "chain": "Arbitrum",
+      "chain_id": 42161,
+      "automated": true,
+      "immediate_withdraw": true,
+      "vault_address": "0x1A996cb54bb95462040408c06122D45D6Cdb6096",
+      "asset_address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "receipt_token": "0x1A996cb54bb95462040408c06122D45D6Cdb6096",
+      "min_tvl_usd": 5000000,
+      "_note": "Toegevoegd 2026-09-15 (plan spoor 1). On-chain geverifieerd via Tenderly: name()='Fluid USD Coin', asset()=native USDC, totalAssets ~$61,2M, convertToAssets(1e6)=1,1297 (share price groeit). APY DeFiLlama 180d gem. 5,46%, min 3,36%. Opname direct binnen Fluid's meegroeiende opnamelimieten. Integriteit bewaakt door SwarmMonitor Check 24 (share price mag nooit dalen)."
+    },
+    {
       "id": "compound-v3-arbitrum-usdc",
       "label": "Compound v3 · Arbitrum · USDC",
       "defillama_project": "compound-v3",

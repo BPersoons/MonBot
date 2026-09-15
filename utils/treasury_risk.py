@@ -68,6 +68,18 @@ _PROFILES: dict[str, dict] = {
         "description":  "Perp trading fee vault; vault absorbs losses when Gains traders are net profitable. High counterparty risk.",
         "tranche":      "opportunistic",
     },
+    "fluid-fusdc-arbitrum": {
+        # Toegevoegd 2026-09-15 (plan spoor 1). On-chain geverifieerd: ERC-4626,
+        # asset() = native USDC, $61M TVL. Overgecollateraliseerd lenen, geen
+        # handelstegenpartij. Opname direct, maar Fluid kent opnamelimieten die per
+        # blok meegroeien — vandaar liquidity onder Aave. Productie sinds begin 2024.
+        "sc":           0.85,
+        "liquidity":    0.85,
+        "counterparty": 0.90,
+        "maturity":     0.60,
+        "description":  "Fluid lending (fUSDC); overcollateralized; instant withdraw within expanding withdrawal limits.",
+        "tranche":      "yield_core",
+    },
     "compound-v3-arbitrum-usdc": {
         "sc":           0.90,
         "liquidity":    0.90,

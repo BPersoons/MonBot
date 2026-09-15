@@ -849,6 +849,7 @@ def check_risk_model(r: _Result):
         "morpho-bbqusdc-arbitrum",
         "morpho-gtusdcc-arbitrum",
         "gains-network-arbitrum-usdc",
+        "fluid-fusdc-arbitrum",
     ]
     for pid in live_protocols:
         if pid in _PROFILES:

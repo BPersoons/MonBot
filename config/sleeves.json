@@ -8,6 +8,7 @@
     "yield_balances.aave-v3-arbitrum-usdc": "yield_core",
     "yield_balances.morpho-bbqusdc-arbitrum": "yield_core",
     "yield_balances.morpho-gtusdcc-arbitrum": "yield_core",
+    "yield_balances.fluid-fusdc-arbitrum": "yield_core",
     "yield_balances.gains-network-arbitrum-usdc": "house"
   },
   "default_yield_sleeve": "yield_core",
@@ -17,6 +18,7 @@
     "yield_balances.aave-v3-arbitrum-usdc": "aave",
     "yield_balances.morpho-bbqusdc-arbitrum": "morpho",
     "yield_balances.morpho-gtusdcc-arbitrum": "morpho",
+    "yield_balances.fluid-fusdc-arbitrum": "fluid",
     "yield_balances.gains-network-arbitrum-usdc": "gains"
   },
   "limits": {

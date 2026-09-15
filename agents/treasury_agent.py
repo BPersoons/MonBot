@@ -54,6 +54,7 @@ _TRACKED = [
     ("aave-v3",     "Arbitrum", "USDC",  "Aave v3 · Arbitrum · USDC",          "stable"),
     ("aave-v3",     "Arbitrum", "USDT",  "Aave v3 · Arbitrum · USDT",          "stable"),
     ("morpho-blue", "Arbitrum", "USDC",  "Morpho · Arbitrum · USDC",           "stable"),
+    ("fluid-lending", "Arbitrum", "USDC", "Fluid · fUSDC · Arbitrum",          "stable"),
     ("compound-v3",   "Arbitrum", "USDC",  "Compound v3 · Arbitrum · USDC",       "stable"),
     ("gains-network", "Arbitrum", "USDC",  "Gains Network · gUSDC · Arbitrum",  "stable"),
     ("aave-v3",       "Ethereum", "USDC",  "Aave v3 · Ethereum · USDC",          "stable"),
