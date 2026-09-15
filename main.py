@@ -581,6 +581,14 @@ def main():
                         except Exception as e:
                             logger.debug(f"ThematicExposureLab daily_status_text failed: {e}")
                     sleeve_nav.send_telegram(_nav_report)
+                    # KPI's H1-H5 (plan 2026-09-15): direct na de snapshot, want ze
+                    # rekenen op de potjesreeks. Eigen try: een KPI-fout mag de
+                    # NAV-digest niet raken.
+                    try:
+                        from utils.kpi import update_kpi
+                        update_kpi()
+                    except Exception as e:
+                        logger.error(f"⚠️ KPI-update faalde: {e}")
             except Exception as e:
                 logger.error(f"⚠️ SleeveNAV failed: {e}")
 

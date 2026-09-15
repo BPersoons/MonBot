@@ -157,7 +157,32 @@ class SleeveNAV:
             sleeves["conviction_core"] = sleeves.get("conviction_core", 0.0) + conviction_usd
             venues["hyperliquid"] = venues.get("hyperliquid", 0.0) + conviction_usd
 
+        # Broker (DeGiro): kern + thema + kas, ~42% van het vermogen. Viel buiten deze
+        # reeks, waardoor geen enkele KPI het totaal zag (plan 2026-09-15, gat G3).
+        # Zelfde regel als hierboven: onmeetbaar -> snapshot uitgesteld, nooit nul. De
+        # snapshot wordt elke 5 cycli opnieuw geprobeerd, dus een koershik kost geen dag.
+        tradfi_usd = self._tradfi_value()
+        if tradfi_usd is None:
+            logger.warning("Broker niet te waarderen — snapshot uitgesteld")
+            return None
+        if tradfi_usd > 0:
+            sleeves["tradfi"] = sleeves.get("tradfi", 0.0) + tradfi_usd
+            venues["broker"] = venues.get("broker", 0.0) + tradfi_usd
+
         return sleeves, venues
+
+    @staticmethod
+    def _tradfi_value():
+        """USD-waarde van alles bij de broker via utils.nav._broker(). None = onmeetbaar."""
+        try:
+            from utils.nav import _broker
+            potjes = _broker()
+        except Exception as e:
+            logger.warning(f"Broker-waardering faalde: {e}")
+            return None
+        if any(p.get("status") != "ok" or p.get("waarde_usd") is None for p in potjes):
+            return None
+        return round(sum(float(p["waarde_usd"]) for p in potjes), 2)
 
     @staticmethod
     def _conviction_value():

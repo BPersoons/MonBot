@@ -299,6 +299,11 @@ class SwarmMonitor:
         # 23. Barbell-brug: tijdelijk instrument dat over zijn vervaldatum heen loopt
         self._safe_check(self._check_barbell_bridge_expiry)
 
+        # 24. Verliesbewaking (plan 2026-09-15): alle potjes tegen config/experimenten.json.
+        # Bewust NIET achter de pijplijnschakelaar: dit bewaakt geld dat ook zonder
+        # handelsbot beweegt.
+        self._safe_check(self._check_verliesbewaking)
+
         # Add detected_at timestamp to all findings
         now_str = now.strftime("%H:%M:%S UTC")
         for f in findings:
@@ -1202,7 +1207,16 @@ class SwarmMonitor:
     # ──────────────────────────────────────────
 
     THEMATIC_PEAK_FILE = "thematic_wallet_peak.json"
-    THEMATIC_DRAWDOWN_ALERT_PCT = 20.0
+    THEMATIC_DRAWDOWN_ALERT_PCT = 20.0   # alleen terugval als het register onleesbaar is
+
+    def _dip_koper_alarm_pct(self) -> float:
+        """Drawdown-alarm voor de dip-koper uit config/experimenten.json (één bron)."""
+        try:
+            with open("config/experimenten.json", encoding="utf-8") as f:
+                pct = json.load(f)["experimenten"]["dip_koper"]["alarm"]["drawdown_pct"]
+            return float(pct)
+        except Exception:
+            return self.THEMATIC_DRAWDOWN_ALERT_PCT
 
     def _check_thematic_wallet(self):
         """Balance + drawdown watchdog for the Thematic Exposure Sleeve's OWN
@@ -1270,7 +1284,7 @@ class SwarmMonitor:
         if peak <= 0:
             return
         dd = (peak - balance) / peak * 100
-        if dd < self.THEMATIC_DRAWDOWN_ALERT_PCT:
+        if dd < self._dip_koper_alarm_pct():
             return
         alert_key = "thematic_wallet_drawdown"
         last_sent = self._sent_alerts.get(alert_key)
@@ -1352,6 +1366,16 @@ class SwarmMonitor:
             f"scripts/fund_xyz_dex.py met master-key). Agent-key kan dit niet."
         )
         logger.warning(f"[SwarmMonitor] Thematic xyz-dex ondergefinancierd: ${xyz_value:.2f}")
+
+    def _check_verliesbewaking(self):
+        """Check 24 — verlies binnen één monitorronde zien (utils/verliesbewaking.py).
+
+        De logica en de drempels staan in die module en in config/experimenten.json;
+        deze check is alleen de aansluiting op de monitorlus en Telegram. Zo staat
+        elke drempel op één plek.
+        """
+        from utils.verliesbewaking import run_check
+        return run_check(send=lambda tekst: self._send_telegram(_md_escape(tekst)))
 
     def _check_barbell_bridge_expiry(self):
         """Check 23 — een TIJDELIJK instrument mag niet stilzwijgend permanent worden.

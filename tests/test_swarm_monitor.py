@@ -312,7 +312,7 @@ ALTIJD_CHECKS = (
     "_check_supabase_health", "_check_portfolio_health", "_check_position_sync",
     "_check_pnl_digest", "_check_sustained_degradation", "_check_heartbeat",
     "_check_stuck_proposals", "_check_treasury_staleness", "_check_thematic_wallet",
-    "_check_thematic_xyz_collateral",
+    "_check_thematic_xyz_collateral", "_check_verliesbewaking",
 )
 
 
@@ -345,6 +345,29 @@ def test_pijplijn_aan_draait_alle_checks(tmp_path, monkeypatch):
     gedraaid = _run_met_nepchecks(_make_monitor(), True, tmp_path, monkeypatch)
     gemist = (set(PIJPLIJN_CHECKS) | set(ALTIJD_CHECKS)) - gedraaid
     assert not gemist, "met de pijplijn aan werd overgeslagen: %s" % sorted(gemist)
+
+
+def test_check_24_meldt_via_telegram_met_escaping():
+    """Check 24 is alleen aansluiting: run_check krijgt een zender die escapet."""
+    monitor = _make_monitor()
+    verzonden = []
+    monitor._send_telegram = verzonden.append
+
+    def _nep_run_check(send):
+        send("🟠 ALARM — usdc_peg: USDC noteert $0.9900")
+        return ["x"]
+
+    with patch("utils.verliesbewaking.run_check", _nep_run_check):
+        assert monitor._check_verliesbewaking() == ["x"]
+    assert verzonden and "usdc\\_peg" in verzonden[0], "underscore niet ge-escaped: %r" % verzonden
+
+
+def test_dip_koper_drempel_komt_uit_het_register():
+    monitor = _make_monitor()
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "config", "experimenten.json"), encoding="utf-8") as fh:
+        verwacht = _json.load(fh)["experimenten"]["dip_koper"]["alarm"]["drawdown_pct"]
+    assert monitor._dip_koper_alarm_pct() == verwacht
 
 
 def test_pijplijn_uit_geen_stale_alarm_voor_scout_en_projectlead():

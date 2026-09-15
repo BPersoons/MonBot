@@ -1,0 +1,74 @@
+{
+  "_comment": "Experimentregister (plan 2026-09-15, S1). EEN bron voor hypothese, budget, alarm-, kill- en poortdrempels. utils/kpi.py, SwarmMonitor Check 24 en de controle-agent lezen dit bestand; drempels horen nergens anders hardcoded te staan. BEWUST in de image en NIET volume-mounted: een drempel wijzigen is een besluit en loopt via commit -> A1-audit -> deploy. Poorten worden nooit opgerekt; een verruiming vraagt Bart.",
+  "versie": 1,
+  "benchmark": {
+    "id": "aave-v3-arbitrum-usdc",
+    "omschrijving": "Rente op het veilige potje zonder iets te doen. Elk experiment moet dit over dezelfde periode verslaan."
+  },
+  "globaal": {
+    "verliesbudget_usd": 250,
+    "verliesbudget_alarm_usd": 125,
+    "hlp_max_aandeel_van_veilig": 0.3333,
+    "veilig_min_direct_opneembaar": 0.6667,
+    "max_hefboom": 2.0,
+    "meting_max_snapshot_leeftijd_uur": 26,
+    "detectie_doel_minuten": 10
+  },
+  "controles": {
+    "veilig_integriteit": {
+      "omschrijving": "Aave/Fluid: een share price of liquidityIndex die daalt is een verliesgebeurtenis; saldo-daling na flow-correctie idem.",
+      "alarm_share_price_daling_pct": 0.0,
+      "alarm_saldo_daling_pct": 0.5,
+      "kill_saldo_daling_pct": 1.0,
+      "kill_actie": "YIELD_SWITCH naar het andere protocol; beide geraakt -> melden"
+    },
+    "usdc_peg": {
+      "alarm_onder": 0.995,
+      "kill_onder": 0.98,
+      "kill_actie": "melden (geen automatische actie)"
+    }
+  },
+  "experimenten": {
+    "fluid_rente": {
+      "sleeve": "yield_core",
+      "status": "gepland",
+      "mijlpaal": "M3",
+      "hypothese": "Fluid fUSDC op Arbitrum levert structureel meer dan Aave Arbitrum (180d gem. 5,46% vs ~2,6%) zonder wezenlijk extra risico.",
+      "kpi": "gemeten APR over 14 dagen, flow-gecorrigeerd",
+      "poort": {"min_apr_pct": 4.0, "max_afwijking_defillama_pp": 1.0, "min_dagen": 14},
+      "kill": {"dagen_onder_benchmark": 30},
+      "verliesbudget_telt_mee": false
+    },
+    "hlp_vault": {
+      "sleeve": "house",
+      "status": "gepland",
+      "mijlpaal": "M5",
+      "hypothese": "HLP levert over 4 weken geannualiseerd >= benchmark + 3pp bij een drawdown <= 5%.",
+      "start_inleg_usd": 500,
+      "kpi": "tijdgewogen rendement en drawdown vanaf piek, flow-gecorrigeerd",
+      "alarm": {"drawdown_pct": 3.0},
+      "kill": {"drawdown_pct": 8.0, "weken_onder_benchmark": 8, "actie": "opnameverzoek (4 dagen blokkade)"},
+      "poort": {"datum": "2026-11-07", "min_excess_pp": 3.0, "max_drawdown_pct": 5.0, "daarna": "ophogen tot hlp_max_aandeel_van_veilig"},
+      "verliesbudget_telt_mee": true
+    },
+    "basis_traag": {
+      "sleeve": "basis",
+      "status": "onderzoek",
+      "mijlpaal": "M6",
+      "hypothese": "Short perp + long spot op BTC/ETH/HYPE, weken vasthouden, levert >= 6% netto APR op kapitaal, elk kalenderjaar >= 0.",
+      "kpi": "netto P&L = funding - fees +/- basisbeweging, op ingezet kapitaal",
+      "alarm": {"verlies_usd": 10, "funding_negatief_dagen": 3},
+      "kill": {"verlies_usd": 25, "funding_negatief_dagen": 14, "actie": "sluiten, reduceOnly"},
+      "poort": {"backtest_min_netto_apr_pct": 6.0, "backtest_min_jaar_pct": 0.0, "shadow_weken": 3, "shadow_tolerantie_pp": 3.0, "live_notional_usd": 500},
+      "verliesbudget_telt_mee": true
+    },
+    "dip_koper": {
+      "sleeve": "thematic_exposure",
+      "status": "live",
+      "hypothese": "Index-achtig rendement; geen extra kapitaal (besluit 2026-09-15). Evaluatie 2026-09-25.",
+      "alarm": {"drawdown_pct": 15.0},
+      "kill": null,
+      "verliesbudget_telt_mee": false
+    }
+  }
+}
