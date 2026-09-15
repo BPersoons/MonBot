@@ -154,6 +154,96 @@ def test_rem_zit_voor_switch_diversificatie_hl_excess_en_deploy_in_run_fast():
             assert all(aangeroepen.values()), "zonder fouten moet alles draaien: %s" % aangeroepen
 
 
+def test_rem_zit_voor_switch_diversificatie_hl_excess_en_deploy_in_run(tmp_path, monkeypatch):
+    """A1-audit ronde 2: dezelfde aansluitingstoets als voor run_fast, nu voor run()."""
+    from unittest.mock import MagicMock
+    monkeypatch.chdir(tmp_path)   # run() schrijft treasury_state.json in de werkmap
+    for geblokkeerd in (True, False):
+        agent = _agent()
+        fouten = [_fout(1), _fout(2)] if geblokkeerd else []
+        agent.get_hl_snapshot = MagicMock(return_value={"balance": 100.0, "free_margin": 90.0})
+        agent.get_yield_opportunities = MagicMock(return_value=[_opp(BENCH)])
+        agent._get_yield_balances = MagicMock(return_value={BENCH: 1000.0})
+        agent._compute_target_allocation = MagicMock(return_value={})
+        agent._get_sleeve_allocation = MagicMock(return_value={"total": 0.0})
+        agent._load_proposals = MagicMock(return_value=list(fouten))
+        agent.generate_proposals = MagicMock(return_value=[])
+        agent._upsert_proposals = MagicMock(return_value=[])
+        agent._check_rebalance_needed = MagicMock(side_effect=lambda hl, p: p)
+        agent._check_hl_excess = MagicMock(side_effect=lambda hl, p, o: p)
+        agent._check_yield_switch = MagicMock(side_effect=lambda o, y, p: (p, []))
+        agent._check_yield_diversification = MagicMock(side_effect=lambda o, y, p: (p, []))
+        agent._check_funding_harvest = MagicMock()
+        agent._monitor_funding_harvest = MagicMock()
+        agent._check_sleeve_funding = MagicMock(side_effect=lambda s, g, hl, p: (p, []))
+        agent._execute_fund_sleeve = MagicMock(side_effect=lambda p: p)
+        agent._check_sleeve_rebalance = MagicMock(side_effect=lambda s, g, p: (p, []))
+        agent._execute_sleeve_rebalance = MagicMock(side_effect=lambda p: p)
+        agent.execute_approved_proposals = MagicMock(side_effect=lambda p: p)
+        agent._save_proposals = MagicMock()
+        agent._get_harvest_state = MagicMock(return_value={})
+        with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=500.0):
+            agent.run()
+        aangeroepen = {
+            "switch": agent._check_yield_switch.called,
+            "diversificatie": agent._check_yield_diversification.called,
+            "hl_excess": agent._check_hl_excess.called,
+            "deploy": agent.generate_proposals.called,
+        }
+        if geblokkeerd:
+            assert not any(aangeroepen.values()), "rem niet overal in run(): %s" % aangeroepen
+        else:
+            assert all(aangeroepen.values()), "zonder fouten moet alles draaien: %s" % aangeroepen
+
+
+def _deploy_onderweg(status="BRIDGED"):
+    return {"id": "TRP_x", "type": "DEPLOY_YIELD", "status": status, "protocol_id": "fluid"}
+
+
+def _switch_agent(strikt):
+    agent = _agent()
+    agent._strikte_yield_saldi = lambda: dict(strikt)
+    agent._load_protocol_config = lambda: [{"id": BENCH, "label": BENCH, "type": "aave_v3"},
+                                           {"id": "fluid", "label": "fluid", "type": "erc4626"}]
+    return agent
+
+
+def test_geen_switch_zolang_een_deploy_onderweg_is():
+    """A1-audit ronde 2: de cap ziet geld onderweg niet, dus geen twee bewegingen tegelijk."""
+    opps = [_opp(BENCH, apy=2.6), dict(_opp("fluid", apy=9.0), risk_adjusted_apy=8.0)]
+    saldi = {BENCH: 1000.0}
+    zonder, _ = _switch_agent({BENCH: 1000.0, "fluid": 0.0})._check_yield_switch(opps, saldi, [])
+    assert [p["type"] for p in zonder] == ["YIELD_SWITCH"], "controle: zonder deploy onderweg wél een switch"
+    for status in ("APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"):
+        met, _ = _switch_agent({BENCH: 1000.0, "fluid": 0.0})._check_yield_switch(
+            opps, saldi, [_deploy_onderweg(status)])
+        assert [p["type"] for p in met] == ["DEPLOY_YIELD"], status
+
+
+def test_geen_diversificatie_zolang_een_deploy_onderweg_is():
+    opps = [_opp(BENCH, apy=2.6), _opp("fluid", apy=2.5)]
+    saldi = {BENCH: 1000.0, "fluid": 50.0}
+    zonder, _ = _switch_agent(saldi)._check_yield_diversification(opps, saldi, [])
+    assert [p.get("diversification") for p in zonder] == [True], "controle: zonder deploy wél diversificatie"
+    met, _ = _switch_agent(saldi)._check_yield_diversification(opps, saldi, [_deploy_onderweg()])
+    assert [p["type"] for p in met] == ["DEPLOY_YIELD"]
+
+
+def test_geen_hl_overschot_zolang_een_switch_loopt():
+    from unittest.mock import MagicMock
+    hl = {"balance": 1000.0, "free_margin": 900.0}
+    for status, verwacht_gelezen in ((None, True), ("APPROVED", False), ("SWITCHING", False)):
+        agent = _agent()
+        voorstellen = [] if status is None else [{"id": "TRS_x", "type": "YIELD_SWITCH", "status": status}]
+        saldo = MagicMock(return_value=0.0)
+        with patch("utils.treasury_executor.get_total_yield_balance", saldo), \
+             patch("utils.treasury_executor.get_arb_usdc_balance", return_value=0.0), \
+             patch.object(agent, "_compute_target_allocation", return_value={"target_trade_usd": 1000.0}):
+            uit = agent._check_hl_excess(hl, voorstellen, [_opp(BENCH)])
+        assert saldo.called is verwacht_gelezen, status
+        assert uit == voorstellen
+
+
 def test_oude_fouten_en_andere_types_tellen_niet():
     agent = _agent()
     oud = [_fout(30), _fout(40)]

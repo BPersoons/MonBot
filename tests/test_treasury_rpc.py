@@ -116,6 +116,37 @@ def test_deposit_dry_run_komt_na_de_approve():
     assert soorten[1][0] == "sim" and soorten[2][0] == "send", "dry-run tussen approve en supply"
 
 
+def _erc4626_mocks(volgorde, simulatie_faalt=False):
+    """Zelfde logging als _deposit_mocks, met de saldo- en gasreads van _deposit_erc4626."""
+    patches = _deposit_mocks(volgorde, simulatie_faalt)
+    patches[2] = patch.object(te, "get_arb_usdc_balance", side_effect=[1000.0, 900.0])
+    return patches[:-1] + [patch.object(te, "_estimate_gas", return_value=400_000), patches[-1]]
+
+
+VAULT = "0x1A996cb54bb95462040408c06122D45D6Cdb6096"
+
+
+def test_erc4626_dry_run_komt_na_de_approve():
+    """A1-audit ronde 2: dezelfde volgorde als Aave, maar dan voor Fluid/Morpho (erc4626)."""
+    volgorde = []
+    _met(_erc4626_mocks(volgorde), lambda: te._deposit_erc4626(100.0, VAULT, "0xkey"))
+    soorten = [(s, sel) for s, sel, _ in volgorde]
+    assert soorten[0] == ("send", "0x095ea7b3"), "eerst de approve"
+    assert soorten[1] == ("sim", "0x6e553f65"), "dan de dry-run van deposit"
+    assert soorten[2] == ("send", "0x6e553f65"), "pas daarna de echte deposit"
+
+
+def test_erc4626_revert_in_dry_run_trekt_de_approve_in_en_stort_niet():
+    volgorde = []
+    with pytest.raises(RuntimeError, match="NIET verstuurd"):
+        _met(_erc4626_mocks(volgorde, simulatie_faalt=True),
+             lambda: te._deposit_erc4626(100.0, VAULT, "0xkey"))
+    sends = [(sel, bedrag) for s, sel, bedrag in volgorde if s == "send"]
+    assert sends[0][0] == "0x095ea7b3" and sends[0][1] > 0, "approve"
+    assert sends[-1] == ("0x095ea7b3", 0), "approve moet weer op 0"
+    assert all(sel == "0x095ea7b3" for sel, _ in sends), "er mag geen deposit verstuurd zijn"
+
+
 def test_revert_in_dry_run_trekt_de_approve_in_en_stort_niet():
     volgorde = []
     with pytest.raises(RuntimeError, match="NIET verstuurd"):

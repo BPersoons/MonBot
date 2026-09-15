@@ -58,3 +58,16 @@
 | open vraag | Rem ook op switches? | Ja — zie 5 |
 | open vraag | Dry-run met state-override of ná de approve? | Ná de approve: eenvoudig en toetsbaar; kost bij een revert alleen de approve- en revoke-gas |
 | bijvangst | Pre-flight | `check_treasury` gebruikt case-saldi als strikte saldi (geen netwerk), en case F accepteert de helper mits die beide checks én de rem aanroept |
+
+**Oordeel A1 ronde 2 (controle-agent, 9,2 min): GO-mits.** Voorwaarde vóór deploy: een aansluitingstoets voor de rem in `run()`. Voorwaarden vóór M3: geld onderweg bij de cap, en volgordetoetsen voor erc4626.
+
+## Reactie bouwer (ronde 2)
+
+| # | Bevinding | Reactie |
+|---|---|---|
+| 1 | Rem in `run()` niet getoetst (voorwaarde deploy) | **Opgelost.** `test_rem_zit_voor_switch_diversificatie_hl_excess_en_deploy_in_run`: met 2 fouten in 24u worden switch, diversificatie, HL-excess en generate niet aangeroepen; zonder fouten wel |
+| 2 | Cap telt geld onderweg niet (voorwaarde M3) | **Opgelost door uitsluiten, niet door optellen.** Geen HL-overschot tijdens een YIELD_SWITCH APPROVED/SWITCHING (`_check_hl_excess`); geen switch of diversificatie zolang een DEPLOY_YIELD onderweg is (`_DEPLOY_ONDERWEG`). Samen met de bestaande guards (geen generate tijdens DEPLOY_YIELD in-flight of SWITCHING) is er nooit meer dan één beweging naar yield tegelijk. Toetsen met positieve controle: `test_geen_switch_zolang_een_deploy_onderweg_is`, `test_geen_diversificatie_zolang_een_deploy_onderweg_is`, `test_geen_hl_overschot_zolang_een_switch_loopt`. Mutatietoets: met `_DEPLOY_ONDERWEG = set()` falen de eerste twee |
+| 3 | erc4626-volgorde ongetoetst (voorwaarde M3) | **Opgelost.** `test_erc4626_dry_run_komt_na_de_approve`, `test_erc4626_revert_in_dry_run_trekt_de_approve_in_en_stort_niet` |
+| 4 | Dode `_check_treasury_wallet_usdc` | **Verwijderd** (geen aanroepers; grep over de repo) |
+| 5 | Approve kan blijven hangen bij allowance mismatch | Niet gewijzigd: geen geldrisico (USDC blijft op de wallet, allowance naar een geverifieerd contract); staat op de lijst |
+| open vraag | Geld onderweg meetellen of uitsluiten? | Uitsluiten — eenvoudiger, toetsbaar, en de kosten (een switch wacht een bridge van minuten af) zijn verwaarloosbaar |

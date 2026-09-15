@@ -82,6 +82,10 @@ _YIELD_SWITCH_MIN_SPREAD = 1.5   # % APY improvement needed to trigger an automa
 _YIELD_SWITCH_MIN_USD    = 100   # minimum deployed balance worth switching (gas cost break-even)
 
 
+# Statussen waarin een DEPLOY_YIELD geld onderweg heeft (zelfde set als de in-flight-checks).
+_DEPLOY_ONDERWEG = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"}
+
+
 def _max_aandeel_per_protocol() -> tuple:
     """(max aandeel van het rendementspotje per niet-benchmark-protocol, benchmark-id).
 
@@ -1235,6 +1239,12 @@ class TreasuryAgent:
         in_flight = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"}
         if any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in in_flight for p in all_proposals):
             return all_proposals
+        # Geen HL-overschot tijdens een lopende switch: de cap ziet geld onderweg niet, en
+        # twee gecapte bewegingen naar hetzelfde protocol zouden samen over de cap gaan
+        # (A1-audit kasbeheer-fixes ronde 2).
+        if any(p.get("type") == "YIELD_SWITCH" and p.get("status") in {"APPROVED", "SWITCHING"}
+               for p in all_proposals):
+            return all_proposals
 
         try:
             yield_bal     = get_total_yield_balance(_TREASURY_WALLET)
@@ -1353,69 +1363,6 @@ class TreasuryAgent:
         )
         return all_proposals
 
-    # ── Treasury wallet USDC detection ───────────────────────────────────────
-
-    def _check_treasury_wallet_usdc(self, all_proposals: list, opportunities: list) -> list:
-        """
-        If USDC sits idle on the treasury wallet (e.g. user deposited directly),
-        create a PENDING DEPLOY_YIELD proposal with source='treasury_wallet'.
-        The executor skips the HL bridge step for these proposals.
-        """
-        from utils.treasury_executor import get_arb_usdc_balance, _TREASURY_WALLET
-
-        # Skip if any DEPLOY_YIELD proposal is already active
-        active = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"}
-        if any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in active for p in all_proposals):
-            return all_proposals
-
-        balance = get_arb_usdc_balance(_TREASURY_WALLET)
-        if balance < _MIN_DEPLOY_USD:
-            return all_proposals
-
-        # Pick best Arbitrum yield; fall back to Aave label if none found
-        best = next(
-            (o for o in opportunities if o["apy"] >= _MIN_APY and o["chain"].lower() == "arbitrum"),
-            None,
-        )
-        if not best:
-            best = {"label": "Aave v3 · Arbitrum · USDC", "apy": 0.0}
-
-        monthly = round(balance * (best["apy"] / 100) / 12, 2)
-        yearly  = round(balance * (best["apy"] / 100), 2)
-
-        proposal = {
-            "id":                f"TRW_{datetime.utcnow().strftime('%Y%m%d_%H%M')}",
-            "type":              "DEPLOY_YIELD",
-            "status":            "PENDING",
-            "source":            "treasury_wallet",  # USDC already on Arbitrum — skip bridge
-            "title":             f"Deploy ${balance:.0f} treasury wallet USDC → Aave",
-            "amount_usd":        round(balance, 2),
-            "protocol":          best["label"],
-            "chain":             "Arbitrum",
-            "apy":               best["apy"],
-            "projected_monthly": monthly,
-            "projected_yearly":  yearly,
-            "buffer_remaining":  0,
-            "rationale": (
-                f"${balance:.0f} USDC gedetecteerd op treasury wallet ({_TREASURY_WALLET[:10]}…). "
-                f"Geen bridge nodig — direct storten in {best['label']} @ {best['apy']:.1f}% APY. "
-                f"Verwacht: ${monthly:.2f}/mnd | ${yearly:.2f}/jaar."
-            ),
-            "steps": [
-                f"1. Automatisch: approve + supply ${balance:.0f} USDC → Aave v3 Arbitrum",
-            ],
-            "created_at": datetime.utcnow().isoformat(),
-        }
-
-        all_proposals.append(proposal)
-        logger.info(f"💰 Treasury: ${balance:.0f} USDC gedetecteerd op treasury wallet — voorstel aangemaakt")
-        self._send_telegram(
-            f"💰 *Treasury: USDC gedetecteerd*\n"
-            f"${balance:.0f} USDC op treasury wallet ({_TREASURY_WALLET[:10]}…)\n"
-            f"Keur goed in het dashboard om automatisch te storten bij Aave."
-        )
-        return all_proposals
-
     # ── Yield balance tracking ────────────────────────────────────────────────
 
     def _get_yield_balances(self) -> dict:
@@ -1454,6 +1401,11 @@ class TreasuryAgent:
         # Skip if a switch is already in flight
         switch_active = {"APPROVED", "SWITCHING"}
         if any(p.get("type") == "YIELD_SWITCH" and p.get("status") in switch_active for p in all_proposals):
+            return all_proposals, pending_notifs
+        # Ook niet zolang er een DEPLOY_YIELD onderweg is: de cap ziet dat geld niet
+        # (A1-audit kasbeheer-fixes ronde 2).
+        if any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in _DEPLOY_ONDERWEG
+               for p in all_proposals):
             return all_proposals, pending_notifs
 
         # Cooldown: skip if any switch was created within the last 6 hours (prevents restart spam)
@@ -1630,6 +1582,10 @@ class TreasuryAgent:
         # Skip if any YIELD_SWITCH is already in-flight (prevents overlap with APY-driven switches)
         switch_active = {"APPROVED", "SWITCHING"}
         if any(p.get("type") == "YIELD_SWITCH" and p.get("status") in switch_active for p in all_proposals):
+            return all_proposals, pending_notifs
+        # Ook niet zolang er een DEPLOY_YIELD onderweg is (cap ziet geld onderweg niet).
+        if any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in _DEPLOY_ONDERWEG
+               for p in all_proposals):
             return all_proposals, pending_notifs
 
         # Cooldown: skip if a diversification proposal was created recently
