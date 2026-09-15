@@ -60,6 +60,10 @@ new_api_key.txt
 .claude/hooks/*
 !.claude/hooks/*.py
 !.claude/hooks/*.sh
+# De controle-agent hoort bij de werkwijze van het project, net als de skills.
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/*.md
 
 # Junk / OS artifacts
 nul

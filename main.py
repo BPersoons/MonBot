@@ -304,12 +304,22 @@ def main():
         sleeve_nav = None
 
     # --- ShadowBasis (Masterplan Fase 1: delta-neutral basis trade, shadow-only) ---
+    # Uit sinds 2026-09-15: deze variant sprong op alts in en uit binnen 1-2 uur en
+    # boekte zo -$683 over 222 papieren trades aan fees. Dat meet niet de trage
+    # BTC/ETH-basis waar het plan om vraagt (spoor 3). Herstellen:
+    # subsystem_shadow_basis_enabled=true in config/auto_params.json.
     shadow_basis = None
+    _shadow_basis_aan = _subsysteem_aan("shadow_basis")
     try:
+        if not _shadow_basis_aan:
+            logger.info("   ⏸️  ShadowBasis UITGEZET via auto_params — dit is geen fout")
+            raise _SubsysteemUit()
         logger.info("   → Initializing ShadowBasis...")
         from utils.shadow_basis import ShadowBasis
         shadow_basis = ShadowBasis()
         logger.info("   ✅ ShadowBasis initialized successfully")
+    except _SubsysteemUit:
+        shadow_basis = None
     except Exception as e:
         logger.error(f"   ⚠️ ShadowBasis FAILED (non-critical): {e}")
         shadow_basis = None
