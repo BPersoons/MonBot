@@ -5,6 +5,8 @@
     python research/track.py dashboard  # research/dashboard.html (voeg --snel toe om
                                         #   de cijferdatums over te slaan)
     python research/track.py check      # CI-modus: zwijgt tenzij er actie nodig is
+    python research/track.py herstel    # eenmalig: snapshots met NaN opnieuw uitrekenen
+                                        #   uit historische slotkoersen
     python research/track.py fundamentals  # toetst de fundamentele wacht- en
                                         #   terugkeervoorwaarden aan de kwartaalcijfers
 
@@ -18,9 +20,10 @@ gingen hoge scores écht aan goede uitkomsten vooraf?
 
 import io
 import json
+import math
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 LEDGER = os.path.join(os.path.dirname(__file__), "ledger.json")
 TRACKING = os.path.join(os.path.dirname(__file__), "tracking.json")
@@ -51,10 +54,15 @@ def fetch_prices(tickers):
     for t in sorted(set(tickers)):
         try:
             hist = yf.Ticker(t).history(period="5d")
-            if hist.empty:
+            # Een onvolledige rij voor vandaag komt als NaN mee. float(nan) is geen
+            # None, dus zonder dropna glipte hij langs elke controle: van 24-08 t/m
+            # 15-09 was de hele meting NaN terwijl CI groen bleef.
+            closes = hist["Close"].dropna() if "Close" in hist else None
+            if closes is None or closes.empty:
                 out[t] = None
                 continue
-            out[t] = float(hist["Close"].iloc[-1])
+            v = float(closes.iloc[-1])
+            out[t] = v if _eindig(v) else None
         except Exception as exc:  # netwerk, delisting, ticker-hernoeming
             print("  ! %s: %s" % (t, exc), file=sys.stderr)
             out[t] = None
@@ -67,9 +75,29 @@ def avg_score(entry):
     return round(sum(vals) / len(vals), 2) if vals else None
 
 
-def days_since(date_str):
+def days_since(date_str, tot=None):
+    """Dagen sinds date_str, tot vandaag of tot de datum `tot` (voor herstel)."""
     d = datetime.strptime(date_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - d).days
+    ref = (datetime.strptime(tot[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+           if tot else datetime.now(timezone.utc))
+    return (ref - d).days
+
+
+def _eindig(x):
+    """Een bruikbaar getal: geen None, geen NaN, geen oneindig."""
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def niet_eindig(obj, pad=""):
+    """Paden naar NaN- of inf-getallen in een geneste structuur. Leeg = schoon."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return [pad or "<wortel>"]
+    if isinstance(obj, dict):
+        return [p for k, v in obj.items()
+                for p in niet_eindig(v, "%s.%s" % (pad, k) if pad else str(k))]
+    if isinstance(obj, list):
+        return [p for i, v in enumerate(obj) for p in niet_eindig(v, "%s[%d]" % (pad, i))]
+    return []
 
 
 # ----------------------------------------------------------------- de meetlat
@@ -106,12 +134,14 @@ def fetch_market(ledger, entries):
     prices = fetch_prices(tickers)
 
     bench_now = prices.get(bench["ticker"])
-    if bench_now is None:
+    if not _eindig(bench_now):
         return bench, prices, None, None
 
     fx_now = None
     if bench["fx_ticker"]:
         fx_now = prices.get(bench["fx_ticker"])
+        if not _eindig(fx_now):
+            fx_now = None
         if fx_now:
             _verify_fx(entries, fx_now, bench)
     return bench, prices, bench_now, fx_now
@@ -143,7 +173,7 @@ def returns_pct(entry, price_now, bench_now, fx_now, bench):
     """
     p0 = entry.get("price_at_score")
     b0 = entry.get("benchmark_price_at_score")
-    if not p0 or not b0 or price_now is None or bench_now is None:
+    if not p0 or not b0 or not _eindig(price_now) or not _eindig(bench_now):
         return None, None
 
     bench_ret = (bench_now / b0 - 1) * 100
@@ -152,11 +182,37 @@ def returns_pct(entry, price_now, bench_now, fx_now, bench):
         return (price_now / p0 - 1) * 100, bench_ret
 
     f0 = entry.get("fx_at_score")
-    if not f0 or not fx_now:
+    if not f0 or not _eindig(fx_now):
         return None, None
     # fx noteert naamvaluta per eenheid benchmarkvaluta (EURUSD=X: USD per EUR),
     # dus DELEN zet een USD-koers om in EUR. Zie _benchmark.fx_note in de ledger.
     return ((price_now / fx_now) / (p0 / f0) - 1) * 100, bench_ret
+
+
+def make_row(e, now, bench_now, fx_now, bench, op_datum=None):
+    """Eén meetregel, of None als hij niet af te rekenen is.
+
+    Eén plek voor meet, check en herstel: de meetlogica heeft al eens op drie
+    plekken gestaan en liep toen uit elkaar.
+    """
+    ret, bench_ret = returns_pct(e, now, bench_now, fx_now, bench)
+    if ret is None:
+        return None
+    wp = e.get("wait_price_below")
+    return {
+        "ticker": e["ticker"],
+        "verdict": e["verdict"],
+        "avg_score": avg_score(e),
+        "scored_at": e["scored_at"],
+        "days_held": days_since(e["scored_at"], op_datum),
+        "price_at_score": e.get("price_at_score"),
+        "price_now": round(now, 2),
+        "return_pct": round(ret, 2),
+        "benchmark_return_pct": round(bench_ret, 2),
+        "relative_pct": round(ret - bench_ret, 2),
+        "wait_price_below": wp,
+        "wait_triggered": bool(wp and now <= wp),
+    }
 
 
 # --------------------------------------------------------------------------- meet
@@ -172,27 +228,11 @@ def cmd_meet(ledger):
 
     rows, skipped = [], []
     for e in entries:
-        now = prices.get(e["ticker"])
-        p0 = e.get("price_at_score")
-        ret, bench_ret = returns_pct(e, now, bench_now, fx_now, bench)
-        if ret is None:
+        row = make_row(e, prices.get(e["ticker"]), bench_now, fx_now, bench)
+        if row is None:
             skipped.append(e["ticker"])
             continue
-
-        rows.append({
-            "ticker": e["ticker"],
-            "verdict": e["verdict"],
-            "avg_score": avg_score(e),
-            "scored_at": e["scored_at"],
-            "days_held": days_since(e["scored_at"]),
-            "price_at_score": p0,
-            "price_now": round(now, 2),
-            "return_pct": round(ret, 2),
-            "benchmark_return_pct": round(bench_ret, 2),
-            "relative_pct": round(ret - bench_ret, 2),
-            "wait_price_below": e.get("wait_price_below"),
-            "wait_triggered": bool(e.get("wait_price_below") and now <= e["wait_price_below"]),
-        })
+        rows.append(row)
 
     rows.sort(key=lambda r: r["relative_pct"], reverse=True)
 
@@ -244,22 +284,31 @@ def cmd_meet(ledger):
     print("\nSnapshot opgeslagen in research/tracking.json (%d in historie)." % n_hist)
 
 
-def save_snapshot(bench, bench_now, fx_now, rows):
+def save_snapshot(bench, bench_now, fx_now, rows, measured_at=None, extra=None):
     """Schrijft de meting van vandaag weg; een tweede run dezelfde dag overschrijft.
 
     De benchmark en de valuta gaan MEE in de snapshot. Zonder die twee is een
     oude meting niet te duiden zodra de meetlat wisselt — en dat is op
     2026-08-24 gebeurd (URTH/USD -> WEBN/EUR).
+
+    Weigert NaN of inf: een snapshot met NaN ziet er in git uit als een meting
+    en is er geen. Liever een luide fout dan drie weken stille leegte.
     """
     snapshot = {
-        "measured_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "measured_at": measured_at or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "benchmark": bench["ticker"],
-        "benchmark_price": round(bench_now, 4),
+        "benchmark_price": round(bench_now, 4) if _eindig(bench_now) else bench_now,
         "benchmark_currency": bench["currency"],
         "fx_ticker": bench["fx_ticker"],
         "fx_rate": round(fx_now, 4) if fx_now else None,
         "rows": rows,
     }
+    if extra:
+        snapshot.update(extra)
+    vuil = niet_eindig(snapshot)
+    if vuil or not _eindig(bench_now):
+        raise ValueError("Snapshot %s bevat NaN/inf (%s) — niet weggeschreven."
+                         % (snapshot["measured_at"], ", ".join(vuil[:5]) or "benchmark_price"))
     history = {"snapshots": []}
     if os.path.exists(TRACKING):
         try:
@@ -291,43 +340,41 @@ def cmd_check(ledger):
     entries = live_entries(ledger)
     bench, prices, bench_now, fx_now = fetch_market(ledger, entries)
     if bench_now is None:
-        print("Benchmark %s niet op te halen — meting overgeslagen." % bench["ticker"])
-        _emit(False, "")
+        # Vroeger zweeg dit. Maar onmeetbaar is niet gehaald: een dag zonder meting
+        # moet je weten, anders ontdek je het pas bij de poort.
+        msg = ("<b>Scorekaart-ledger</b>\n⚠️ Meting mislukt: benchmark %s niet op te "
+               "halen. Vandaag is er niets gemeten." % bench["ticker"])
+        print(msg)
+        _emit(True, msg)
         return
 
-    rows, triggered, stale = [], [], []
+    rows, triggered, stale, ontbrekend = [], [], [], []
     for e in entries:
         now = prices.get(e["ticker"])
-        p0 = e.get("price_at_score")
-        ret, bench_ret = returns_pct(e, now, bench_now, fx_now, bench)
-        if ret is None:
+        row = make_row(e, now, bench_now, fx_now, bench)
+        if row is None:
+            ontbrekend.append(e["ticker"])
             continue
-        wp = e.get("wait_price_below")
-        row = {
-            "ticker": e["ticker"], "verdict": e["verdict"], "avg_score": avg_score(e),
-            "scored_at": e["scored_at"], "days_held": days_since(e["scored_at"]),
-            "price_at_score": p0, "price_now": round(now, 2),
-            "return_pct": round(ret, 2), "benchmark_return_pct": round(bench_ret, 2),
-            "relative_pct": round(ret - bench_ret, 2),
-            "wait_price_below": wp,
-            "wait_triggered": bool(wp and now <= wp),
-        }
         rows.append(row)
         if row["wait_triggered"]:
-            triggered.append((e, now, wp))
+            triggered.append((e, now, e.get("wait_price_below")))
         if row["days_held"] >= RESCORE_AFTER_DAYS:
             stale.append(e["ticker"])
 
-    save_snapshot(bench, bench_now, fx_now, rows)
+    if rows:
+        save_snapshot(bench, bench_now, fx_now, rows)
     avg_rel = sum(r["relative_pct"] for r in rows) / len(rows) if rows else 0.0
-    print("%d namen gemeten · gemiddeld %+.2f%% vs %s · %d trigger(s) geraakt"
-          % (len(rows), avg_rel, bench["label"], len(triggered)))
+    print("%d van %d namen gemeten · gemiddeld %+.2f%% vs %s · %d trigger(s) geraakt"
+          % (len(rows), len(entries), avg_rel, bench["label"], len(triggered)))
 
-    if not triggered and not stale:
+    if not triggered and not stale and not ontbrekend:
         _emit(False, "")
         return
 
     lines = ["<b>Scorekaart-ledger</b>"]
+    if ontbrekend:
+        lines.append("\n⚠️ Meting onvolledig: %d van %d namen gemeten. Ontbrekend: %s"
+                     % (len(rows), len(entries), ", ".join(ontbrekend)))
     for e, now, wp in triggered:
         partial = e.get("wait_price_is_partial")
         lines.append(
@@ -360,6 +407,73 @@ def _emit(triggered, message):
     with io.open(out, "a", encoding="utf-8") as fh:
         fh.write("triggered=%s\n" % ("true" if triggered else "false"))
         fh.write("message<<SCOREKAART_EOF\n%s\nSCOREKAART_EOF\n" % message)
+
+
+# --------------------------------------------------------------------------- herstel
+
+def cmd_herstel(ledger):
+    """Eenmalig: snapshots met NaN opnieuw uitrekenen uit historische slotkoersen.
+
+    Van 24-08 t/m 15-09 schreef `check` NaN weg (zie fetch_prices). Die meetdagen
+    zijn niet verloren, want de slotkoersen staan nog bij yfinance. Per snapshot
+    nemen we per ticker de slotkoers van de laatste handelsdag VÓÓR measured_at:
+    de run van 22:30 UTC landde in de praktijk rond 00:30 UTC de dag erna, dus dat
+    is de koers die hij had moeten zien. Herstelde snapshots dragen `hersteld_op`.
+    """
+    import yfinance as yf
+
+    with io.open(TRACKING, encoding="utf-8") as fh:
+        history = json.load(fh)
+    kapot = [s for s in history.get("snapshots", []) if niet_eindig(s)]
+    if not kapot:
+        print("Geen snapshots met NaN — niets te herstellen.")
+        return
+
+    entries = live_entries(ledger)
+    bench = bench_config(ledger)
+    tickers = sorted({e["ticker"] for e in entries} | {bench["ticker"]}
+                     | ({bench["fx_ticker"]} if bench["fx_ticker"] else set()))
+    start = (datetime.strptime(min(s["measured_at"] for s in kapot), "%Y-%m-%d")
+             - timedelta(days=10)).strftime("%Y-%m-%d")
+
+    reeksen = {}
+    for t in tickers:
+        hist = yf.Ticker(t).history(start=start)
+        closes = hist["Close"].dropna() if "Close" in hist else None
+        if closes is None or closes.empty:
+            sys.exit("Geen historie voor %s — herstel afgebroken, niets geschreven." % t)
+        reeksen[t] = {ts.strftime("%Y-%m-%d"): float(v) for ts, v in closes.items()}
+
+    def slot_voor(t, datum):
+        dagen = [d for d in reeksen[t] if d < datum]
+        return reeksen[t][max(dagen)] if dagen else None
+
+    vandaag = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    for s in kapot:
+        d = s["measured_at"]
+        bench_now = slot_voor(bench["ticker"], d)
+        fx_now = slot_voor(bench["fx_ticker"], d) if bench["fx_ticker"] else None
+        if bench_now is None:
+            print("%s  overgeslagen: geen benchmarkkoers vóór die datum" % d)
+            continue
+        if fx_now:
+            _verify_fx(entries, fx_now, bench)
+
+        rows = []
+        for e in entries:
+            if e["scored_at"][:10] > d:
+                continue  # op die dag nog niet gescoord
+            row = make_row(e, slot_voor(e["ticker"], d), bench_now, fx_now, bench, op_datum=d)
+            if row:
+                rows.append(row)
+        rows.sort(key=lambda r: r["relative_pct"], reverse=True)
+
+        save_snapshot(bench, bench_now, fx_now, rows, measured_at=d, extra={
+            "hersteld_op": vandaag,
+            "hersteld_bron": "yfinance-slotkoers van de laatste handelsdag vóór measured_at",
+        })
+        avg = sum(r["relative_pct"] for r in rows) / len(rows) if rows else 0.0
+        print("%s  %2d namen  gemiddeld %+.2f%% vs %s" % (d, len(rows), avg, bench["label"]))
 
 
 # --------------------------------------------------------------------------- due
@@ -771,5 +885,7 @@ if __name__ == "__main__":
         cmd_check(ledger)
     elif cmd == "fundamentals":
         cmd_fundamentals(ledger)
+    elif cmd == "herstel":
+        cmd_herstel(ledger)
     else:
         sys.exit(__doc__)

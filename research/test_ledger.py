@@ -14,6 +14,7 @@ import io
 import json
 import os
 import sys
+import types
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -240,12 +241,89 @@ def controleer_logica(actief):
         "_verify_fx laat een OMGEDRAAID valutapaar (0,857 i.p.v. 1,167) door — "
         "precies de fout die hij moet vangen")
 
+    # --- NaN mag nergens doorheen --------------------------------------------
+    # Van 24-08 t/m 15-09 was de hele meting NaN met een groene CI: float(nan) is
+    # geen None, dus elke `is None`-controle liet hem door.
+    nan = float("nan")
+    for veld, args in (("koers", (nan, 10.0, 1.00)), ("benchmark", (110.0, nan, 1.00)),
+                       ("wisselkoers", (110.0, 10.0, nan))):
+        naam, _ = track.returns_pct(regel, *args, bench=bench_eur)
+        eis(naam is None, "returns_pct rekent door met een NaN-%s" % veld)
+
+    # De walker moet NaN vinden, anders is de tracking-controle hieronder een placebo.
+    eis(track.niet_eindig({"rows": [{"price_now": nan}]}) == ["rows[0].price_now"],
+        "niet_eindig vindt een NaN in een geneste regel niet")
+    eis(track.niet_eindig({"a": 1.0, "b": [2, None, "x", True]}) == [],
+        "niet_eindig ziet NaN waar die niet is")
+
+    # fetch_prices: een NaN-laatste-rij geeft de slotkoers ervoor, geen NaN.
+    try:
+        import pandas as pd
+    except ImportError:
+        pd = None
+    if pd is not None:
+        class _NepTicker(object):
+            def __init__(self, t):
+                self.t = t
+
+            def history(self, period=None, **kw):
+                waarden = [nan, nan] if self.t == "LEEG" else [10.0, 11.0, nan]
+                return pd.DataFrame({"Close": waarden})
+
+        nep = types.ModuleType("yfinance")
+        nep.Ticker = _NepTicker
+        echt = sys.modules.get("yfinance")
+        sys.modules["yfinance"] = nep
+        try:
+            prijzen = track.fetch_prices(["X", "LEEG"])
+        finally:
+            if echt is not None:
+                sys.modules["yfinance"] = echt
+            else:
+                sys.modules.pop("yfinance", None)
+        eis(prijzen.get("X") == 11.0,
+            "fetch_prices pakt de NaN-laatste-rij: kreeg %r, verwacht 11.0" % prijzen.get("X"))
+        eis(prijzen.get("LEEG") is None,
+            "fetch_prices geeft %r voor een reeks met alleen NaN, verwacht None"
+            % prijzen.get("LEEG"))
+
+    # save_snapshot moet NaN weigeren vóór hij iets schrijft.
+    echt_pad = track.TRACKING
+    track.TRACKING = os.path.join(HERE, "_toets_tracking_bestaat_niet.json")
+    try:
+        track.save_snapshot(bench_eur, nan, 1.0, [])
+        geweigerd = False
+    except ValueError:
+        geweigerd = True
+    finally:
+        schreef = os.path.exists(track.TRACKING)
+        if schreef:
+            os.remove(track.TRACKING)
+        track.TRACKING = echt_pad
+    eis(geweigerd and not schreef,
+        "save_snapshot schrijft een snapshot met een NaN-benchmark weg")
+
+
+def controleer_tracking():
+    """De meetreeks zelf: geen NaN of inf, nergens."""
+    pad = os.path.join(HERE, "tracking.json")
+    if not os.path.exists(pad):
+        return
+    with io.open(pad, encoding="utf-8") as fh:
+        d = json.load(fh)
+    vuil = track.niet_eindig(d)
+    eis(not vuil,
+        "tracking.json bevat %d NaN/inf-getallen (o.a. %s) — die meetdagen zijn "
+        "niet af te rekenen. Draai: python research/track.py herstel"
+        % (len(vuil), ", ".join(vuil[:3])))
+
 
 # ---------------------------------------------------------------------- main
 
 if __name__ == "__main__":
     d, actief = controleer_ledger()
     controleer_logica(actief)
+    controleer_tracking()
 
     print("Ledger: %d actieve regels, %d controles uitgevoerd."
           % (len(actief), _gecontroleerd))
