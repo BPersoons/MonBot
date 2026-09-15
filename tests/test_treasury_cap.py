@@ -91,6 +91,69 @@ def test_deploys_geblokkeerd_na_twee_fouten_in_24u():
     assert len(agent._verstuurd) == 1, "de melding komt maximaal één keer per 24 uur"
 
 
+def test_cap_op_nieuw_geld_gebruikt_strikte_saldi_ook_zonder_yield_balances():
+    """A1-audit: run_fast gaf geen yield_balances mee, waardoor de cap daar niets deed."""
+    agent = _agent()
+    agent._optimizer = None
+    opps = [_opp(BENCH, apy=2.6), dict(_opp("fluid", apy=9.0), risk_adjusted_apy=8.0)]
+    for o in opps:
+        o["protocol_config"]["type"] = "aave_v3" if o["protocol_config"]["id"] == BENCH else "erc4626"
+    with patch.object(agent, "_compute_target_allocation",
+                      return_value={"target_trade_usd": 0, "effective_trade_pct": 0, "reason": "toets"}), \
+         patch("utils.treasury_executor.get_total_yield_balance", return_value=0.0), \
+         patch.object(agent, "_strikte_yield_saldi", return_value={BENCH: 0.0, "fluid": 2000.0}):
+        voorstellen = agent.generate_proposals({"balance": 0}, opps, treasury_usdc=1000.0)
+    per = {p["protocol_id"]: p["amount_usd"] for p in voorstellen if p["type"] == "DEPLOY_YIELD"}
+    assert per == {BENCH: 1000.0}, "Fluid zit al boven de cap: alles naar de benchmark"
+
+
+def test_onleesbare_saldi_sturen_nieuw_geld_naar_de_benchmark():
+    agent = _agent()
+    agent._optimizer = None
+    opps = [_opp(BENCH, apy=2.6), dict(_opp("fluid", apy=9.0), risk_adjusted_apy=8.0)]
+    with patch.object(agent, "_compute_target_allocation",
+                      return_value={"target_trade_usd": 0, "effective_trade_pct": 0, "reason": "toets"}), \
+         patch("utils.treasury_executor.get_total_yield_balance", return_value=0.0), \
+         patch.object(agent, "_strikte_yield_saldi", return_value=None):
+        voorstellen = agent.generate_proposals({"balance": 0}, opps, treasury_usdc=1000.0)
+    per = {p["protocol_id"]: p["amount_usd"] for p in voorstellen if p["type"] == "DEPLOY_YIELD"}
+    assert per == {BENCH: 1000.0}
+
+
+def test_rem_zit_voor_switch_diversificatie_hl_excess_en_deploy_in_run_fast():
+    """Aansluitingstoets (A1-audit bevinding 8): losse functies toetsen is niet genoeg."""
+    from unittest.mock import MagicMock
+    for geblokkeerd in (True, False):
+        agent = _agent()
+        fouten = [_fout(1), _fout(2)] if geblokkeerd else []
+        agent.get_hl_snapshot = MagicMock(return_value={"balance": 100.0, "free_margin": 90.0})
+        agent._load_proposals = MagicMock(return_value=list(fouten))
+        agent._check_rebalance_needed = MagicMock(side_effect=lambda hl, p: p)
+        agent._load_cached_opportunities = MagicMock(return_value=[_opp(BENCH)])
+        agent._get_yield_balances = MagicMock(return_value={BENCH: 1000.0})
+        agent._check_yield_switch = MagicMock(side_effect=lambda o, y, p: (p, []))
+        agent._check_yield_diversification = MagicMock(side_effect=lambda o, y, p: (p, []))
+        agent._check_hl_excess = MagicMock(side_effect=lambda hl, p, o: p)
+        agent.generate_proposals = MagicMock(return_value=[])
+        agent._monitor_funding_harvest = MagicMock()
+        agent._execute_fund_sleeve = MagicMock(side_effect=lambda p: p)
+        agent._execute_sleeve_rebalance = MagicMock(side_effect=lambda p: p)
+        agent.execute_approved_proposals = MagicMock(side_effect=lambda p: p)
+        agent._save_proposals = MagicMock()
+        with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=500.0):
+            agent.run_fast()
+        aangeroepen = {
+            "switch": agent._check_yield_switch.called,
+            "diversificatie": agent._check_yield_diversification.called,
+            "hl_excess": agent._check_hl_excess.called,
+            "deploy": agent.generate_proposals.called,
+        }
+        if geblokkeerd:
+            assert not any(aangeroepen.values()), "rem niet overal: %s" % aangeroepen
+        else:
+            assert all(aangeroepen.values()), "zonder fouten moet alles draaien: %s" % aangeroepen
+
+
 def test_oude_fouten_en_andere_types_tellen_niet():
     agent = _agent()
     oud = [_fout(30), _fout(40)]

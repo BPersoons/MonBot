@@ -41,6 +41,20 @@
 ---
 
 ## Audit
-*(in te vullen door de controle-agent)*
+**Oordeel A1 ronde 1 (controle-agent, 10 min): STOP.** Niets hiervan was gedeployed.
 
-## Reactie bouwer
+## Reactie bouwer (ronde 1)
+
+| # | Bevinding | Reactie |
+|---|---|---|
+| 1 | Revert nog steeds verstopt: ankr geeft na Tenderly een JSON-fout "Unauthorized" die de revert verdringt | **Opgelost.** `_rpc` raiset een revert (`_is_revert`) direct en probeert daarna geen andere RPC's. Andere JSON-fouten worden onthouden. Toetsen: `test_echte_rpc_volgorde_revert_wint_van_een_latere_json_fout` (Tenderly revert → ankr Unauthorized → 403 → 403), `test_json_fout_eerst_en_dan_revert_geeft_ook_de_revert` |
+| 2 | Naïeve fix laat elke storting mislukken: dry-run vóór de approve revert altijd op de allowance (werkte alleen doordat de revert werd ingeslikt) | **Opgelost.** Dry-run verplaatst naar ná approve + allowance-check in `_deposit_aave`, `_deposit_erc4626` en `_deposit_compound_v3`, binnen het try-blok. Een revert trekt de approve weer in en verstuurt geen supply. Toetsen: `test_deposit_dry_run_komt_na_de_approve`, `test_revert_in_dry_run_trekt_de_approve_in_en_stort_niet` |
+| 3 | Cap werkt niet in `run_fast` (geen `yield_balances`) | **Opgelost.** `generate_proposals` leest zelf strikte on-chain saldi (`_strikte_yield_saldi` → `verliesbewaking._saldi_onchain`), los van de caller. Toets: `test_cap_op_nieuw_geld_gebruikt_strikte_saldi_ook_zonder_yield_balances` |
+| 4 | `_check_hl_excess` zonder cap | **Opgelost.** Past het overschot niet onder de cap, dan gaat het naar de benchmark; zonder benchmark wordt het tot de ruimte verkleind of overgeslagen. **Bijvangst:** `protocol_id`/`protocol_type` kwamen uit `best.get("id"/"type")`, maar een opportunity heeft die velden niet → HL-overschot werd altijd als `aave_v3` gerouteerd. Nu uit `protocol_config` |
+| 5 | Retry-rem remt geen switches | **Opgelost.** `_switch_en_diversificatie` zet beide checks achter `_deploy_geblokkeerd`, gebruikt in `run()` en `run_fast()`. Aansluitingstoets: `test_rem_zit_voor_switch_diversificatie_hl_excess_en_deploy_in_run_fast` |
+| 6 | Cap leunt op stille nullen | **Opgelost.** Cap gebruikt overal strikte saldi; onleesbaar → geen beweging naar een niet-benchmark (switch/diversificatie overslaan, nieuw geld naar de benchmark). Toets: `test_onleesbare_saldi_sturen_nieuw_geld_naar_de_benchmark` |
+| 7 | Gasmarge volledige opname | **Opgelost.** Aave-withdraw gebruikt `_estimate_gas(..., _GAS_WITHDRAW)` |
+| 8 | Toetsen dekken aansluiting niet | **Opgelost** voor de rem in `run_fast` (zie 5) en de cap in de fast-route (zie 3) |
+| open vraag | Rem ook op switches? | Ja — zie 5 |
+| open vraag | Dry-run met state-override of ná de approve? | Ná de approve: eenvoudig en toetsbaar; kost bij een revert alleen de approve- en revoke-gas |
+| bijvangst | Pre-flight | `check_treasury` gebruikt case-saldi als strikte saldi (geen netwerk), en case F accepteert de helper mits die beide checks én de rem aanroept |

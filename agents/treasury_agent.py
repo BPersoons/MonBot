@@ -737,6 +737,36 @@ class TreasuryAgent:
 
     # ── Proposals ─────────────────────────────────────────────────────────────
 
+    def _strikte_yield_saldi(self):
+        """{protocol_id: USDC} rechtstreeks on-chain, of None als één uitlezing faalt.
+
+        Voor de cap per protocol. `_get_yield_balances` geeft 0.0 bij een RPC-fout, en
+        dan laat de cap een onleesbaar protocol weer tot 65% vollopen (A1-audit
+        kasbeheer-fixes). Onleesbaar = geen kapitaalbeweging naar een niet-benchmark.
+        """
+        try:
+            from utils.verliesbewaking import _saldi_onchain
+            saldi, _wallet = _saldi_onchain(self._load_protocol_config())
+            return saldi
+        except Exception as e:
+            logger.warning(f"TreasuryAgent: strikte saldi niet te lezen ({e}) — geen gecapte beweging")
+            return None
+
+    def _switch_en_diversificatie(self, opportunities: list, yield_balances: dict,
+                                  all_proposals: list):
+        """Switch- en diversificatiecheck, achter dezelfde rem als de deploys.
+
+        A1-audit kasbeheer-fixes: faalt de storting in de bestemming steeds, dan nam een
+        switch elke 6 uur opnieuw 65% van het resterende Aave-saldo op en bleef dat geld
+        op de hot wallet staan. Eén plek, zodat run() en run_fast() niet uiteenlopen.
+        """
+        if self._deploy_geblokkeerd(all_proposals):
+            return all_proposals, [], []
+        all_proposals, switch_notifs = self._check_yield_switch(opportunities, yield_balances, all_proposals)
+        all_proposals, diversify_notifs = self._check_yield_diversification(
+            opportunities, yield_balances, all_proposals)
+        return all_proposals, switch_notifs, diversify_notifs
+
     _DEPLOY_MAX_FOUTEN_24U = 2
 
     def _deploy_geblokkeerd(self, all_proposals: list) -> bool:
@@ -771,7 +801,8 @@ class TreasuryAgent:
 
     @staticmethod
     def _begrens_allocaties(allocations: list, opportunities: list,
-                            yield_balances: dict, to_yield: float) -> list:
+                            yield_balances: dict, to_yield: float,
+                            alles_naar_benchmark: bool = False) -> list:
         """Cap per protocol op NIEUW geld (A2-audit 2026-09-15).
 
         Wat een niet-benchmark-protocol boven het maximale aandeel van het potje zou
@@ -793,7 +824,8 @@ class TreasuryAgent:
                 uit.append(dict(a))
                 continue
             al_gepland = sum(float(x["amount_usd"]) for x in uit if x.get("protocol_id") == pid)
-            ruimte = cap_frac * totaal_na - float(yield_balances.get(pid, 0) or 0) - al_gepland
+            ruimte = (0.0 if alles_naar_benchmark else
+                      cap_frac * totaal_na - float(yield_balances.get(pid, 0) or 0) - al_gepland)
             toegestaan = max(0.0, min(bedrag, ruimte))
             if toegestaan < _MIN_DEPLOY_USD:
                 toegestaan = 0.0
@@ -904,9 +936,15 @@ class TreasuryAgent:
                         "rationale":       f"Rule-based: best risk-adjusted APY ({best['label']})",
                     }]
 
-            allocations = self._begrens_allocaties(
-                allocations, opportunities, yield_balances or {}, to_yield
-            )
+            # Cap met STRIKTE on-chain saldi, niet met de meegegeven yield_balances: run_fast
+            # gaf die niet mee (cap werkte daar niet) en _get_yield_balances geeft 0.0 bij
+            # een RPC-fout. Onleesbaar -> alles naar de benchmark (A1-audit kasbeheer-fixes).
+            strikt = self._strikte_yield_saldi()
+            if strikt is None:
+                allocations = self._begrens_allocaties(
+                    allocations, opportunities, {}, to_yield, alles_naar_benchmark=True)
+            else:
+                allocations = self._begrens_allocaties(allocations, opportunities, strikt, to_yield)
 
             hl_note = (
                 f" HL top-up van ${hl_topup:.0f} ook aanbevolen (zie FUND_TRADING voorstel)."
@@ -1239,10 +1277,33 @@ class TreasuryAgent:
             logger.debug("TreasuryAgent: HL excess detected but no automated protocol available — skipping")
             return all_proposals
 
+        # Cap per protocol ook op HL-overschot (A1-audit kasbeheer-fixes). Past het niet
+        # onder de cap, dan gaat het overschot naar de benchmark.
+        cap_frac, bench_id = _max_aandeel_per_protocol()
+        best_cfg_id = (best.get("protocol_config") or {}).get("id", "")
+        if best_cfg_id != bench_id:
+            strikt = self._strikte_yield_saldi()
+            bench_opp = next((o for o in (opportunities or [])
+                              if (o.get("protocol_config") or {}).get("id") == bench_id
+                              and o.get("automated")), None)
+            ruimte = (None if strikt is None else
+                      cap_frac * (sum(float(v or 0) for v in strikt.values()) + safe_withdraw)
+                      - float(strikt.get(best_cfg_id, 0) or 0))
+            if ruimte is None or safe_withdraw > ruimte:
+                if bench_opp is not None:
+                    best = bench_opp
+                elif ruimte is not None and ruimte >= _HL_EXCESS_MIN_USD:
+                    safe_withdraw = round(ruimte, 2)
+                else:
+                    logger.info("TreasuryAgent: HL-overschot past niet onder de protocol-cap — geen sweep")
+                    return all_proposals
+
         protocol_label = best["label"]
-        protocol_id    = best.get("id", "aave-v3-arbitrum-usdc")
-        protocol_type  = best.get("type", "aave_v3")
-        protocol_cfg   = best.get("protocol_config")
+        # Uit protocol_config: een opportunity heeft geen top-level id/type. Vóór
+        # 2026-09-15 viel dit dus altijd terug op aave_v3, welk protocol ook gekozen was.
+        protocol_cfg   = best.get("protocol_config") or {}
+        protocol_id    = protocol_cfg.get("id") or best.get("id", "aave-v3-arbitrum-usdc")
+        protocol_type  = protocol_cfg.get("type") or best.get("type", "aave_v3")
         apy            = best["apy"]
         hl_pct         = round(hl_balance / total * 100, 1)
         monthly        = round(safe_withdraw * (apy / 100) / 12, 2)
@@ -1482,8 +1543,11 @@ class TreasuryAgent:
             switch_amt = float(deployed_bal)
             cap_frac, bench_id = _max_aandeel_per_protocol()
             if best_id != bench_id:
-                totaal_yield = sum(float(v or 0) for v in yield_balances.values())
-                ruimte = cap_frac * totaal_yield - float(yield_balances.get(best_id, 0) or 0)
+                strikt = self._strikte_yield_saldi()
+                if strikt is None:
+                    continue    # saldi onleesbaar: geen switch naar een niet-benchmark
+                totaal_yield = sum(float(v or 0) for v in strikt.values())
+                ruimte = cap_frac * totaal_yield - float(strikt.get(best_id, 0) or 0)
                 switch_amt = min(switch_amt, ruimte)
                 if switch_amt < _YIELD_SWITCH_MIN_USD:
                     logger.debug(
@@ -1621,7 +1685,11 @@ class TreasuryAgent:
         # maximale aandeel tillen (anders ruilt het de ene concentratie voor de andere).
         cap_frac, bench_id = _max_aandeel_per_protocol()
         if best_id != bench_id:
-            ruimte = cap_frac * total_yield - float(yield_balances.get(best_id, 0) or 0)
+            strikt = self._strikte_yield_saldi()
+            if strikt is None:
+                return all_proposals, pending_notifs
+            ruimte = (cap_frac * sum(float(v or 0) for v in strikt.values())
+                      - float(strikt.get(best_id, 0) or 0))
             move_amount = min(move_amount, ruimte)
             if move_amount < 50.0:
                 return all_proposals, pending_notifs
@@ -2049,8 +2117,8 @@ class TreasuryAgent:
         if cached_opps:
             try:
                 yield_balances = self._get_yield_balances()
-                all_proposals, switch_notifs = self._check_yield_switch(cached_opps, yield_balances, all_proposals)
-                all_proposals, diversify_notifs = self._check_yield_diversification(cached_opps, yield_balances, all_proposals)
+                all_proposals, switch_notifs, diversify_notifs = self._switch_en_diversificatie(
+                    cached_opps, yield_balances, all_proposals)
             except Exception as e:
                 logger.debug(f"TreasuryAgent fast: yield switch/diversification check failed: {e}")
             try:
@@ -2158,11 +2226,9 @@ class TreasuryAgent:
         if not self._deploy_geblokkeerd(all_proposals):
             all_proposals = self._check_hl_excess(hl, all_proposals, opportunities)
 
-        # Auto yield-switch: move capital to highest-APY automated protocol if spread > threshold
-        all_proposals, _switch_notifs = self._check_yield_switch(opportunities, yield_balances, all_proposals)
-
-        # Auto yield-diversification: partial switch when one protocol > _MAX_SINGLE_CONCENTRATION
-        all_proposals, _diversify_notifs = self._check_yield_diversification(opportunities, yield_balances, all_proposals)
+        # Auto yield-switch + diversification — beide achter de retry-rem
+        all_proposals, _switch_notifs, _diversify_notifs = self._switch_en_diversificatie(
+            opportunities, yield_balances, all_proposals)
 
         # Funding harvest: open/monitor HL short when funding rate is high
         self._check_funding_harvest()

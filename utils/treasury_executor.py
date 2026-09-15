@@ -108,6 +108,12 @@ def _encode_allowance(owner: str, spender: str) -> str:
 
 # ── JSON-RPC helpers ──────────────────────────────────────────────────────────
 
+def _is_revert(fout) -> bool:
+    """Is deze RPC-fout een revert van de keten (en dus een uitslag, geen storing)?"""
+    tekst = str(fout).lower()
+    return "revert" in tekst or "'code': 3" in tekst or '"code": 3' in tekst
+
+
 def _rpc(method: str, params: list) -> object:
     import urllib.error as _urlerr
     payload = json.dumps({"jsonrpc": "2.0", "method": method, "params": params, "id": 1}).encode()
@@ -134,10 +140,15 @@ def _rpc(method: str, params: list) -> object:
                 last_exc = e
                 break
             if "error" in resp:
-                # Niet meteen opgeven (een andere RPC kan een ander antwoord hebben), maar
-                # ook niet laten overschrijven door een transportfout van de volgende RPC:
-                # vóór 2026-09-15 verdween een revert zo achter "RPC 403" (A2-audit).
-                json_fout = RuntimeError(f"{method}: {resp['error']}")
+                fout = RuntimeError(f"{method}: {resp['error']}")
+                if _is_revert(fout):
+                    # Een revert is het antwoord van de keten zelf: meteen opwerpen. Een
+                    # volgende RPC gaf anders een 403 of een JSON-fout "Unauthorized"
+                    # (ankr) die de revert verdrong (A2- en A1-audit 2026-09-15).
+                    raise fout
+                # Andere JSON-fouten (rate limit, auth) zijn van die ene RPC: onthouden en
+                # de volgende proberen.
+                json_fout = fout
                 break
             return resp.get("result")
     if json_fout is not None:
@@ -194,8 +205,7 @@ def _simulate_tx(to: str, data: str, from_addr: str = "") -> None:
     try:
         result = _rpc("eth_call", [call, "latest"])
     except Exception as e:
-        tekst = str(e).lower()
-        if "revert" in tekst or "'code': 3" in tekst or '"code": 3' in tekst:
+        if _is_revert(e):
             # Een revert is de UITSLAG van de dry-run: de echte TX zou ook reverten en
             # gas kosten. Vóór 2026-09-15 werd dit als "RPC unavailable" ingeslikt en
             # ging de TX toch de deur uit (A2-audit, Aave-opname één cent te hoog).
@@ -431,12 +441,10 @@ def _deposit_aave(amount_usd: float, private_key: str) -> tuple[str, float, floa
     balance_before = get_aave_balance(on_behalf)
     logger.info(f"TreasuryExecutor: Aave balance before deposit: ${balance_before:.2f}")
 
-    # Layer 2c: dry-run the supply call before sending approve (catches most revert scenarios)
+    # De dry-run van supply gebeurt ná de approve (hieronder). Ervóór revert hij ALTIJD
+    # met "transfer amount exceeds allowance" — dat werkte tot 2026-09-15 alleen omdat
+    # _rpc die revert inslikte (A1-audit kasbeheer-fixes).
     supply_data = _encode_supply(_USDC_ARB, amount, on_behalf)
-    try:
-        _simulate_tx(_AAVE_POOL_ARB, supply_data, from_addr=on_behalf)
-    except RuntimeError as e:
-        raise RuntimeError(f"Aave supply dry-run failed — no funds moved: {e}")
 
     # Approve
     logger.info(f"TreasuryExecutor: approving {amount_usd:.2f} USDC for Aave Pool...")
@@ -464,6 +472,8 @@ def _deposit_aave(amount_usd: float, private_key: str) -> tuple[str, float, floa
     # Supply — revoke approval if this fails to prevent dangling allowance
     logger.info(f"TreasuryExecutor: supplying {amount_usd:.2f} USDC to Aave v3...")
     try:
+        # Dry-run nu de allowance staat; een revert hier trekt de approve weer in.
+        _simulate_tx(_AAVE_POOL_ARB, supply_data, from_addr=on_behalf)
         supply_hash = _send_tx(_AAVE_POOL_ARB, supply_data, private_key, _GAS_SUPPLY)
         logger.info(f"TreasuryExecutor: supply tx {supply_hash} — waiting...")
         receipt = _wait_receipt(supply_hash)
@@ -531,12 +541,8 @@ def _deposit_erc4626(amount_usd: float, vault_address: str, private_key: str) ->
     _check_eth_gas(on_behalf)
     usdc_before = get_arb_usdc_balance(on_behalf)
 
-    # Dry-run deposit call before touching funds
+    # Dry-run ná de approve (hieronder): ervóór revert deposit altijd op de allowance.
     deposit_data = _encode_erc4626_deposit(amount, on_behalf)
-    try:
-        _simulate_tx(vault_address, deposit_data, from_addr=on_behalf)
-    except RuntimeError as e:
-        raise RuntimeError(f"ERC-4626 deposit dry-run failed — no funds moved: {e}")
 
     logger.info(f"TreasuryExecutor: approving {amount_usd:.2f} USDC for vault {vault_address[:10]}…")
     approve_hash = _send_tx(_USDC_ARB, _encode_approve(vault_address, amount), private_key, _GAS_APPROVE)
@@ -552,6 +558,8 @@ def _deposit_erc4626(amount_usd: float, vault_address: str, private_key: str) ->
 
     logger.info(f"TreasuryExecutor: depositing {amount_usd:.2f} USDC into ERC-4626 vault…")
     try:
+        # Dry-run nu de allowance staat; een revert hier trekt de approve weer in.
+        _simulate_tx(vault_address, deposit_data, from_addr=on_behalf)
         # Estimate gas now that allowance is set — Morpho MetaMorpho deposits
         # iterate the supply queue and exceed the fixed _GAS_SUPPLY (320k),
         # reverting out-of-gas (the prior BBQUSDC failures: gasUsed==320k).
@@ -770,9 +778,8 @@ def _deposit_compound_v3(amount_usd: float, comet_address: str, private_key: str
     _check_eth_gas(on_behalf)
     usdc_before = get_arb_usdc_balance(on_behalf)
 
-    # Dry-run: simulate the supply call before touching the chain
+    # Dry-run ná de approve (hieronder): ervóór revert supply altijd op de allowance.
     supply_data = _encode_compound_supply(_USDC_ARB, amount)
-    _simulate_tx(comet_address, supply_data, from_addr=on_behalf)
 
     logger.info(f"TreasuryExecutor: approving {amount_usd:.2f} USDC for Compound v3 {comet_address[:10]}…")
     approve_hash = _send_tx(_USDC_ARB, _encode_approve(comet_address, amount), private_key, _GAS_APPROVE)
@@ -791,6 +798,8 @@ def _deposit_compound_v3(amount_usd: float, comet_address: str, private_key: str
 
     logger.info(f"TreasuryExecutor: supplying {amount_usd:.2f} USDC to Compound v3…")
     try:
+        # Dry-run nu de allowance staat; een revert hier trekt de approve weer in.
+        _simulate_tx(comet_address, supply_data, from_addr=on_behalf)
         supply_hash = _send_tx(comet_address, supply_data, private_key, _GAS_SUPPLY)
         receipt = _wait_receipt(supply_hash)
         if not receipt or receipt.get("status") != "0x1":
@@ -1045,7 +1054,10 @@ def withdraw_aave_to_wallet(amount_usd: float, private_key: str, volledig: bool 
     usdc_before = get_arb_usdc_balance(to_address)
     logger.info(f"TreasuryExecutor: withdrawing {amount_usd:.2f} USDC from Aave → {to_address[:10]}… (wallet before: ${usdc_before:.2f})")
 
-    tx_hash = _send_tx(_AAVE_POOL_ARB, withdraw_data, private_key, _GAS_WITHDRAW)
+    # Geschat i.p.v. vast: withdraw(max) kost ~207k tegen een vaste limiet van 220k, en
+    # out-of-gas vangt de dry-run niet (A1-audit kasbeheer-fixes).
+    withdraw_gas = _estimate_gas(_AAVE_POOL_ARB, withdraw_data, to_address, _GAS_WITHDRAW)
+    tx_hash = _send_tx(_AAVE_POOL_ARB, withdraw_data, private_key, withdraw_gas)
     receipt = _wait_receipt(tx_hash)
     if not receipt or receipt.get("status") != "0x1":
         raise RuntimeError(f"Aave withdraw tx failed: {tx_hash}")

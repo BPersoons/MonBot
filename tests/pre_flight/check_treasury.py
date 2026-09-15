@@ -117,6 +117,9 @@ def check_generate_proposals_logic(r: _Result):
         return
 
     agent = TreasuryAgent()
+    # Geen echte on-chain uitlezing in de pre-flight: de cap krijgt lege strikte saldi
+    # (hier alleen de benchmark als bestemming, dus de cap speelt niet).
+    agent._strikte_yield_saldi = lambda: {}
 
     hl = {"balance": 300.0, "free_margin": 280.0, "deployed_margin": 20.0, "idle_pct": 93.0}
     mock_cfg = {
@@ -382,6 +385,14 @@ def check_yield_switch_logic(r: _Result):
         return
 
     agent = TreasuryAgent()
+    # De cap leest strikte on-chain saldi. In de pre-flight spiegelen die de saldi van de
+    # case zelf, zodat er geen netwerk-call gebeurt en de uitkomst deterministisch is.
+    _echte_switch = agent._check_yield_switch
+
+    def _switch_met_case_saldi(opps, balances, proposals):
+        agent._strikte_yield_saldi = lambda: dict(balances)
+        return _echte_switch(opps, balances, proposals)
+    agent._check_yield_switch = _switch_met_case_saldi
 
     def _make_opp(pid: str, apy: float, chain: str = "Arbitrum", automated: bool = True) -> dict:
         return {
@@ -1242,6 +1253,13 @@ def check_yield_diversification(r: _Result):
         return
 
     agent = TreasuryAgent()
+    # Strikte saldi voor de cap spiegelen de saldi van de case (geen netwerk in de pre-flight).
+    _echte_div = agent._check_yield_diversification
+
+    def _div_met_case_saldi(opps, balances, proposals):
+        agent._strikte_yield_saldi = lambda: dict(balances)
+        return _echte_div(opps, balances, proposals)
+    agent._check_yield_diversification = _div_met_case_saldi
 
     def _make_opp(pid: str, apy: float, ptype: str = "aave_v3", vault: str | None = None) -> dict:
         cfg: dict = {"id": pid, "type": ptype, "label": pid}
@@ -1349,11 +1367,15 @@ def check_yield_diversification(r: _Result):
     import inspect
     src_run = inspect.getsource(TreasuryAgent.run)
     src_fast = inspect.getsource(TreasuryAgent.run_fast)
-    if "_check_yield_diversification" in src_run:
+    # Sinds 2026-09-15 lopen switch en diversificatie via één helper achter de retry-rem.
+    src_helper = inspect.getsource(TreasuryAgent._switch_en_diversificatie)
+    helper_ok = ("_check_yield_diversification" in src_helper and "_check_yield_switch" in src_helper
+                 and "_deploy_geblokkeerd" in src_helper)
+    if "_check_yield_diversification" in src_run or ("_switch_en_diversificatie" in src_run and helper_ok):
         r.ok("TreasuryAgent.run: calls _check_yield_diversification")
     else:
         r.fail("TreasuryAgent.run: _check_yield_diversification not wired in")
-    if "_check_yield_diversification" in src_fast:
+    if "_check_yield_diversification" in src_fast or ("_switch_en_diversificatie" in src_fast and helper_ok):
         r.ok("TreasuryAgent.run_fast: calls _check_yield_diversification")
     else:
         r.fail("TreasuryAgent.run_fast: _check_yield_diversification not wired in")
