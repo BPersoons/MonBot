@@ -165,14 +165,22 @@ def test_usdc_peg(register):
 
 
 def test_hlp_drawdown_is_robuust_tegen_stortingen(register):
-    g, st = vb.evalueer(_basis(hlp_inleg_usd=500.0, hlp_equity_usd=500.0), {}, register)
+    live = _live(register, "hlp_vault")
+    g, st = vb.evalueer(_basis(hlp_inleg_usd=500.0, hlp_equity_usd=500.0), {}, live)
     assert not g
-    g, st = vb.evalueer(_basis(hlp_inleg_usd=1000.0, hlp_equity_usd=1000.0), st, register)
+    g, st = vb.evalueer(_basis(hlp_inleg_usd=1000.0, hlp_equity_usd=1000.0), st, live)
     assert not g, "een extra storting is geen drawdown"
-    g, _ = vb.evalueer(_basis(hlp_inleg_usd=1000.0, hlp_equity_usd=955.0), st, register)
+    g, _ = vb.evalueer(_basis(hlp_inleg_usd=1000.0, hlp_equity_usd=955.0), st, live)
     assert "hlp_drawdown:alarm" in _sleutels(g)
-    g, _ = vb.evalueer(_basis(hlp_inleg_usd=1000.0, hlp_equity_usd=910.0), st, register)
+    g, _ = vb.evalueer(_basis(hlp_inleg_usd=1000.0, hlp_equity_usd=910.0), st, live)
     assert "hlp_drawdown:kill" in _sleutels(g)
+
+
+def test_inleg_in_een_niet_live_experiment_geeft_een_alarm(register):
+    """Zonder deze melding zet niemand ooit de status om en bewaakt het budget niets."""
+    g, st = vb.evalueer(_basis(hlp_inleg_usd=500.0, hlp_equity_usd=500.0), {}, register)
+    assert "experiment_niet_live:alarm" in _sleutels(g)
+    assert st["experimentverlies_usd"] == 0.0
 
 
 def _live(register, *namen):

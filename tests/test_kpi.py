@@ -73,9 +73,12 @@ def _live(register, naam="hlp_vault", **velden):
 
 def test_h3_experimentverlies_negeert_de_inleg(register):
     # house: 0 -> 500 (inleg, geen winst) -> 480 (verlies 20)
+    from datetime import datetime, timezone
     hist = [_snap(0, house=0.0), _snap(1, house=500.0), _snap(2, house=480.0)]
     stromen = [{"ts": T0 + 3600, "van": "yield_core", "naar": "house", "bedrag_usd": 500.0}]
-    uit = kpi.bereken(hist, stromen, _live(register), {}, {}, {}, {}, "2026-09-12")
+    start = datetime.fromtimestamp(T0, timezone.utc).isoformat()
+    uit = kpi.bereken(hist, stromen, _live(register, verlies_meten_vanaf=start),
+                      {}, {}, {}, {}, "2026-09-12")
     assert uit["h3"]["per_experiment_usd"]["hlp_vault"] == 20.0
     assert uit["h3"]["verlies_usd"] == 20.0 and uit["h3"]["doel_gehaald"]
 
@@ -86,6 +89,26 @@ def test_h3_telt_een_experiment_dat_nog_niet_leeft_niet_mee(register):
     uit = kpi.bereken(hist, [], register, {}, {}, {}, {}, "2026-09-12")
     assert uit["h3"]["per_experiment_usd"] == {}
     assert uit["h3"]["verlies_usd"] == 0.0 and uit["h3"]["doel_gehaald"]
+
+
+def test_h3_live_zonder_startdatum_is_onmeetbaar_geen_getal(register):
+    """Zonder startdatum erft het experiment de hele historie — dat gaf de $1.087,80."""
+    hist = [_snap(0, house=1087.8), _snap(1, house=1086.5), _snap(2, house=0.0)]
+    uit = kpi.bereken(hist, [], _live(register), {}, {}, {}, {}, "2026-09-12")
+    assert uit["h3"]["per_experiment_usd"] == {}, "geen getal"
+    assert "experimentverlies:hlp_vault" in uit["h5"]["onmeetbaar"]
+    assert not uit["h5"]["doel_gehaald"]
+
+
+def test_geld_in_een_niet_live_experiment_wordt_gemarkeerd(register):
+    """De stille nul in de andere richting: het budget bewaakt dan niets."""
+    hist = [_snap(0, house=500.0), _snap(1, house=480.0)]
+    uit = kpi.bereken(hist, [], register, {}, {}, {}, {}, "2026-09-11")
+    assert "experiment_niet_live:hlp_vault" in uit["h5"]["onmeetbaar"]
+    # leeg potje = niets aan de hand
+    leeg = kpi.bereken([_snap(0, house=0.0), _snap(1, house=0.0)], [], register,
+                       {}, {}, {}, {}, "2026-09-11")
+    assert leeg["h5"]["onmeetbaar"] == []
 
 
 def test_h3_meet_pas_vanaf_de_startdatum_van_het_experiment(register):

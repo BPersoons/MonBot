@@ -39,8 +39,35 @@
 - **Op het spel:** vandaag niets (geen bewegingen, geen HLP). Vanaf M3/M5: het veilige potje ($2.490) en de HLP-inleg ($500).
 - **Terugdraaien:** `git revert` van deze commit + deploy; `kpi.json` herberekent zichzelf de volgende dag.
 
-## Wat ik zelf niet heb gecontroleerd
+## Wat ik zelf niet heb gecontroleerd (vóór de audit)
 - Of `_uren_sinds` op de VM (UTC) hetzelfde oordeelt als lokaal — de tijdzone-valkuil van `_parse_ts`.
 - Of een oud voorstel in productie een `updated_at` heeft dat later is bijgewerkt dan het moment van NEEDS_MANUAL_WITHDRAWAL (dan verloopt hij later dan 48u na de echte start).
 - Of er naast H3 en het verliesbudget nog een derde plek is die "experimentverlies" berekent.
 - De historische regel in `data/kpi.json` met H3 = $1.087,80 blijft staan tot de volgende dagelijkse berekening; ik heb nog niet bepaald of die herschreven moet worden.
+
+---
+
+## Audit
+**Oordeel A1 (controle-agent, ~12 min): GO-mits.** V1–V3 vóór de deploy; V4 vóór M5, V5 vóór de eerstvolgende HL→yield-deploy, V6 vóór M3.
+
+### Correctie op mijn eigen diagnose (bevinding 1)
+`house` is **niet** de Hyperliquid-rekening maar het **Gains gUSDC-vault** (`config/sleeves.json:12`; de HL-rekening heet `swarm`, regel 6). Zelf nagerekend op de reeks in de container: 09-07 `house` $1.086,47 / `yield_core` $1.423,05 → 10-07 `house` $0,00 / `yield_core` $2.509,74, een stijging van **$1.086,69**. Het geld is dus van Gains naar Aave verhuisd en die overboeking is nooit als stroom geboekt; H3 las een verhuizing als verlies. **Er is geen geld weg.** De commit-boodschap van `fe5aed9` en de eerste versie van `utils/experimenten.py` zeiden iets anders — de module is gecorrigeerd, het commitbericht blijft fout in de historie en wordt hier rechtgezet.
+
+## Reactie bouwer (ronde 1)
+
+| # | Voorwaarde | Reactie |
+|---|---|---|
+| V1 | Live zonder `verlies_meten_vanaf` → onmeetbaar, geen getal en geen 0,0 | **Opgelost.** `kpi.py` zet `experimentverlies:<naam>` in de H5-lijst en slaat het experiment over; de terugval op "eerste snapshot met waarde" is weg. Toets: `test_h3_live_zonder_startdatum_is_onmeetbaar_geen_getal` (H5 niet gehaald). Struikeldraad in `tests/test_experimenten.py`: het échte register mag geen live experiment zonder startdatum bevatten |
+| V2 | Geld in een niet-live experiment moet opvallen | **Opgelost.** `verliesbewaking`: alarm `experiment_niet_live` zodra er inleg staat terwijl het experiment niet meetelt, met de actie erbij. `kpi.py`: `experiment_niet_live:<naam>` in H5 zodra het potje waarde of stromen heeft. Toetsen: `test_inleg_in_een_niet_live_experiment_geeft_een_alarm`, `test_geld_in_een_niet_live_experiment_wordt_gemarkeerd` (inclusief het lege geval, dat niets mag melden) |
+| V3 | Diagnose corrigeren | **Opgelost** — zie hierboven, in `utils/experimenten.py` en in dit blad |
+| V4 | *(vóór M5)* HLP heeft een eigen potje met eigen bron nodig | **Genoteerd, niet in deze commit.** `hlp_vault.sleeve` blijft `house` tot `sleeve_nav` een HLP-bron heeft; de voorwaarde staat nu letterlijk in `config/experimenten.json` (`voorwaarde_voor_inleg`, drie punten) en wordt afgedwongen doordat live-zonder-startdatum onmeetbaar is |
+| V5 | *(vóór de eerstvolgende HL→yield-deploy)* EXPIRED laat een niet-geboekte stroom achter | **Genoteerd, niet in deze commit.** Vandaag onbereikbaar: er staat geen voorstel in NEEDS_MANUAL_WITHDRAWAL en er loopt geen deploy. Richting: bij EXPIRED de instructie "boek de stroom met `/boek-order`" in de melding, en de nieuwe deploy pas vrijgeven als die stroom geboekt is |
+| V6 | *(vóór M3)* REBALANCE telt niet als onderweg | **Genoteerd, niet in deze commit.** Vandaag onbereikbaar (Aave is het enige geautomatiseerde protocol, dus geen switch mogelijk). Bij M3 opnemen in `_yield_beweging_onderweg` |
+| 6 | EXPIRED onzichtbaar op het dashboard; rem vuurt nooit bij een 48u-lus | **Genoteerd bij V5.** Het dashboard is sinds vandaag niet meer publiek bereikbaar, dus zichtbaarheid loopt via Telegram (Check 14 kent de status nu) |
+| 7 | `verlies_usd → None` is in `kpi.py` onbereikbaar en ongetoetst | **Deels opgelost.** De module heeft nu eigen toetsen (`tests/test_experimenten.py`, incl. None/NaN/inf). De tak in `kpi.py` blijft staan als verdediging in de diepte — `bereken` weigert NaN al eerder, dus onbereikbaar is hier gewenst, niet stil |
+| 8 | Dip-koper-spoken worden nergens meer gecontroleerd | **Genoteerd.** `verify_live` kan de dip-koper alleen eerlijk toetsen via de rauwe info-API met `dex: "xyz"` op `0xBd6c`; dat is een aparte check en staat op de lijst |
+
+### Antwoorden op de open vragen
+- **Waarom wijst `hlp_vault` naar `house`?** Een fout van mij bij het opstellen van het register: `house` klonk als "eigen handel", maar de mapping zegt Gains. Gains staat nu op $0,00 en blijft waar het staat; HLP krijgt bij V4 een eigen potje.
+- **Was de $1.087,80 een echte opname?** Nee — een verhuizing Gains → Aave op 09/10-07, zichtbaar als een even grote stijging van `yield_core`. Er hoort een `flows`-regel bij; die ontbreekt omdat `flows.json` pas sinds 15-09 bestaat. Niet met terugwerkende kracht boeken: de meting begint bij de start van een experiment, en H1 kijkt 90 dagen terug.
+- **Is 48u de juiste verlooptijd?** Voorlopig ja, maar de rem vuurt inderdaad nooit bij een lus van 48 uur. Dat hoort bij V5: EXPIRED moet meetellen in de rem met een ruimer venster dan 24 uur.

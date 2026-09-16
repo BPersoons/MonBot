@@ -49,7 +49,7 @@
       "hypothese": "HLP levert over 4 weken geannualiseerd >= benchmark + 3pp bij een drawdown <= 5%.",
       "start_inleg_usd": 500,
       "verlies_meten_vanaf": null,
-      "voorwaarde_voor_inleg": "Bij live gaan: status op 'live' EN verlies_meten_vanaf op het moment van de eerste inleg (ISO, UTC). Zonder die twee telt het experiment niet mee in H3 en in het verliesbudget. Definitie: utils/experimenten.py.",
+      "voorwaarde_voor_inleg": "DRIE dingen, anders meet H3 het verkeerde potje of niets: (1) 'sleeve' hierboven wijst naar 'house' en dat is het GAINS gUSDC-vault (config/sleeves.json), niet HLP — HLP moet eerst een eigen potje met een eigen bron in utils/sleeve_nav.py krijgen; (2) status op 'live'; (3) verlies_meten_vanaf op het moment van de eerste inleg (ISO, UTC). Zonder (2) telt het experiment nergens mee (er komt dan wel een alarm zodra er inleg staat); zonder (3) is H3 onmeetbaar i.p.v. een getal. Definitie: utils/experimenten.py.",
       "kpi": "tijdgewogen rendement en drawdown vanaf piek, flow-gecorrigeerd",
       "alarm": {"drawdown_pct": 3.0},
       "kill": {"drawdown_pct": 8.0, "weken_onder_benchmark": 8, "actie": "MELDEN; opnameverzoek (4 dagen blokkade) — automatisch pas zodra de HLP-module bestaat"},

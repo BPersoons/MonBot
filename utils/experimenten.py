@@ -2,9 +2,18 @@
 
 `utils/kpi.py` (H3) en `utils/verliesbewaking.py` (verliesbudget) rekenden dit allebei
 zelf uit, met een eigen bron voor de inleg. Dat liep uiteen, en in productie gaf H3 op
-2026-09-16 **$1.087,80 verlies voor `hlp_vault`** terwijl HLP nog niet bestond: het
-experiment wijst naar het potje `house` (de bestaande Hyperliquid-rekening), en de KPI
-telde de hele historie van dat potje mee.
+2026-09-16 **$1.087,80 verlies voor `hlp_vault`** terwijl HLP nog niet bestond.
+
+Wat daar echt gebeurde (gecorrigeerd na de A1-audit; mijn eerste diagnose was fout):
+`hlp_vault` wijst naar potje `house`, en `house` is volgens `config/sleeves.json:12` het
+**Gains gUSDC-vault**, niet de Hyperliquid-rekening (die heet `swarm`). Dat potje ging op
+2026-07-10 van $1.086,47 naar $0,00 terwijl `yield_core` met $1.086,69 steeg: het geld is
+van Gains naar Aave verhuisd en die **overboeking is nooit als stroom geboekt**. De KPI las
+een niet-geboekte verhuizing als verlies. Er is dus geen geld weg.
+
+Openstaand (vóór M5): HLP-equity komt in geen enkel potje terecht — `house` blijft Gains.
+HLP moet een eigen potje met een eigen bron in `utils/sleeve_nav.py` krijgen, anders meet
+H3 straks het verkeerde saldo.
 
 De twee regels die dat voorkomen:
 1. Een experiment telt pas mee als het **live** staat in `config/experimenten.json`.

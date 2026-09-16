@@ -147,19 +147,28 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
     verlies_per = {}
     for naam, exp in (register.get("experimenten") or {}).items():
         potje = exp.get("sleeve")
-        if not potje or not exp_register.telt_mee_voor_budget(exp):
+        if not potje:
+            continue
+        if not exp_register.telt_mee_voor_budget(exp):
+            # Staat er geld in een experiment dat (nog) niet live is, dan bewaakt het
+            # budget niets. Dat mag niet stil gebeuren (A1-audit 2026-09-16).
+            t_eind = flows._epoch(hist[-1].get("ts")) if hist else None
+            waarde = float(hist[-1]["sleeves"].get(potje, 0.0) or 0.0) if hist else 0.0
+            stroom = flows.netto_flow(stromen, potje, 0.0, t_eind) if t_eind else 0.0
+            if exp.get("verliesbudget_telt_mee") and (waarde > 0 or stroom):
+                onmeetbaar.append("experiment_niet_live:%s" % naam)
             continue
         vanaf = exp_register.meet_vanaf(exp)
+        if vanaf is None:
+            # Live zonder startdatum: zonder die datum begint de meting bij de eerste
+            # snapshot en erft het experiment de hele historie van het potje — precies de
+            # fout die H3 op $1.087,80 zette. Onmeetbaar, geen getal en geen nul.
+            onmeetbaar.append("experimentverlies:%s" % naam)
+            continue
         start = None
         for i, h in enumerate(hist):
             t = flows._epoch(h.get("ts"))
-            if t is None:
-                continue
-            if vanaf is not None:
-                if t >= vanaf:
-                    start = i
-                    break
-            elif float(h["sleeves"].get(potje, 0.0) or 0.0) > 0:
+            if t is not None and t >= vanaf:
                 start = i
                 break
         if start is None or start >= len(hist) - 1:

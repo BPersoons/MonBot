@@ -356,6 +356,13 @@ def evalueer(m, state, register, stromen=(), nu=None):
                      "HLP drawdown %.1f%% (equity $%.2f op inleg $%.2f)" % (dd, equity, inleg))
             if exp_register.telt_mee_voor_budget(hlp):
                 verlies_experimenten += exp_register.verlies_usd(inleg, equity) or 0.0
+        if not exp_register.telt_mee_voor_budget(hlp):
+            # Geld in een experiment dat niet live staat wordt door het budget overgeslagen.
+            # De stille nul in de andere richting (A1-audit 2026-09-16).
+            meld("experiment_niet_live", "alarm", "hlp_vault",
+                 "HLP heeft $%.2f inleg maar staat niet als live in het register — "
+                 "het verliesbudget bewaakt dit niet" % inleg,
+                 "status op 'live' en verlies_meten_vanaf invullen, of het geld terughalen")
 
     # ── basis (live vanaf M6; de module levert basis_verlies_usd) ─────────
     basis_verlies = m.get("basis_verlies_usd")
