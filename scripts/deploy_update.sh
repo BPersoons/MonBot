@@ -255,12 +255,22 @@ fi
 
 echo ""
 echo "=== Dashboard Health ==="
-sleep 3
-HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8080 2>/dev/null || echo "000")
+# Na een herstart heeft de container 30-60s nodig; met sleep 3 meldde dit altijd "000"
+# en werd de echte controle handwerk (2026-09-16). Nu wachten tot ~90s.
+HTTP_CODE="000"
+POGING=0
+while [ "$POGING" -lt 18 ]; do
+    POGING=$((POGING + 1))
+    sleep 5
+    HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8080 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ]; then
+        break
+    fi
+done
 if [ "$HTTP_CODE" = "200" ]; then
-    echo "✅ Dashboard responding (HTTP ${HTTP_CODE})"
+    echo "✅ Dashboard responding (HTTP ${HTTP_CODE}) na ${POGING} poging(en), ~$((POGING * 5))s"
 else
-    echo "⚠️ Dashboard returned HTTP ${HTTP_CODE} (may need more startup time)"
+    echo "⚠️ Dashboard gaf HTTP ${HTTP_CODE} na ~90s — bekijk: sudo docker logs agent_trader_swarm | tail -30"
 fi
 
 
