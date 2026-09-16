@@ -2203,7 +2203,10 @@ class SwarmMonitor:
             # NEEDS_MANUAL_WITHDRAWAL blokkeert alle yield-bewegingen tot hij verloopt:
             # nooit stil laten hangen (A1-hertoets kasbeheer 2026-09-15).
             elif status in {"APPROVED", "SWITCHING", "WITHDRAWING", "BRIDGED", "REBALANCING",
-                            "NEEDS_MANUAL_WITHDRAWAL"} and age_h > self.STUCK_APPROVED_H:
+                            "NEEDS_MANUAL_WITHDRAWAL",
+                            # Sinds 2026-09-16 blokkeren deze twee ook alle yield-bewegingen
+                            # (_REBALANCE_ONDERWEG), dus ze mogen niet stil blijven hangen.
+                            "BRIDGE_BACK_NEEDED", "BRIDGING_TO_HL"} and age_h > self.STUCK_APPROVED_H:
                 stuck.append((p.get("id", "?"), status, age_h, p.get("title", "")))
 
         if not stuck:

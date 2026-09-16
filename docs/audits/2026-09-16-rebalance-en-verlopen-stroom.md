@@ -31,7 +31,32 @@
 - **Op het spel:** vandaag niets; vanaf M3 de cap van 65% per protocol.
 - **Terugdraaien:** `git revert` + deploy.
 
-## Wat ik zelf niet heb gecontroleerd
+## Wat ik zelf niet heb gecontroleerd (vóór de audit)
 - Of een REBALANCE in de praktijk lang in BRIDGE_BACK_NEEDED blijft staan (dan is een verlooptijd nodig, zoals bij de handmatige opname).
 - Of er nog een pad is waarlangs geld tussen `swarm` en `yield_core` beweegt zonder proposal — de bekende zijn: handmatige opname, handmatige storting, en de bridge-stap van een rebalance.
 - Of de Telegram-melding bij EXPIRED in de praktijk leesbaar is (Markdown met backticks in een melding die ook `_md_escape` passeert bij monitorberichten; deze melding gaat via de executor, niet via de monitor).
+
+---
+
+## Audit
+**Oordeel: GO-mits.** `1eac851` mag gedeployed worden — strikt strenger dan wat live staat, en het repareert een botsing die in productie **twee keer** is voorgekomen (18-07 en 23-07: een DEPLOY_YIELD aangemaakt in dezelfde seconde als `aave_withdrawn_at` van een lopende rebalance, om dezelfde dollars).
+
+**Correcties op mijn claimblad:**
+- Bewering 2 is onvolledig: FAILED valt buiten de set, en een rebalance die ná de Aave-opname faalt laat USDC op de wallet staan die de deploy-detector terug naar Aave duwt (`TRR_20260723_1501` → `TRP_20260723_2002_0`, $434,31) terwijl HL juist marge tekortkwam.
+- Mijn risicoparagraaf klopte niet: BRIDGE_BACK_NEEDED wacht **niet** op een handmatige storting — de executor bridget zelf. De hele keten duurt historisch 10–30 minuten, dus de blokkade is minuten, geen dagen. De `steps`-tekst van het rebalance-voorstel is verouderd.
+- De toets dekt maar één van de vijf aanroepplekken; een aansluitingstoets op `run()` voor REBALANCE ontbreekt.
+
+| # | Bevinding | Reactie |
+|---|---|---|
+| 5 | BRIDGE_BACK_NEEDED en BRIDGING_TO_HL onzichtbaar in Check 14 (**voorwaarde bij de deploy**) | **Opgelost** in deze deploy: beide toegevoegd aan de vastgelopen-check (> 6u → Telegram) |
+| 1 | In `run()` kunnen een deploy én een rebalance in dezelfde cyclus ontstaan | **Aanvaard, volgende ronde.** `_check_rebalance_needed` gaat vóór de generate-block, zoals in `run_fast`, mét aansluitingstoets |
+| 2 | Gefaalde rebalance ná de opname duwt geld terug naar Aave | **Aanvaard, volgende ronde.** Geen FAILED in de set (dat bevriest alles), maar apart melden en het wallet-saldo naar FUND_TRADING sturen |
+| 3 | Twee definities van "rebalance onderweg" (BRIDGING_TO_HL ontbreekt in de eigen guard) | **Aanvaard, volgende ronde.** Eén constante |
+| 4 | FUND_TRADING ontbreekt in de helper terwijl `flows` hem wél als transit telt | **Aanvaard, volgende ronde** (incl. PENDING, met de TTL van 6u als vangnet) |
+| 6 | Verloop-race: EXPIRED vóór de saldo-poll | **Aanvaard, volgende ronde.** Saldo eerst lezen, dan pas verlopen |
+| 7 | Geen plain-text-fallback in `_send_telegram`, geen toets op de tekst | **Aanvaard, volgende ronde.** Zelfde patroon als `sleeve_nav`/`thematic_exposure_lab` |
+
+**Antwoorden op de open vragen:**
+- *V5 had twee helften; alleen de instructie is gebouwd.* Klopt, en dat had in het claimblad moeten staan. De tweede helft (deploy pas vrijgeven als de stroom geboekt is) vergt een blokkade op iets dat een mens moet doen — dat wil ik samen met bevinding 2 bouwen, want die twee raken dezelfde route.
+- *Waarom staat `_check_rebalance_needed` buiten de helper?* Omdat marge-herstel voorrang heeft; dat was impliciet. Wordt expliciet in de code gezet bij bevinding 1.
+- *Verouderde `steps`-tekst?* Ja, gaat mee in de volgende ronde.
