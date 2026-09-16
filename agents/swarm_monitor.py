@@ -2238,6 +2238,9 @@ class SwarmMonitor:
     GESTRAND_HERHAAL_SEC = 24 * 3600  # tweede en laatste melding pas na 24 uur
     GESTRAND_BRIDGE_MIN_USD = 10.0    # daaronder valt er niets meer te bridgen
     GESTRAND_POGING_SEC = 3600        # na een mislukte melding hooguit 1× per uur opnieuw
+    GESTRAND_METING_SEC = 6 * 3600    # saldo hooguit 1× per 6u meten als er niets te melden is
+    GESTRAND_LANG_SEC = 72 * 3600     # daarna nog hooguit elke 3 dagen, mits er geld ligt
+    GESTRAND_HERHAAL_MIN_USD = 100.0  # onder dit bedrag pakt het deploy-pad het zelf op
     # Daarna alleen INFO: hooguit twee meldingen per voorstel (sleutels ":1" en ":2"),
     # anders levert één gebeurtenis er veertien op (A1-audit 2026-09-16, ronde 2).
 
@@ -2303,7 +2306,7 @@ class SwarmMonitor:
                 logger.info(
                     "SwarmMonitor: %d gestrande rebalance(s) %s — niet gemeld: %s",
                     len(lijst), naam,
-                    ", ".join("%s (%.0fd)" % (q.get("id"), d) for q, d in lijst),
+                    ", ".join("%s (%.0fd)" % (q.get("id") or "zonder id", d) for q, d in lijst),
                 )
         if not (kandidaten or mogelijk_opgelost):
             return
@@ -2338,53 +2341,68 @@ class SwarmMonitor:
             except Exception:
                 vault = ""
 
-        # Een latere GESLAAGDE rebalance bewijst niets over geld op de treasury-wallet: de
-        # bridge leegt alleen het vault-adres, en onder _MIN_DEPLOY_USD ($100) raakt ook het
-        # deploy-pad het niet aan. Daarom pas afsluiten als er echt niets meer staat.
-        if mogelijk_opgelost:
-            t_tekst, t_bedrag = _meet(_TREASURY_WALLET)
-            v_tekst, v_bedrag = _meet(vault)
-            totaal = None if (t_bedrag is None or v_bedrag is None) else t_bedrag + v_bedrag
-            namen = ", ".join("%s (%.0fd)" % (q.get("id") or "zonder id", d)
-                              for q, d in mogelijk_opgelost)
-            if totaal is not None and totaal < self.GESTRAND_BRIDGE_MIN_USD:
-                logger.info(
-                    "SwarmMonitor: %d gestrande rebalance(s) afgesloten — latere rebalance "
-                    "geslaagd en saldo treasury %s + vault %s: %s",
-                    len(mogelijk_opgelost), t_tekst, v_tekst, namen,
-                )
-            else:
-                logger.info(
-                    "SwarmMonitor: latere rebalance geslaagd, maar saldo treasury %s + vault %s "
-                    "— blijft melden: %s", t_tekst, v_tekst, namen,
-                )
-                kandidaten.extend(mogelijk_opgelost)
-        if not kandidaten:
-            return
-
         # De MEEST RECENTE stranding hoort bij de huidige situatie; het oudste record
         # noemen zou een bedrag melden dat nergens bij hoort (A1-audit 2026-09-16).
-        p, dagen = min(kandidaten, key=lambda k: k[1])
+        alle = kandidaten + mogelijk_opgelost
+        p, dagen = min(alle, key=lambda k: k[1])
+        mogelijk_klaar = any(q is p for q, _ in mogelijk_opgelost)
         basis = "gestrand_rebalance_geld:%s" % (p.get("id") or p.get("aave_withdrawn_at"))
+        naam = p.get("id") or "voorstel zonder id"
+
+        # ── Tijdpoort vóór de meting ──────────────────────────────────────────
+        # Meten kost twee eth_calls; stond dat vóór de cooldown, dan liep dat op tot ~8.000
+        # calls per 14 dagen, ook bij nul meldingen (A1-audit ronde 4). Dus eerst bepalen
+        # of er überhaupt iets te melden kán zijn.
         eerste = self._sent_alerts.get(basis + ":1")
         tweede = self._sent_alerts.get(basis + ":2")
-        if tweede or (eerste and (now - eerste).total_seconds() < self.GESTRAND_HERHAAL_SEC):
-            logger.info("SwarmMonitor: gestrande rebalance %s al gemeld — geen herhaling", p.get("id"))
+        herhaald = self._sent_alerts.get(basis + ":h")
+        if not eerste:
+            beurt = ":1"
+        elif not tweede:
+            beurt = ":2" if (now - eerste).total_seconds() >= self.GESTRAND_HERHAAL_SEC else None
+        else:
+            laatste = herhaald or tweede
+            beurt = ":h" if (now - laatste).total_seconds() >= self.GESTRAND_LANG_SEC else None
+        if beurt is None:
             return
-        # Mislukte melding: niet stempelen (dan zou hij 24u zwijgen), maar wél afremmen —
-        # anders elke monitorronde opnieuw, inclusief twee eth_calls (A1-audit ronde 2).
+        # Mislukte melding: niet stempelen (dan zou hij 24u zwijgen), maar wél afremmen.
         poging = self._sent_alerts.get(basis + ":poging")
         if poging and (now - poging).total_seconds() < self.GESTRAND_POGING_SEC:
             return
-        beurt = ":2" if eerste else ":1"
+        # En na een meting die niets opleverde: hooguit elke 6 uur opnieuw meten.
+        meting = self._sent_alerts.get(basis + ":meting")
+        if meting and (now - meting).total_seconds() < self.GESTRAND_METING_SEC:
+            return
 
-        naam = p.get("id") or "voorstel zonder id"
+        t_tekst, t_bedrag = _meet(_TREASURY_WALLET)
+        v_tekst, v_bedrag = _meet(vault)
+        totaal = None if (t_bedrag is None or v_bedrag is None) else t_bedrag + v_bedrag
+
+        # Een latere GESLAAGDE rebalance bewijst niets over geld op de treasury-wallet: de
+        # bridge leegt alleen het vault-adres, en onder _MIN_DEPLOY_USD ($100) raakt ook het
+        # deploy-pad het niet aan. Afsluiten mag dus alleen op een GEMETEN saldo.
+        if mogelijk_klaar and totaal is not None and totaal < self.GESTRAND_BRIDGE_MIN_USD:
+            logger.info(
+                "SwarmMonitor: gestrande rebalance %s afgesloten — latere rebalance geslaagd "
+                "en saldo treasury %s + vault %s", naam, t_tekst, v_tekst,
+            )
+            self._sent_alerts[basis + ":meting"] = now
+            return
+
+        # Derde en latere melding alleen zolang er echt geld ligt: onder $100 pakt het
+        # deploy-pad het zelf op, en dan is herhalen ruis (A1-audit ronde 4, pre-mortem).
+        if beurt == ":h" and not (totaal is not None and totaal >= self.GESTRAND_HERHAAL_MIN_USD):
+            logger.info(
+                "SwarmMonitor: gestrande rebalance %s blijft open, saldo treasury %s + vault %s "
+                "— geen herhaalmelding", naam, t_tekst, v_tekst,
+            )
+            self._sent_alerts[basis + ":meting"] = now
+            return
+
         bedrag = float(p.get("amount_usd") or 0.0)
-        t_tekst, _ = _meet(_TREASURY_WALLET)
-        v_tekst, _ = _meet(vault)
-        extra = ("\n(%d gestrande voorstellen; dit is de meest recente)" % len(kandidaten)
-                 if len(kandidaten) > 1 else "")
-        kop = "herinnering" if beurt == ":2" else "rebalance-bridge niet bevestigd"
+        extra = ("\n(%d gestrande voorstellen; dit is de meest recente)" % len(alle)
+                 if len(alle) > 1 else "")
+        kop = "rebalance-bridge niet bevestigd" if beurt == ":1" else "herinnering"
         gelukt = self._send_telegram(
             f"⚠️ *Treasury: {kop}*\n"
             f"`{naam}` haalde ${bedrag:.0f} uit Aave ({dagen:.1f} dagen geleden); "

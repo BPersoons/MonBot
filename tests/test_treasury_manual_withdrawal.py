@@ -178,8 +178,9 @@ def test_monitor_zwijgt_bij_oud_scheef_en_opgelost(tmp_path, monkeypatch):
     assert not klaar._send_telegram.called, "opgelost = geen melding meer"
 
 
-def test_monitor_kiest_de_meest_recente_en_meldt_hoogstens_twee_keer(tmp_path, monkeypatch):
+def test_monitor_kiest_de_meest_recente_en_herhaalt_alleen_bij_geld(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HL_VAULT_ADDRESS", VAULT_ADR)
     nu = datetime.now(timezone.utc)
     sm, monitor = _monitor(tmp_path, [
         _rebalance_gestrand(uren_geleden=13 * 24, id="TRR_OUD", amount_usd=50.0),
@@ -199,7 +200,74 @@ def test_monitor_kiest_de_meest_recente_en_meldt_hoogstens_twee_keer(tmp_path, m
     monitor._send_telegram.reset_mock()
     with patch("utils.treasury_executor._rpc", _saldo(267.28)):
         monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=50))
-    assert not monitor._send_telegram.called, "hooguit twee meldingen per geval"
+    assert not monitor._send_telegram.called, "binnen 72 uur na de tweede: stil"
+
+    # daarna nog hooguit elke 3 dagen, en alléén zolang er echt geld ligt
+    from utils.treasury_executor import _TREASURY_WALLET
+    monitor._send_telegram.reset_mock()
+    with patch("utils.treasury_executor._rpc", _saldi({_TREASURY_WALLET: 20.0, VAULT_ADR: 20.0})):
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=100))
+    assert not monitor._send_telegram.called, "$40 pakt het deploy-pad zelf op: geen herhaling"
+
+    monitor._send_telegram.reset_mock()
+    with patch("utils.treasury_executor._rpc", _saldi({_TREASURY_WALLET: 267.28, VAULT_ADR: 0.0})):
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=110))
+    assert monitor._send_telegram.called, "$267 blijft liggen: na 3 dagen opnieuw melden"
+
+
+def test_vault_adres_valt_niet_terug_op_de_agent_wallet(tmp_path, monkeypatch):
+    """A1-audit ronde 4: de fix uit ronde 3 zat in de code maar in geen enkele toets.
+
+    `HL_WALLET_ADDRESS` is de agent-wallet — een ánder adres. Werd die als vault gelezen,
+    dan meldde de check een saldo dat nergens bij hoort en kon hij een geval sluiten op
+    grond van het verkeerde adres.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("HL_VAULT_ADDRESS", raising=False)
+    monkeypatch.setenv("HL_WALLET_ADDRESS", "0xAgEnT0000000000000000000000000000001111")
+    from utils.treasury_executor import _TREASURY_WALLET
+    voorstellen = [
+        _rebalance_gestrand(uren_geleden=5),
+        {"id": "TRR_later", "type": "REBALANCE", "status": "COMPLETED", "amount_usd": 401.83,
+         "aave_withdrawn_at": _iso(4), "completed_at": _iso(3)},
+    ]
+    sm, monitor = _monitor(tmp_path, voorstellen)
+    with patch("utils.treasury_executor._rpc", _saldi({_TREASURY_WALLET: 0.0})), \
+         patch("utils.gcp_secrets.get_secret", return_value=""):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert monitor._send_telegram.called, "onbekend vault-adres mag een geval niet sluiten"
+    tekst = monitor._send_telegram.call_args[0][0]
+    assert "1111" not in tekst, "de agent-wallet mag niet als vault-adres worden getoond"
+    assert "niet gemeten" in tekst
+
+
+def test_saldo_wordt_hooguit_elke_zes_uur_gemeten(tmp_path, monkeypatch):
+    """A1-audit ronde 4: meten vóór de cooldown gaf ~8.000 eth_calls per 14 dagen."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HL_VAULT_ADDRESS", VAULT_ADR)
+    nu = datetime.now(timezone.utc)
+    voorstellen = [
+        _rebalance_gestrand(uren_geleden=5),
+        {"id": "TRR_later", "type": "REBALANCE", "status": "COMPLETED", "amount_usd": 401.83,
+         "aave_withdrawn_at": _iso(4), "completed_at": _iso(3)},
+    ]
+    sm, monitor = _monitor(tmp_path, voorstellen)
+    aanroepen = []
+
+    def tel(methode, params):
+        aanroepen.append(params[0].get("data"))
+        return "0x0"
+
+    with patch("utils.treasury_executor._rpc", tel):
+        monitor._check_gestrand_rebalance_geld(nu)                       # meet, sluit af
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(minutes=5))
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=1))
+    assert not monitor._send_telegram.called, "afgesloten geval meldt niet"
+    assert len(aanroepen) == 2, "twee adressen, één meting per 6 uur — kreeg %d" % len(aanroepen)
+
+    with patch("utils.treasury_executor._rpc", tel):
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=7))
+    assert len(aanroepen) == 4, "na 6 uur mag hij opnieuw meten"
 
 
 def test_mislukte_melding_geeft_geen_stilte(tmp_path, monkeypatch):

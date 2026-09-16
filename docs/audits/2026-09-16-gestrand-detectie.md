@@ -96,6 +96,22 @@ De vorige poging stuurde gestrand geld automatisch naar HL en kreeg **STOP**: de
 - *Waarom sloot een geslaagde rebalance het geval af?* Een aanname over de pijplijn die ik niet aan het geld had getoetst. Nu is het saldo doorslaggevend.
 - *Een afsluitende melding bij "opgelost"?* Nee — dat is een tweede melding voor een niet-gebeurtenis. Het sluiten staat met de gemeten saldi in de INFO-regel; Telegram blijft voor dingen die actie vragen.
 
+## Hertoets (ronde 4)
+**Oordeel: GO-mits** — twee voorwaarden. De drie voorwaarden van ronde 3 zijn met eigen replays bevestigd; de agent mat onder meer dat geld tussen $10 en $100 niet stil blijft liggen (treasury $30 met een latere geslaagde rebalance → gewoon 2 meldingen), dus $10 als ondergrens is verdedigbaar.
+
+| # | Voorwaarde / bevinding | Reactie |
+|---|---|---|
+| 1 | De backoff dekte de dure helft niet: 2 `eth_call`s per ronde, 14 dagen lang, ook bij **nul** meldingen (~8.000 calls). Bij een kapotte RPC ~210 s per ronde in een lus van 300 s | **Opgelost.** De meting staat nu **achter** de tijdpoort en de backoff, plus een eigen meet-cooldown van 6 uur als een meting niets oplevert. Dat brengt het terug van ~576 naar hooguit 8 calls per dag per open geval. Toets: `test_saldo_wordt_hooguit_elke_zes_uur_gemeten` (telt de calls) |
+| 2 | Voorwaarde 2 van ronde 3 zat in de code maar in **geen enkele toets** — de agent zette de foute terugval terug en alle 16 toetsen bleven groen | **Opgelost.** `test_vault_adres_valt_niet_terug_op_de_agent_wallet` met een lok-`HL_WALLET_ADDRESS`: dat adres mag niet in de melding staan en mag het geval niet sluiten. Mutatie die de oude terugval nabootst maakt hem rood |
+| 3 | De INFO-regel toonde nog `None (55d)` voor een voorstel zonder id | **Opgelost** |
+| 4 | Onverwante USDC ≥ $10 op de wallet kan een gesloten geval heropenen | **Aanvaard.** Conservatieve kant, en de melding houdt expliciet een slag om de arm |
+| 5 | `:poging`-sleutels worden nooit opgeruimd | **Aanvaard** — bestaand patroon in `monitor_alert_state.json` |
+| pre-mortem | Na twee meldingen zwijgt hij terwijl hij zelf net $267 heeft gemeten | **Overgenomen.** De **gemeten** som stuurt nu de herhaling: zolang treasury + vault ≥ $100 mag er elke 72 uur nog een melding; daaronder niet. Dat gebruikt de meting die er toch al is |
+
+**Antwoorden op de open vragen:**
+- *Waarom een vaste bovengrens van twee meldingen?* Die is vervangen door de meting, precies zoals je voorstelde — zwijgen mag alleen als er weinig geld ligt.
+- *`utils/treasury_executor.py:337/341`?* Daar staat dezelfde terugval (`HL_VAULT_ADDRESS or HL_WALLET_ADDRESS`) voor de withdrawal-client. Buiten deze commit; gaat als losse kleine correctie mee in de eerstvolgende kasbeheer-ronde, met een eigen toets.
+
 **Bekende beperkingen (bewust, staan op de lijst voor de herbouw):**
 - Alleen de treasury-wallet wordt gelezen, niet het vault-Arb-adres.
 - `BRIDGE_BACK_NEEDED`/`REBALANCING`/`BRIDGING_TO_HL` zonder statuswijziging vallen buiten deze check; Check 14 meldt die na 6 uur, maar zonder te zeggen dat er geld op de wallet staat.
