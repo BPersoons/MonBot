@@ -220,6 +220,22 @@ def test_geen_switch_zolang_een_deploy_onderweg_is():
         assert [p["type"] for p in met] == ["DEPLOY_YIELD"], status
 
 
+def test_geen_yield_beweging_tijdens_een_rebalance():
+    """A1-audit V6: rebalance en switch trekken aan dezelfde Aave-positie en wallet."""
+    opps = [_opp(BENCH, apy=2.6), dict(_opp("fluid", apy=9.0), risk_adjusted_apy=8.0)]
+    saldi = {BENCH: 1000.0}
+    zonder, _ = _switch_agent({BENCH: 1000.0, "fluid": 0.0})._check_yield_switch(opps, saldi, [])
+    assert [p["type"] for p in zonder] == ["YIELD_SWITCH"], "controle: zonder rebalance wél een switch"
+    for status in ("APPROVED", "REBALANCING", "BRIDGE_BACK_NEEDED", "BRIDGING_TO_HL"):
+        lopend = [{"id": "TRR_x", "type": "REBALANCE", "status": status}]
+        met, _ = _switch_agent({BENCH: 1000.0, "fluid": 0.0})._check_yield_switch(opps, saldi, lopend)
+        assert [p["type"] for p in met] == ["REBALANCE"], status
+    # een afgeronde rebalance blokkeert niets
+    klaar = [{"id": "TRR_y", "type": "REBALANCE", "status": "COMPLETED"}]
+    weer, _ = _switch_agent({BENCH: 1000.0, "fluid": 0.0})._check_yield_switch(opps, saldi, klaar)
+    assert [p["type"] for p in weer] == ["REBALANCE", "YIELD_SWITCH"]
+
+
 def test_geen_diversificatie_zolang_een_deploy_onderweg_is():
     opps = [_opp(BENCH, apy=2.6), _opp("fluid", apy=2.5)]
     saldi = {BENCH: 1000.0, "fluid": 50.0}

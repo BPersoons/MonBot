@@ -86,6 +86,9 @@ _YIELD_SWITCH_MIN_USD    = 100   # minimum deployed balance worth switching (gas
 _DEPLOY_ONDERWEG = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"}
 # Een switch is onderweg zodra hij APPROVED is: de executor pakt hem dezelfde ronde op.
 _SWITCH_ONDERWEG = {"APPROVED", "SWITCHING"}
+# Een rebalance trekt aan dezelfde Aave-positie en daarna aan hetzelfde wallet-saldo als
+# een switch of deploy; ze kunnen elkaars USDC claimen (A1-audit 2026-09-16, V6).
+_REBALANCE_ONDERWEG = {"APPROVED", "REBALANCING", "BRIDGE_BACK_NEEDED", "BRIDGING_TO_HL"}
 
 
 def _yield_beweging_onderweg(proposals) -> bool:
@@ -98,6 +101,7 @@ def _yield_beweging_onderweg(proposals) -> bool:
     return any(
         (p.get("type") == "DEPLOY_YIELD" and p.get("status") in _DEPLOY_ONDERWEG)
         or (p.get("type") == "YIELD_SWITCH" and p.get("status") in _SWITCH_ONDERWEG)
+        or (p.get("type") == "REBALANCE" and p.get("status") in _REBALANCE_ONDERWEG)
         for p in proposals
     )
 

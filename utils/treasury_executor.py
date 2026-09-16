@@ -1277,7 +1277,10 @@ def _advance_proposal_inner(
                 _notify(
                     f"⌛ *Treasury: handmatige opname verlopen*\n"
                     f"`{proposal.get('id', '?')}` — ${amount:.0f} niet binnen {_MANUAL_WITHDRAWAL_TTL_H}u "
-                    f"op de treasury-wallet. Voorstel gesloten; USDC die later aankomt, wordt als nieuw geld behandeld."
+                    f"op de treasury-wallet. Voorstel gesloten; USDC die later aankomt, wordt als nieuw geld behandeld.\n\n"
+                    f"⚠️ Doe je de opname alsnog handmatig? Boek daarna de kapitaalstroom "
+                    f"`swarm → yield_core` (zie `/boek-order` stap 1b). Zonder die boeking ziet "
+                    f"de KPI het bedrag als opbrengst."
                 )
                 return proposal
         dest    = proposal.get("withdrawal_destination", wallet_address)

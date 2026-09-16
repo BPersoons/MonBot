@@ -52,6 +52,12 @@ is geen rendement. Zonder deze boeking ziet de meter nieuw geld als winst.
 - **Storting** van de bank naar DeGiro → `extern` → `tradfi`.
 - **Opname** van DeGiro naar de bank → `tradfi` → `extern`.
 - **Aankoop of verkoop binnen DeGiro** (kas ↔ fonds): **geen** stroom, dat blijft binnen het potje.
+- **Handmatige opname van Hyperliquid naar de treasury-wallet** → `swarm` → `yield_core`.
+  Kasbeheer boekt dit normaal zelf vanuit het voorstel, maar **niet** als dat voorstel is
+  verlopen (EXPIRED na 48u) of als je buiten een voorstel om opneemt. De Telegram-melding
+  bij zo'n verlopen opname zegt dit er expliciet bij.
+- **Handmatige storting van de treasury-wallet naar Hyperliquid** → `yield_core` → `swarm`
+  (een FUND_TRADING-voorstel boekt dit zelf zodra het COMPLETED is).
 
 Bedrag in **USD** tegen de EURUSD-koers van die dag (de potjesreeks is in USD). Noteer de
 gebruikte koers in de omschrijving. Boek in de container, want `data/` is gemount:
