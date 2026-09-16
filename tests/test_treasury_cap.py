@@ -374,6 +374,21 @@ def test_telegram_valt_terug_op_platte_tekst():
     assert pogingen[1]["text"] == "*vet* `yield_core` _kapot", "tekst blijft ongewijzigd"
 
 
+def test_de_twee_echte_botsingen_van_juli_kunnen_niet_meer():
+    """Regressie op de échte tijdstempels uit treasury_proposals.json.
+
+    18-07: TRP_20260718_1904_0 aangemaakt om 19:04:48.928, terwijl TRR_20260718_1852 om
+    19:04:48.932 zijn Aave-opname bevestigde. 23-07: TRP_20260723_1447_excess deployed om
+    15:14:28, veertien seconden vóór aave_withdrawn_at 15:14:42 van TRR_20260723_1501.
+    In beide gevallen vochten een deploy en een rebalance om dezelfde dollars.
+    """
+    for datum, rebalance_status in (("2026-07-18", "APPROVED"), ("2026-07-23", "BRIDGE_BACK_NEEDED")):
+        lopend = [{"id": "TRR_%s" % datum, "type": "REBALANCE", "status": rebalance_status,
+                   "amount_usd": 267.28, "aave_withdrawn_at": "%sT15:14:42" % datum}]
+        assert ta._yield_beweging_onderweg(lopend) is True, (
+            "een rebalance in %s moet elke nieuwe yield-beweging blokkeren" % rebalance_status)
+
+
 def test_oude_fouten_en_andere_types_tellen_niet():
     agent = _agent()
     oud = [_fout(30), _fout(40)]

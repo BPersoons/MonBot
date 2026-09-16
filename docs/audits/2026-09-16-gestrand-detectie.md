@@ -32,7 +32,34 @@ De vorige poging stuurde gestrand geld automatisch naar HL en kreeg **STOP**: de
   - De check leest alleen de treasury-wallet, niet het vault-Arb-adres — bekende beperking, staat als voorwaarde 5 voor de herbouw.
 - **Terugdraaien:** `git revert` + deploy; de check heeft geen state.
 
-## Wat ik zelf niet heb gecontroleerd
+## Wat ik zelf niet heb gecontroleerd (vóór de audit)
 - Of de melding in Telegram leesbaar rendert (backticks rond het voorstel-id, underscores in de id).
 - Of `_sent_alerts` een herstart overleeft (Check 14 heeft hetzelfde gedrag; bij een herstart kan de melding één keer extra komen).
 - Of 14 dagen de juiste grens is — gekozen omdat een rebalance normaal binnen 30 minuten rond is.
+
+---
+
+## Audit
+**Oordeel: GO-mits** met vier voorwaarden vóór deploy. De kern van de kritiek was fataal voor mijn ontwerp en volledig terecht.
+
+**Correctie op mijn ontwerp (bevinding 1).** Mijn drempel van $100 op het wallet-saldo maakte de check blind voor precies de faalmodus die hij moest dekken. Bewijs uit productie: op 23-07 stond `TRP_20260723_1447_excess` op DEPLOYED om 15:14:28, **veertien seconden vóór** `aave_withdrawn_at` 15:14:42 van de rebalance die daarna faalde; op 18-07 zat er 4 milliseconden tussen. Het geld was dus al door de concurrerende deploy naar Aave teruggeduwd en de wallet was leeg — de check zou in **beide** echte incidenten hebben gezwegen.
+
+| # | Bevinding | Reactie |
+|---|---|---|
+| 1 | De check zou geen van beide echte incidenten hebben gezien | **Herontworpen.** Melden gebeurt nu op de **gebeurtenis** (REBALANCE → FAILED mét `aave_withdrawn_at`, binnen 14 dagen), ongeacht het saldo. Het wallet-saldo is een **veld** in de melding geworden. Toets: `test_monitor_meldt_de_gebeurtenis_ook_als_de_wallet_al_leeg_is` (saldo $0,00 → meldt) |
+| 2 | Stille nul: `get_arb_usdc_balance` geeft 0.0 bij een RPC-storing | **Opgelost.** De check doet zijn eigen `_rpc`-aanroep en meldt letterlijk "onmeetbaar" als die faalt. Toets: `test_monitor_onderscheidt_nul_van_onmeetbaar` |
+| 3 | Cooldown gestempeld vóór de melding → 12u stilte bij één format-fout | **Opgelost.** Stempelen ná `_send_telegram`, en de logregel gebruikt nu dezelfde defensieve `float(... or 0)` |
+| 4 | `max` op leeftijd koos het verkeerde record; bedrag hoorde niet bij het saldo | **Opgelost.** `min` op leeftijd (de verse stranding), het aantal kandidaten in de tekst, en de zin "hoogstens $X hoort bij dít voorstel". Toets met twee kandidaten controleert dat het oude bedrag níét in de melding staat |
+| 5 | Geld staat óók op de wallet bij BRIDGE_BACK_NEEDED zonder sleutel | **Bekende beperking**, hieronder vastgelegd; Check 14 vangt die statussen na 6u |
+| 6 | "logt wel (debug)" is onzichtbaar bij `level=INFO` | **Opgelost.** Records ouder dan 14 dagen geven nu een INFO-regel met id en leeftijd |
+| 7 | M4-meetklok klopt niet zodra je deployt | **Opgelost bij de deploy zelf**: de klok gaat op het werkelijke herstartmoment. Ook een hot-patch herstart de container, dus dat maakt geen verschil |
+| gemiste kans | Een regressietoets op de historische samenloop is meer waard dan de melding | **Gebouwd.** `test_de_twee_echte_botsingen_van_juli_kunnen_niet_meer` speelt beide incidenten na op de echte statussen |
+
+**Antwoorden op de open vragen:**
+- *Waarom het saldo als drempel?* Een denkfout: ik redeneerde vanuit "geld dat blijft liggen" in plaats van vanuit de gebeurtenis. Het is nu een veld.
+- *Stilte na 14 dagen?* Niet meer stil: oudere records geven een INFO-regel. Een wekelijkse samenvatting voegt daar weinig aan toe zolang er één dood record is.
+
+**Bekende beperkingen (bewust, staan op de lijst voor de herbouw):**
+- Alleen de treasury-wallet wordt gelezen, niet het vault-Arb-adres.
+- `BRIDGE_BACK_NEEDED`/`REBALANCING`/`BRIDGING_TO_HL` zonder statuswijziging vallen buiten deze check; Check 14 meldt die na 6 uur, maar zonder te zeggen dat er geld op de wallet staat.
+- Er is nog steeds **geen automatisch herstel** — alleen een melding.

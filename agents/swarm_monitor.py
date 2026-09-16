@@ -2234,27 +2234,34 @@ class SwarmMonitor:
     # Check 25: gestrand rebalance-geld (alleen melden)
     # ──────────────────────────────────────────
 
-    GESTRAND_MIN_USD = 100.0          # onder dit bedrag veegt niets het geld weg
-    GESTRAND_MAX_DAGEN = 14           # ouder = dood record, alleen loggen
-    GESTRAND_COOLDOWN_SEC = 12 * 3600
+    GESTRAND_MAX_DAGEN = 14           # ouder = dood record, alleen een INFO-regel
+    GESTRAND_COOLDOWN_SEC = 24 * 3600 # per voorstel, niet globaal
 
     def _check_gestrand_rebalance_geld(self, now: datetime):
-        """Meldt geld dat op de treasury-wallet is blijven staan na een mislukte rebalance.
+        """Meldt een rebalance die faalde ná de Aave-opname. Alleen melden, geen actie.
 
-        **Alleen melden, geen actie.** Een eerdere poging om dit automatisch naar HL te
-        sturen kreeg A1-STOP: de detectie had geen tijdsgrens en matchte een 55 dagen oud
-        FAILED-record, waardoor ze vers geld van een ander potje zou claimen. Daarom hier
-        een leeftijdsgrens én een expliciete slag om de arm in de tekst: geld op de wallet
-        kan ook een andere herkomst hebben. Zie docs/audits/2026-09-16-zes-bevindingen.md.
+        Meldt op de **gebeurtenis**, niet op het wallet-saldo. In beide echte incidenten
+        (18-07 en 23-07) was het geld binnen een minuut al door een concurrerende deploy
+        naar Aave teruggeduwd, dus de wallet was leeg — een saldo-drempel had daar niets
+        gezien (A1-audit 2026-09-16). Het saldo staat er als veld bij, met onderscheid
+        tussen $0 en onmeetbaar: `get_arb_usdc_balance` slikt RPC-fouten in als nul, dus
+        die gebruiken we hier bewust niet.
+
+        Een eerdere versie die dit geld automatisch naar HL stuurde kreeg A1-STOP; de
+        voorwaarden voor die herbouw staan in docs/audits/2026-09-16-zes-bevindingen.md.
         """
         try:
             with open("treasury_proposals.json") as f:
                 proposals = json.load(f)
         except Exception:
             return
+        if isinstance(proposals, dict):
+            proposals = proposals.get("proposals", [])
 
-        kandidaten = []
+        kandidaten, oud = [], []
         for p in proposals:
+            if not isinstance(p, dict):
+                continue
             if (p.get("type") != "REBALANCE" or p.get("status") != "FAILED"
                     or not p.get("aave_withdrawn_at") or p.get("completed_at")):
                 continue
@@ -2265,42 +2272,52 @@ class SwarmMonitor:
                 dagen = (now - t).total_seconds() / 86400.0
             except Exception:
                 continue
-            if dagen <= self.GESTRAND_MAX_DAGEN:
-                kandidaten.append((p, dagen))
-            else:
-                logger.debug(
-                    f"SwarmMonitor: gestrande rebalance {p.get('id')} is {dagen:.0f} dagen oud — niet gemeld"
-                )
+            (kandidaten if dagen <= self.GESTRAND_MAX_DAGEN else oud).append((p, dagen))
+
+        if oud:
+            logger.info(
+                "SwarmMonitor: %d gestrande rebalance(s) ouder dan %d dagen — niet gemeld: %s",
+                len(oud), self.GESTRAND_MAX_DAGEN,
+                ", ".join("%s (%.0fd)" % (q.get("id"), d) for q, d in oud),
+            )
         if not kandidaten:
             return
 
-        try:
-            from utils.treasury_executor import get_arb_usdc_balance, _TREASURY_WALLET
-            wallet = get_arb_usdc_balance(_TREASURY_WALLET)
-        except Exception as e:
-            logger.warning(f"SwarmMonitor: wallet-saldo onleesbaar bij gestrand-check: {e}")
-            return
-        if wallet < self.GESTRAND_MIN_USD:
-            return
-
-        alert_key = "gestrand_rebalance_geld"
+        # De MEEST RECENTE stranding hoort bij de huidige situatie; het oudste record
+        # noemen zou een bedrag melden dat nergens bij hoort (A1-audit 2026-09-16).
+        p, dagen = min(kandidaten, key=lambda k: k[1])
+        alert_key = "gestrand_rebalance_geld:%s" % p.get("id")
         last_sent = self._sent_alerts.get(alert_key)
         if last_sent and (now - last_sent).total_seconds() < self.GESTRAND_COOLDOWN_SEC:
             return
-        self._sent_alerts[alert_key] = now
 
-        p, dagen = max(kandidaten, key=lambda k: k[1])
-        logger.warning(
-            f"SwarmMonitor: mogelijk gestrand rebalance-geld — {p.get('id')} "
-            f"(${p.get('amount_usd', 0):.0f}, {dagen:.1f} dagen) en wallet ${wallet:.2f}"
-        )
+        try:
+            from utils.treasury_executor import _rpc, _TREASURY_WALLET, _USDC_ARB
+            ruw = _rpc("eth_call", [{
+                "to": _USDC_ARB,
+                "data": "0x70a08231" + "0" * 24 + _TREASURY_WALLET[2:].lower(),
+            }, "latest"])
+            wallet = "$%.2f" % (int(ruw, 16) / 10 ** 6)
+        except Exception as e:
+            logger.warning(f"SwarmMonitor: wallet-saldo onmeetbaar bij gestrand-check: {e}")
+            wallet = "onmeetbaar"
+
+        bedrag = float(p.get("amount_usd") or 0.0)
+        extra = ("\n(%d gestrande voorstellen; dit is de meest recente)" % len(kandidaten)
+                 if len(kandidaten) > 1 else "")
         self._send_telegram(
-            f"⚠️ *Treasury: mogelijk gestrand rebalance-geld*\n"
-            f"`{p.get('id')}` haalde ${float(p.get('amount_usd') or 0):.0f} uit Aave "
-            f"({dagen:.1f} dagen geleden) maar strandde vóór de bridge.\n"
-            f"Nu op de treasury wallet: ${wallet:.2f}\n\n"
-            f"Dat geld was voor HL-marge bedoeld. Controleer of het daarheen moet — "
-            f"kasbeheer doet hier zelf niets mee, en het saldo kan ook een andere herkomst hebben."
+            f"⚠️ *Treasury: rebalance gestrand na de Aave-opname*\n"
+            f"`{p.get('id')}` haalde ${bedrag:.0f} uit Aave ({dagen:.1f} dagen geleden) "
+            f"maar strandde vóór de bridge.{extra}\n"
+            f"Treasury wallet nu: {wallet}\n\n"
+            f"Hoogstens ${bedrag:.0f} hoort bij dít voorstel, en het kan inmiddels door een "
+            f"andere beweging terug in Aave staan. Kasbeheer doet hier zelf niets mee."
+        )
+        # Pas stempelen ná de melding: een fout hierboven mag geen 24 uur stilte geven.
+        self._sent_alerts[alert_key] = now
+        logger.warning(
+            "SwarmMonitor: gestrande rebalance %s ($%.2f, %.1f dagen), wallet %s",
+            p.get("id"), bedrag, dagen, wallet,
         )
 
     # ──────────────────────────────────────────

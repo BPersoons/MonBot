@@ -82,34 +82,64 @@ def _rebalance_gestrand(uren_geleden=2, **extra):
     return p
 
 
-def test_monitor_meldt_gestrand_rebalance_geld_maar_doet_niets(tmp_path, monkeypatch):
-    """A1-STOP-les: detectie mag melden, niet handelen — en niet op een dood record."""
+def _saldo(usdc):
+    """Nep-_rpc die balanceOf beantwoordt met dit bedrag."""
+    return lambda methode, params: hex(int(usdc * 10 ** 6))
+
+
+def test_monitor_meldt_de_gebeurtenis_ook_als_de_wallet_al_leeg_is(tmp_path, monkeypatch):
+    """A1-audit: op 18-07 en 23-07 was het geld binnen een minuut terug in Aave.
+
+    Een drempel op het wallet-saldo had beide incidenten gemist — daarom melden we op de
+    gebeurtenis en is het saldo alleen een veld.
+    """
     monkeypatch.chdir(tmp_path)
     sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
-    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=267.28):
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert monitor._send_telegram.called, "lege wallet is juist het echte geval"
+    tekst = monitor._send_telegram.call_args[0][0]
+    assert "267" in tekst and "$0.00" in tekst
+    assert "terug in Aave" in tekst, "de melding moet die mogelijkheid noemen"
+
+    monitor._send_telegram.reset_mock()
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert not monitor._send_telegram.called, "tweede ronde binnen de cooldown: stil"
+
+
+def test_monitor_onderscheidt_nul_van_onmeetbaar(tmp_path, monkeypatch):
+    """`get_arb_usdc_balance` slikt RPC-fouten in als 0.0 — hier mag dat niet gebeuren."""
+    monkeypatch.chdir(tmp_path)
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
+
+    def kapot(methode, params):
+        raise RuntimeError("All Arbitrum RPCs failed")
+
+    with patch("utils.treasury_executor._rpc", kapot):
         monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
     assert monitor._send_telegram.called
-    tekst = monitor._send_telegram.call_args[0][0]
-    assert "267" in tekst and "andere herkomst" in tekst, "melding moet de slag om de arm houden"
-    # tweede ronde binnen de cooldown: stil
-    monitor._send_telegram.reset_mock()
-    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=267.28):
-        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
-    assert not monitor._send_telegram.called
+    assert "onmeetbaar" in monitor._send_telegram.call_args[0][0]
 
 
-def test_monitor_zwijgt_bij_leeg_wallet_en_bij_een_oud_record(tmp_path, monkeypatch):
+def test_monitor_zwijgt_bij_een_oud_record_en_kiest_anders_de_verste(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
-    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=12.0):
-        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
-    assert not monitor._send_telegram.called, "onder $100 veegt niets dat geld weg"
-
     # het echte record van 23-07: 55 dagen oud, mag nooit meer melden
-    sm2, oud = _monitor(tmp_path, [_rebalance_gestrand(uren_geleden=55 * 24)])
-    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=1600.0):
+    sm, oud = _monitor(tmp_path, [_rebalance_gestrand(uren_geleden=55 * 24)])
+    with patch("utils.treasury_executor._rpc", _saldo(1600.0)):
         oud._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
     assert not oud._send_telegram.called, "dood record mag geen vers geld claimen"
+
+    # twee kandidaten: de melding moet over de MEEST RECENTE gaan
+    sm2, twee = _monitor(tmp_path, [
+        _rebalance_gestrand(uren_geleden=13 * 24, id="TRR_OUD", amount_usd=50.0),
+        _rebalance_gestrand(uren_geleden=1, id="TRR_VERS", amount_usd=267.28),
+    ])
+    with patch("utils.treasury_executor._rpc", _saldo(267.28)):
+        twee._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    tekst = twee._send_telegram.call_args[0][0]
+    assert "TRR_VERS" in tekst and "TRR_OUD" not in tekst
+    assert "267" in tekst and "$50" not in tekst, "geen bedrag noemen dat nergens bij hoort"
 
 
 def test_monitor_meldt_een_hangende_handmatige_opname(tmp_path, monkeypatch):
