@@ -89,10 +89,10 @@ _SWITCH_ONDERWEG = {"APPROVED", "SWITCHING"}
 # Een rebalance trekt aan dezelfde Aave-positie en daarna aan hetzelfde wallet-saldo als
 # een switch of deploy; ze kunnen elkaars USDC claimen (A1-audit 2026-09-16, V6).
 _REBALANCE_ONDERWEG = {"APPROVED", "REBALANCING", "BRIDGE_BACK_NEEDED", "BRIDGING_TO_HL"}
-# Wallet-USDC die geoormerkt is voor een HL-top-up mag een deploy niet wegvegen; PENDING
-# telt mee omdat de handmatige bridge al kan lopen (zoals flows.ONDERWEG_TYPES het ook telt).
-# De PENDING-TTL van 6 uur is het vangnet tegen eeuwig blokkeren.
-_FUND_TRADING_ONDERWEG = {"PENDING", "APPROVED", "MONITORING"}
+# FUND_TRADING telt (nog) NIET als onderweg. Dat hoort wel — flows.ONDERWEG_TYPES doet het
+# al — maar de A1-audit van 2026-09-16 wees uit dat blokkeren zonder tijdsgrens kasbeheer
+# permanent kan bevriezen: de TTL-opruiming van stale PENDING draait juist alleen als er
+# géén blokkade is. Komt terug mét een leeftijdsgrens (zie docs/audits/2026-09-16-zes-bevindingen.md).
 
 
 def _yield_beweging_onderweg(proposals) -> bool:
@@ -106,7 +106,6 @@ def _yield_beweging_onderweg(proposals) -> bool:
         (p.get("type") == "DEPLOY_YIELD" and p.get("status") in _DEPLOY_ONDERWEG)
         or (p.get("type") == "YIELD_SWITCH" and p.get("status") in _SWITCH_ONDERWEG)
         or (p.get("type") == "REBALANCE" and p.get("status") in _REBALANCE_ONDERWEG)
-        or (p.get("type") == "FUND_TRADING" and p.get("status") in _FUND_TRADING_ONDERWEG)
         for p in proposals
     )
 
@@ -1149,77 +1148,6 @@ class TreasuryAgent:
             except Exception as e2:
                 logger.error(f"Telegram send failed (ook zonder opmaak): {e2}")
 
-    # ── Gestrand rebalance-geld ───────────────────────────────────────────────
-
-    def _gestrande_rebalance(self, all_proposals: list):
-        """Een rebalance die faalde ná de Aave-opname: het geld staat op de wallet.
-
-        FAILED hoort bewust NIET in `_REBALANCE_ONDERWEG` — dat zou alles voorgoed
-        bevriezen. Maar daardoor zag de deploy-detector alleen "los geld op de wallet" en
-        duwde het terug naar Aave, terwijl HL juist marge tekortkwam. In productie gebeurd
-        op 2026-07-23 ($267,28, TRR_20260723_1501 → TRP_20260723_2002_0).
-        """
-        for p in all_proposals:
-            if (p.get("type") == "REBALANCE" and p.get("status") == "FAILED"
-                    and p.get("aave_withdrawn_at") and not p.get("completed_at")
-                    and not p.get("opgevolgd_door")):
-                return p
-        return None
-
-    def _gestrand_geld_naar_hl(self, all_proposals: list, treasury_usdc=None) -> list:
-        """Stuurt gestrand rebalance-geld naar HL (FUND_TRADING) i.p.v. terug naar Aave."""
-        gestrand = self._gestrande_rebalance(all_proposals)
-        if not gestrand:
-            return all_proposals
-        if treasury_usdc is None:
-            from utils.treasury_executor import get_arb_usdc_balance, _TREASURY_WALLET
-            try:
-                treasury_usdc = get_arb_usdc_balance(_TREASURY_WALLET)
-            except Exception as e:
-                logger.warning(f"TreasuryAgent: wallet-saldo onleesbaar bij gestrande rebalance: {e}")
-                return all_proposals
-        bedrag = round(min(float(gestrand.get("amount_usd") or 0.0), float(treasury_usdc)), 2)
-        if bedrag < _MIN_DEPLOY_USD:
-            return all_proposals
-
-        voorstel = {
-            "id":            f"TRF_{datetime.utcnow().strftime('%Y%m%d_%H%M')}_gestrand",
-            "type":          "FUND_TRADING",
-            "status":        "PENDING",
-            "title":         f"Bridge ${bedrag:.0f} → HL (gestrande rebalance {gestrand.get('id')})",
-            "amount_usd":    bedrag,
-            "chain":         "Arbitrum",
-            "apy":           0.0,
-            "projected_monthly": 0.0,
-            "projected_yearly":  0.0,
-            "executable":    False,
-            "rationale": (
-                f"Rebalance {gestrand.get('id')} haalde ${gestrand.get('amount_usd', 0):.0f} uit Aave "
-                f"maar strandde vóór de bridge ({str(gestrand.get('error'))[:80]}). Dat geld was bedoeld "
-                f"voor HL-marge — het hoort niet terug naar Aave."
-            ),
-            "steps": [
-                "1. Ga naar app.hyperliquid.xyz → Transfer → Deposit to HL",
-                "2. Selecteer Arbitrum als source chain",
-                f"3. Stuur ${bedrag:.0f} USDC van de treasury wallet naar HL",
-                "4. Dit voorstel sluit automatisch zodra de HL-balans stijgt",
-            ],
-            "created_at": datetime.utcnow().isoformat(),
-        }
-        gestrand["opgevolgd_door"] = voorstel["id"]
-        all_proposals.append(voorstel)
-        logger.warning(
-            f"TreasuryAgent: gestrand rebalance-geld ${bedrag:.0f} → FUND_TRADING {voorstel['id']}"
-        )
-        self._send_telegram(
-            f"⚠️ *Treasury: gestrand rebalance-geld*\n"
-            f"${bedrag:.0f} USDC staat op de treasury wallet na een mislukte bridge "
-            f"(`{gestrand.get('id')}`).\n"
-            f"Dit geld was voor HL-marge bedoeld, dus het gaat NIET terug naar Aave. "
-            f"Bridge het handmatig naar HL — zie het voorstel in het dashboard."
-        )
-        return all_proposals
-
     # ── Auto-rebalance ────────────────────────────────────────────────────────
 
     def _check_rebalance_needed(self, hl: dict, all_proposals: list) -> list:
@@ -2160,9 +2088,6 @@ class TreasuryAgent:
 
         # Check if rebalance is needed (HL margin < 25% of total capital)
         all_proposals = self._check_rebalance_needed(hl, all_proposals)
-        # Geld van een gestrande rebalance hoort naar HL, niet terug naar Aave. Leest het
-        # wallet-saldo alleen als er echt een gestrande rebalance staat.
-        all_proposals = self._gestrand_geld_naar_hl(all_proposals)
 
         # Yield switch + HL excess checks using cached opportunities (avoid DeFiLlama call in fast path)
         cached_opps = self._load_cached_opportunities()
@@ -2259,8 +2184,6 @@ class TreasuryAgent:
         # `_check_rebalance_needed` staat bewust NIET achter `_yield_beweging_onderweg`:
         # marge-herstel heeft voorrang, en hij heeft zijn eigen guard op lopende rebalances.
         all_proposals = self._check_rebalance_needed(hl, all_proposals)
-        # Geld van een gestrande rebalance hoort naar HL, niet terug naar Aave.
-        all_proposals = self._gestrand_geld_naar_hl(all_proposals, treasury_usdc)
 
         # Generate proposals only if none are already in-flight (avoid duplicates).
         # Also block when a YIELD_SWITCH is SWITCHING: the USDC in the treasury wallet

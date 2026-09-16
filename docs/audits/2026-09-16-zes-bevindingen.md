@@ -31,8 +31,41 @@
   - De volgordewijziging in `run()` betekent dat een rebalance nu voorrang krijgt boven een deploy van vers geld op de wallet. Dat is de bedoeling, maar het is een gedragswijziging bij krappe HL-marge.
 - **Terugdraaien:** `git revert` + deploy.
 
-## Wat ik zelf niet heb gecontroleerd
+## Wat ik zelf niet heb gecontroleerd (vóór de audit)
 - Of een FUND_TRADING in MONITORING in de praktijk ooit blijft hangen (dan blokkeert hij zonder TTL).
 - Of `_MIN_DEPLOY_USD` de juiste ondergrens is voor het gestrande bedrag — ik hergebruik hem, maar een bridge naar HL heeft een eigen minimum ($5 volgens de foutmelding van 23-07).
 - Of de nieuwe volgorde in `run()` iets breekt in de tranche-logica van de optimizer, die `treasury_usdc` eerder in de cyclus leest.
 - De Telegram-fallback is niet in productie beproefd; de toets mockt `urlopen`.
+
+---
+
+## Audit
+**Oordeel: STOP** op `3e6f184`. Twee blokkerende bevindingen, allebei in het nieuwe gestrande-geld-pad; de vier andere reparaties zijn schoon (alle zes mutaties rood, 309 toetsen groen, volgordewijziging raakt de tranche-logica aantoonbaar niet).
+
+**Correctie op mijn claimblad:** ik schreef "geen voorstel dat dit raakt". Onjuist — op de VM staat `TRR_20260723_1501` (REBALANCE, FAILED, $267,28, `aave_withdrawn_at` 2026-07-23, geen `completed_at`, 55 dagen oud). Dat record voldoet precies aan mijn nieuwe detectie.
+
+| # | Bevinding | Reactie |
+|---|---|---|
+| 1 | **[blokkerend]** `_gestrande_rebalance` heeft geen tijdsgrens en geen koppeling aan de echte dollars; het 23-07-record staat live en zou bij de eerste switch (~$1.600 kort op de wallet) $267 daarvan claimen, met een feitelijk onjuiste melding | **Aanvaard — feature teruggetrokken.** Zie besluit hieronder |
+| 2 | **[blokkerend]** Het vangnet dat ik claimde (PENDING-TTL 6u) bestaat niet op dit pad: `_upsert_proposals` ruimt stale PENDING alleen op wanneer er géén blokkade is. Een blijvend PENDING/MONITORING FUND_TRADING bevriest alle vier de bewegingen én zet de saldo-controle van het veilige potje permanent uit | **Aanvaard — blokkade teruggetrokken.** Mijn claim was fout; ik had de aanroepplek van de TTL niet nagelopen |
+| 3 | MONITORING is nu blokkerend maar staat niet in Check 14 en is niet af te wijzen | Vervalt met de terugtrekking; komt terug als voorwaarde |
+| 4 | Een tweede rebalance kan de FUND_TRADING afsluiten via een HL-stijging → valse stroom yield_core→swarm van $267 op H1/NAV | Vervalt met de terugtrekking; komt terug als voorwaarde |
+| 5 | De detector keek maar naar één van de twee adressen waar gestrand bridge-geld kan liggen; onder $100 werd `opgevolgd_door` niet gezet, dus hij vuurde elke 5 minuten opnieuw | Vervalt met de terugtrekking; komt terug als voorwaarde |
+| 6 | `_MIN_DEPLOY_USD` is verdedigbaar; het bridge-minimum van $5 is niet de relevante grens | Genoteerd — mijn eigen twijfel was ongegrond |
+| 7 | De Telegram-fallback dekt een 400 wél, maar niet `ok:false` bij HTTP 200, en verdubbelt de timeout (2×10s per melding) | **Blijft staan in deze commit** (strikt beter dan niets), en gaat mee in de volgende ronde: body lezen en een kortere fallback-timeout |
+
+## Besluit: splitsen
+Het gestrande-geld-pad (`_gestrande_rebalance`, `_gestrand_geld_naar_hl`, de twee aanroepen) en `_FUND_TRADING_ONDERWEG` zijn **uit deze commit verwijderd**, inclusief hun drie toetsen. Wat blijft: de volgorde in `run()` (bevinding 1 van de vorige ronde), één definitie van "rebalance onderweg" (3), saldo vóór verlopen (6) en de Telegram-fallback (7) — precies de vier die de controle-agent schoon noemde. De verwijderde code blijft leesbaar in `3e6f184`.
+
+**Voorwaarden voor de herbouw (eigen ronde, eigen audit):**
+1. Tijdsgrens (`aave_withdrawn_at` binnen 24u) **én** geen latere COMPLETED REBALANCE/DEPLOY_YIELD, met een toets die faalt op het echte record `TRR_20260723_1501`.
+2. De blokkade zelf begrensd in tijd, of de TTL-opruiming vóór de `has_in_flight`-bepaling — met een toets dat kasbeheer na N uur weer beweegt.
+3. MONITORING in Check 14 en `/reject` toestaan op MONITORING.
+4. De FUND_TRADING afsluiten op het **verdwijnen van de wallet-USDC**, niet op een HL-stijging (anders sluit de bridge van een andere rebalance hem af en ontstaat er een valse stroom).
+5. Beide adressen lezen (treasury-wallet én het vault-Arb-adres).
+6. Telegram: responsbody lezen (`ok:false`) en een kortere fallback-timeout.
+
+**Antwoorden op de open vragen:**
+- *Het oude record met de hand afsluiten vóór de deploy?* Nee. Het blijft staan als echte testcase voor voorwaarde 1; met de hand markeren verbergt het probleem en laat elke toekomstige FAILED-rebalance eeuwig scherp staan.
+- *Hoe eindigt een FUND_TRADING als niemand bridget?* Dat is precies voorwaarde 2 + 3: een leeftijdsgrens op de blokkade, en afwijzen moet kunnen.
+- *Waarom sluit hij af op een HL-stijging?* Historisch, en het is fout — voorwaarde 4 draait dat om naar de gebeurtenis die we echt bedoelen.
