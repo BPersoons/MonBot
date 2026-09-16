@@ -285,7 +285,7 @@ def _send_tx(to: str, data: str, private_key: str, gas_limit: int, value: int = 
 
 
 def _estimate_gas(to: str, data: str, from_addr: str, fallback: int,
-                  buffer: float = 1.3, cap: int = 1_500_000) -> int:
+                  buffer: float = 1.3, cap: int = 1_500_000, value: int = 0) -> int:
     """
     Size a gas limit via eth_estimateGas + buffer, clamped to [fallback, cap].
     Falls back to `fallback` when the RPC can't estimate (unsupported/blocked).
@@ -299,7 +299,12 @@ def _estimate_gas(to: str, data: str, from_addr: str, fallback: int,
     NOT catch — so estimate dynamically.
     """
     try:
-        est = int(_rpc("eth_estimateGas", [{"from": from_addr, "to": to, "data": data}]), 16)
+        params = {"from": from_addr, "to": to, "data": data}
+        if value:
+            # Zonder `value` schat de RPC een andere transactie dan je verstuurt; bij een
+            # kale overboeking scheelt dat de intrinsieke L1-kosten (A1-audit 2026-09-16).
+            params["value"] = hex(int(value))
+        est = int(_rpc("eth_estimateGas", [params]), 16)
     except Exception as e:
         logger.warning(f"TreasuryExecutor: gas estimate failed ({e}) — using fallback {fallback}")
         return fallback
@@ -309,7 +314,33 @@ def _estimate_gas(to: str, data: str, from_addr: str, fallback: int,
 # ── Gas bijvullen tussen eigen wallets ─────────────────────────────────────────
 
 _MAX_GAS_TOPUP_ETH  = 0.001    # harde bovengrens: dit pad mag nooit écht geld verplaatsen
-_GAS_PLAIN_TRANSFER = 21_000   # kale ETH-overboeking (geen contract-aanroep)
+# 21.000 is het L1-getal. Op Arbitrum zit de L1-posterkost in de intrinsieke kosten:
+# eth_estimateGas gaf 22.599 voor precies deze overboeking en met 21.000 weigert de keten
+# hem ("intrinsic gas too low"). Dit is alleen de ONDERGRENS; de schatting bepaalt de rest.
+_GAS_PLAIN_TRANSFER_MIN = 40_000
+
+
+def _vault_adres() -> str:
+    """Adres van de HL-vault (0x92D4…): env → SDK-secret → REST.
+
+    Nooit `HL_WALLET_ADDRESS`: dat is de agent-wallet, een ánder account. In de container
+    staat `HL_VAULT_ADDRESS` niet in de omgeving, dus de secrets-wegen zijn de echte route —
+    en die had er één minder dan de sleutel (A1-audit 2026-09-16).
+    """
+    import os
+    adres = os.getenv("HL_VAULT_ADDRESS", "")
+    if not adres:
+        try:
+            from utils.gcp_secrets import get_secret
+            adres = get_secret("HL_VAULT_ADDRESS") or ""
+        except Exception:
+            adres = ""
+    if not adres:
+        try:
+            adres = _fetch_secret_rest("HL_VAULT_ADDRESS") or ""
+        except Exception:
+            adres = ""
+    return adres
 
 
 def stuur_eth_voor_gas(naar: str, bedrag_eth: float, private_key: str) -> str:
@@ -333,6 +364,15 @@ def stuur_eth_voor_gas(naar: str, bedrag_eth: float, private_key: str) -> str:
         )
 
     afzender = _EthAccount.from_key(private_key).address
+    verwacht = _vault_adres()
+    if not verwacht:
+        raise RuntimeError("Vault-adres onbekend — gasbijvulling geweigerd")
+    if afzender.lower() != verwacht.lower():
+        raise RuntimeError(
+            f"Gasbijvulling mag alleen vanaf de vault-wallet ({verwacht[:10]}…), "
+            f"niet vanaf {afzender[:10]}…"
+        )
+
     saldo = int(_rpc("eth_getBalance", [afzender, "latest"]), 16) / 10 ** 18
     nodig = bedrag + _MIN_ETH_FOR_GAS      # de afzender houdt zelf ook gas over
     if saldo < nodig:
@@ -342,11 +382,22 @@ def stuur_eth_voor_gas(naar: str, bedrag_eth: float, private_key: str) -> str:
         )
 
     wei = int(round(bedrag * 10 ** 18))
+    gas_limiet = _estimate_gas(naar, "0x", afzender, _GAS_PLAIN_TRANSFER_MIN, value=wei)
     logger.info(
         f"TreasuryExecutor: gasbijvulling {bedrag:.6f} ETH van {afzender[:10]}… "
-        f"naar {naar[:10]}… (saldo afzender {saldo:.6f})"
+        f"naar {naar[:10]}… (saldo afzender {saldo:.6f}, gaslimiet {gas_limiet})"
     )
-    return _send_tx(naar, "0x", private_key, _GAS_PLAIN_TRANSFER, value=wei)
+    tx_hash = _send_tx(naar, "0x", private_key, gas_limiet, value=wei)
+
+    # Elk ander waardepad in dit bestand wacht op de receipt; deze deed dat niet, waardoor
+    # een mislukte overboeking eruitzag als geslaagd terwijl het gas wél weg was.
+    receipt = _wait_receipt(tx_hash)
+    if not receipt or receipt.get("status") != "0x1":
+        status = receipt.get("status") if receipt else "geen receipt"
+        raise RuntimeError(f"Gasbijvulling MISLUKT (status {status}) — tx {tx_hash}")
+    na = int(_rpc("eth_getBalance", [naar, "latest"]), 16) / 10 ** 18
+    logger.info(f"TreasuryExecutor: gasbijvulling bevestigd — {naar[:10]}… heeft nu {na:.6f} ETH")
+    return tx_hash
 
 
 # ── HL withdrawal ─────────────────────────────────────────────────────────────
@@ -385,14 +436,9 @@ def _create_vault_withdrawal_client():
     # Vault address (the account that owns the funds)
     # Alleen HL_VAULT_ADDRESS: HL_WALLET_ADDRESS is de AGENT-wallet, een ander account.
     # Daarmee terugvallen bouwt een opname-client voor de verkeerde rekening (A1-audit
-    # 2026-09-16, dezelfde verwarring als in SwarmMonitor Check 25).
-    vault_addr = os.getenv("HL_VAULT_ADDRESS", "")
-    if not vault_addr:
-        try:
-            from utils.gcp_secrets import get_secret
-            vault_addr = get_secret("HL_VAULT_ADDRESS") or ""
-        except Exception:
-            pass
+    # 2026-09-16, dezelfde verwarring als in SwarmMonitor Check 25). `_vault_adres` kent
+    # ook de REST-weg, zodat het adres evenveel benen heeft als de sleutel.
+    vault_addr = _vault_adres()
 
     if not vault_addr:
         logger.warning("TreasuryExecutor: vault address unknown — cannot create withdrawal client")
