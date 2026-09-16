@@ -2200,7 +2200,10 @@ class SwarmMonitor:
 
             if status == "PENDING" and age_h > self.STUCK_PENDING_H:
                 stuck.append((p.get("id", "?"), status, age_h, p.get("title", "")))
-            elif status in {"APPROVED", "SWITCHING", "WITHDRAWING", "BRIDGED", "REBALANCING"} and age_h > self.STUCK_APPROVED_H:
+            # NEEDS_MANUAL_WITHDRAWAL blokkeert alle yield-bewegingen tot hij verloopt:
+            # nooit stil laten hangen (A1-hertoets kasbeheer 2026-09-15).
+            elif status in {"APPROVED", "SWITCHING", "WITHDRAWING", "BRIDGED", "REBALANCING",
+                            "NEEDS_MANUAL_WITHDRAWAL"} and age_h > self.STUCK_APPROVED_H:
                 stuck.append((p.get("id", "?"), status, age_h, p.get("title", "")))
 
         if not stuck:

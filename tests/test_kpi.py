@@ -64,13 +64,38 @@ def test_gat_in_de_reeks_telt_alle_kosten_van_het_gat(register):
     assert uit["h1"]["kosten_usd"] == 0.88 and uit["h1"]["opbrengst_usd"] == 2.0
 
 
+def _live(register, naam="hlp_vault", **velden):
+    """Kopie van het echte register met één experiment op live (schema blijft gelden)."""
+    r = json.loads(json.dumps(register))
+    r["experimenten"][naam].update({"status": "live"}, **velden)
+    return r
+
+
 def test_h3_experimentverlies_negeert_de_inleg(register):
     # house: 0 -> 500 (inleg, geen winst) -> 480 (verlies 20)
     hist = [_snap(0, house=0.0), _snap(1, house=500.0), _snap(2, house=480.0)]
     stromen = [{"ts": T0 + 3600, "van": "yield_core", "naar": "house", "bedrag_usd": 500.0}]
-    uit = kpi.bereken(hist, stromen, register, {}, {}, {}, {}, "2026-09-12")
+    uit = kpi.bereken(hist, stromen, _live(register), {}, {}, {}, {}, "2026-09-12")
     assert uit["h3"]["per_experiment_usd"]["hlp_vault"] == 20.0
     assert uit["h3"]["verlies_usd"] == 20.0 and uit["h3"]["doel_gehaald"]
+
+
+def test_h3_telt_een_experiment_dat_nog_niet_leeft_niet_mee(register):
+    """Productiefout 2026-09-16: `house` bestond al, dus H3 meldde $1.087 op HLP-in-spe."""
+    hist = [_snap(0, house=1500.0), _snap(1, house=1000.0), _snap(2, house=400.0)]
+    uit = kpi.bereken(hist, [], register, {}, {}, {}, {}, "2026-09-12")
+    assert uit["h3"]["per_experiment_usd"] == {}
+    assert uit["h3"]["verlies_usd"] == 0.0 and uit["h3"]["doel_gehaald"]
+
+
+def test_h3_meet_pas_vanaf_de_startdatum_van_het_experiment(register):
+    """Verlies van vóór de start telt niet mee — anders erft het experiment oude historie."""
+    hist = [_snap(0, house=1000.0), _snap(1, house=600.0), _snap(2, house=550.0)]
+    from datetime import datetime, timezone
+    start = datetime.fromtimestamp(T0 + DAG, timezone.utc).isoformat()
+    uit = kpi.bereken(hist, [], _live(register, verlies_meten_vanaf=start),
+                      {}, {}, {}, {}, "2026-09-12")
+    assert uit["h3"]["per_experiment_usd"]["hlp_vault"] == 50.0, "alleen 600 -> 550"
 
 
 def test_h4_leest_de_brandoefening(register):

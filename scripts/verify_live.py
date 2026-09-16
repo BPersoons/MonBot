@@ -122,8 +122,11 @@ def _open_trades():
 @check("geen spookposities (OPEN in trade_log, niet op de beurs)")
 def _phantoms():
     live = _live_positions()
+    # De dip-koper handelt op een eigen wallet (0xBd6c); _live_positions leest de
+    # hoofdwallet, dus zijn posities staan daar per definitie nooit (vals FAIL 2026-09-15).
     ghosts = [t.get("id") for t in _open_trades()
-              if str(t.get("ticker") or "").split("/")[0].upper() not in live]
+              if not (t.get("thematic_exposure") or str(t.get("id", "")).startswith("THEMATIC_EXPOSURE_"))
+              and str(t.get("ticker") or "").split("/")[0].upper() not in live]
     if ghosts:
         return False, (f"{len(ghosts)} OPEN trade(s) zonder positie op de beurs: {ghosts[:5]} — "
                        "sluit-orders hierop worden geweigerd (reduceOnly) en als "

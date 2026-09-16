@@ -27,6 +27,7 @@ import math
 import os
 from datetime import datetime, timedelta, timezone
 
+from utils import experimenten as exp_register
 from utils import flows
 
 logger = logging.getLogger("KPI")
@@ -138,26 +139,41 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
           "doel_pp": 2.0}
     h2["doel_gehaald"] = h2["verschil_pp"] is not None and h2["verschil_pp"] >= h2["doel_pp"]
 
-    # ── H3: experimentverlies sinds de start van elk experiment-potje ─────
+    # ── H3: experimentverlies vanaf de START van elk live experiment ──────
+    # Nooit vanaf het begin van de reeks: `house` bestond al lang vóór het HLP-experiment,
+    # en H3 meldde daardoor $1.087 verlies op een experiment dat nog niet bestond
+    # (gevonden in productie 2026-09-16). Definitie staat in utils/experimenten.py.
     globaal = register.get("globaal") or {}
     verlies_per = {}
     for naam, exp in (register.get("experimenten") or {}).items():
         potje = exp.get("sleeve")
-        if not potje or not exp.get("verliesbudget_telt_mee"):
+        if not potje or not exp_register.telt_mee_voor_budget(exp):
             continue
-        cumulatief, gestart = 0.0, False
-        for vorige, huidige in zip(hist, hist[1:]):
-            v0 = float(vorige["sleeves"].get(potje, 0.0) or 0.0)
-            v1 = float(huidige["sleeves"].get(potje, 0.0) or 0.0)
-            t0, t1 = flows._epoch(vorige.get("ts")), flows._epoch(huidige.get("ts"))
-            if t0 is None or t1 is None:
+        vanaf = exp_register.meet_vanaf(exp)
+        start = None
+        for i, h in enumerate(hist):
+            t = flows._epoch(h.get("ts"))
+            if t is None:
                 continue
-            f = flows.netto_flow(stromen, potje, t0, t1)
-            if not gestart and v1 <= 0 and f <= 0:
-                continue
-            gestart = True
-            cumulatief += _dietz(v0, v1, f)[0]
-        verlies_per[naam] = round(max(0.0, -cumulatief), 2)
+            if vanaf is not None:
+                if t >= vanaf:
+                    start = i
+                    break
+            elif float(h["sleeves"].get(potje, 0.0) or 0.0) > 0:
+                start = i
+                break
+        if start is None or start >= len(hist) - 1:
+            verlies_per[naam] = 0.0      # nog geen meetbare periode
+            continue
+        t0, t1 = flows._epoch(hist[start].get("ts")), flows._epoch(hist[-1].get("ts"))
+        v0 = float(hist[start]["sleeves"].get(potje, 0.0) or 0.0)
+        v1 = float(hist[-1]["sleeves"].get(potje, 0.0) or 0.0)
+        inleg = v0 + flows.netto_flow(stromen, potje, t0, t1)
+        verlies = exp_register.verlies_usd(inleg, v1)
+        if verlies is None:
+            onmeetbaar.append("experimentverlies:%s" % naam)
+            continue
+        verlies_per[naam] = round(verlies, 2)
     verlies = sum(verlies_per.values())
     budget = float(globaal.get("verliesbudget_usd", 250))
     h3 = {"verlies_usd": round(verlies, 2), "per_experiment_usd": verlies_per,

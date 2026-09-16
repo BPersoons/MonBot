@@ -48,7 +48,8 @@
       "mijlpaal": "M5",
       "hypothese": "HLP levert over 4 weken geannualiseerd >= benchmark + 3pp bij een drawdown <= 5%.",
       "start_inleg_usd": 500,
-      "voorwaarde_voor_inleg": "Eén definitie van experimentverlies: utils/kpi.py H3 en utils/verliesbewaking.py (budget) rekenen nu verschillend (A1-audit 2026-09-15, bevinding 6). Eerst gelijktrekken, dan pas HLP-geld.",
+      "verlies_meten_vanaf": null,
+      "voorwaarde_voor_inleg": "Bij live gaan: status op 'live' EN verlies_meten_vanaf op het moment van de eerste inleg (ISO, UTC). Zonder die twee telt het experiment niet mee in H3 en in het verliesbudget. Definitie: utils/experimenten.py.",
       "kpi": "tijdgewogen rendement en drawdown vanaf piek, flow-gecorrigeerd",
       "alarm": {"drawdown_pct": 3.0},
       "kill": {"drawdown_pct": 8.0, "weken_onder_benchmark": 8, "actie": "MELDEN; opnameverzoek (4 dagen blokkade) — automatisch pas zodra de HLP-module bestaat"},
@@ -58,6 +59,7 @@
     "basis_traag": {
       "sleeve": "basis",
       "status": "wacht_op_regime",
+      "verlies_meten_vanaf": null,
       "besluit_2026_09_15": "Backtest-poort gehaald (8,24% netto 2023-2026, elk jaar >= 0), maar huidig regime 180d 4,41% (2x) / 3,31% (1x) < Fluid 5,46%. Spot telt op de unified account niet als onderpand. Niet live; heractiveren op de trigger hieronder.",
       "heractivatie": {"venster_dagen": 30, "min_funding_apr_boven_fluid_pp": 3.0, "dan": "3 weken shadow, daarna de bestaande poort"},
       "mijlpaal": "M6",

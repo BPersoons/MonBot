@@ -84,6 +84,22 @@ _YIELD_SWITCH_MIN_USD    = 100   # minimum deployed balance worth switching (gas
 
 # Statussen waarin een DEPLOY_YIELD geld onderweg heeft (zelfde set als de in-flight-checks).
 _DEPLOY_ONDERWEG = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"}
+# Een switch is onderweg zodra hij APPROVED is: de executor pakt hem dezelfde ronde op.
+_SWITCH_ONDERWEG = {"APPROVED", "SWITCHING"}
+
+
+def _yield_beweging_onderweg(proposals) -> bool:
+    """True als kasbeheer al geld naar of tussen rendementsprotocollen onderweg heeft.
+
+    De cap per protocol ziet dat geld niet, dus nooit een tweede beweging ernaast
+    (A1-audit kasbeheer-fixes ronde 2 + hertoets). Eén definitie voor alle aanmaakplekken:
+    generate in run/run_fast, HL-overschot, switch en diversificatie.
+    """
+    return any(
+        (p.get("type") == "DEPLOY_YIELD" and p.get("status") in _DEPLOY_ONDERWEG)
+        or (p.get("type") == "YIELD_SWITCH" and p.get("status") in _SWITCH_ONDERWEG)
+        for p in proposals
+    )
 
 
 def _max_aandeel_per_protocol() -> tuple:
@@ -1235,15 +1251,9 @@ class TreasuryAgent:
         if hl_balance <= 0 or free_margin <= 0:
             return all_proposals
 
-        # Block if any DEPLOY_YIELD is already in-flight (avoid concurrent withdrawals)
-        in_flight = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"}
-        if any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in in_flight for p in all_proposals):
-            return all_proposals
-        # Geen HL-overschot tijdens een lopende switch: de cap ziet geld onderweg niet, en
-        # twee gecapte bewegingen naar hetzelfde protocol zouden samen over de cap gaan
-        # (A1-audit kasbeheer-fixes ronde 2).
-        if any(p.get("type") == "YIELD_SWITCH" and p.get("status") in {"APPROVED", "SWITCHING"}
-               for p in all_proposals):
+        # Geen HL-overschot naast een lopende deploy of switch: de cap ziet geld onderweg
+        # niet, en twee gecapte bewegingen zouden samen over de cap gaan.
+        if _yield_beweging_onderweg(all_proposals):
             return all_proposals
 
         try:
@@ -1398,14 +1408,8 @@ class TreasuryAgent:
         """
         pending_notifs: list[str] = []
 
-        # Skip if a switch is already in flight
-        switch_active = {"APPROVED", "SWITCHING"}
-        if any(p.get("type") == "YIELD_SWITCH" and p.get("status") in switch_active for p in all_proposals):
-            return all_proposals, pending_notifs
-        # Ook niet zolang er een DEPLOY_YIELD onderweg is: de cap ziet dat geld niet
-        # (A1-audit kasbeheer-fixes ronde 2).
-        if any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in _DEPLOY_ONDERWEG
-               for p in all_proposals):
+        # Niet naast een lopende switch of deploy (één tegelijk; cap ziet geld onderweg niet)
+        if _yield_beweging_onderweg(all_proposals):
             return all_proposals, pending_notifs
 
         # Cooldown: skip if any switch was created within the last 6 hours (prevents restart spam)
@@ -1579,13 +1583,8 @@ class TreasuryAgent:
         if total_yield < _DIVERSIFY_MIN_TOTAL_USD:
             return all_proposals, pending_notifs
 
-        # Skip if any YIELD_SWITCH is already in-flight (prevents overlap with APY-driven switches)
-        switch_active = {"APPROVED", "SWITCHING"}
-        if any(p.get("type") == "YIELD_SWITCH" and p.get("status") in switch_active for p in all_proposals):
-            return all_proposals, pending_notifs
-        # Ook niet zolang er een DEPLOY_YIELD onderweg is (cap ziet geld onderweg niet).
-        if any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in _DEPLOY_ONDERWEG
-               for p in all_proposals):
+        # Niet naast een lopende switch (ook APY-gedreven) of deploy
+        if _yield_beweging_onderweg(all_proposals):
             return all_proposals, pending_notifs
 
         # Cooldown: skip if a diversification proposal was created recently
@@ -2087,12 +2086,9 @@ class TreasuryAgent:
         self._monitor_funding_harvest()
 
         # Detect treasury wallet USDC — generate proposal if none in-flight.
-        # Also skip when a YIELD_SWITCH is SWITCHING: that USDC belongs to the switch.
-        in_flight = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"}
-        has_in_flight = (
-            any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in in_flight for p in all_proposals)
-            or any(p.get("type") == "YIELD_SWITCH" and p.get("status") == "SWITCHING" for p in all_proposals)
-        )
+        # Ook niet naast een switch — APPROVED telt mee: de switch-check hierboven kan hem
+        # deze ronde net hebben aangemaakt (A1-hertoets), en de cap ziet switchgeld niet.
+        has_in_flight = _yield_beweging_onderweg(all_proposals)
         if not has_in_flight and not self._deploy_geblokkeerd(all_proposals):
             treasury_usdc = get_arb_usdc_balance(_TREASURY_WALLET)
             if treasury_usdc >= _MIN_DEPLOY_USD:
@@ -2159,11 +2155,7 @@ class TreasuryAgent:
         # Also block when a YIELD_SWITCH is SWITCHING: the USDC in the treasury wallet
         # already belongs to that switch and must not be claimed by a new DEPLOY_YIELD.
         all_proposals = self._load_proposals()
-        in_flight = {"APPROVED", "WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL", "BRIDGED"}
-        has_in_flight = (
-            any(p.get("type") == "DEPLOY_YIELD" and p.get("status") in in_flight for p in all_proposals)
-            or any(p.get("type") == "YIELD_SWITCH" and p.get("status") == "SWITCHING" for p in all_proposals)
-        )
+        has_in_flight = _yield_beweging_onderweg(all_proposals)
         new_ones: list[dict] = []
         if not has_in_flight and not self._deploy_geblokkeerd(all_proposals):
             proposals = self.generate_proposals(

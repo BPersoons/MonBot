@@ -244,6 +244,35 @@ def test_geen_hl_overschot_zolang_een_switch_loopt():
         assert uit == voorstellen
 
 
+def test_run_fast_geen_deploy_in_de_ronde_waarin_een_switch_ontstaat():
+    """A1-hertoets: de switch-check maakt een APPROVED-switch, daarna mocht generate nog."""
+    from unittest.mock import MagicMock
+    for switch_vuurt in (False, True):
+        agent = _agent()
+        agent.get_hl_snapshot = MagicMock(return_value={"balance": 0.0, "free_margin": 0.0})
+        agent._load_proposals = MagicMock(return_value=[])
+        agent._check_rebalance_needed = MagicMock(side_effect=lambda hl, p: p)
+        agent._load_cached_opportunities = MagicMock(return_value=[_opp(BENCH)])
+        agent._get_yield_balances = MagicMock(return_value={BENCH: 1000.0})
+
+        def switch(o, y, p, vuurt=switch_vuurt):
+            if vuurt:
+                p = p + [{"id": "TRS_x", "type": "YIELD_SWITCH", "status": "APPROVED"}]
+            return p, []
+        agent._check_yield_switch = MagicMock(side_effect=switch)
+        agent._check_yield_diversification = MagicMock(side_effect=lambda o, y, p: (p, []))
+        agent._check_hl_excess = MagicMock(side_effect=lambda hl, p, o: p)
+        agent.generate_proposals = MagicMock(return_value=[])
+        agent._monitor_funding_harvest = MagicMock()
+        agent._execute_fund_sleeve = MagicMock(side_effect=lambda p: p)
+        agent._execute_sleeve_rebalance = MagicMock(side_effect=lambda p: p)
+        agent.execute_approved_proposals = MagicMock(side_effect=lambda p: p)
+        agent._save_proposals = MagicMock()
+        with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=500.0):
+            agent.run_fast()
+        assert agent.generate_proposals.called is (not switch_vuurt), "switch_vuurt=%s" % switch_vuurt
+
+
 def test_oude_fouten_en_andere_types_tellen_niet():
     agent = _agent()
     oud = [_fout(30), _fout(40)]

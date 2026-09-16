@@ -175,12 +175,30 @@ def test_hlp_drawdown_is_robuust_tegen_stortingen(register):
     assert "hlp_drawdown:kill" in _sleutels(g)
 
 
+def _live(register, *namen):
+    """Kopie van het echte register met deze experimenten op live."""
+    r = json.loads(json.dumps(register))
+    for n in namen:
+        r["experimenten"][n]["status"] = "live"
+    return r
+
+
 def test_verliesbudget(register):
-    g, st = vb.evalueer(_basis(hlp_inleg_usd=500.0, hlp_equity_usd=360.0), {}, register)
+    live = _live(register, "hlp_vault", "basis_traag")
+    g, st = vb.evalueer(_basis(hlp_inleg_usd=500.0, hlp_equity_usd=360.0), {}, live)
     assert "experimentbudget:alarm" in _sleutels(g) and st["experimentverlies_usd"] == 140.0
     g, _ = vb.evalueer(_basis(hlp_inleg_usd=500.0, hlp_equity_usd=200.0,
-                              basis_verlies_usd=5.0), {}, register)
+                              basis_verlies_usd=5.0), {}, live)
     assert "experimentbudget:kill" in _sleutels(g)
+
+
+def test_verlies_van_een_experiment_dat_nog_niet_leeft_telt_niet_mee(register):
+    """Zelfde regel als H3: `house` bestaat al, het HLP-experiment nog niet."""
+    g, st = vb.evalueer(_basis(hlp_inleg_usd=500.0, hlp_equity_usd=200.0,
+                               basis_verlies_usd=99.0), {"hlp_piek_ratio": 1.0}, register)
+    assert "experimentbudget:alarm" not in _sleutels(g)
+    assert st["experimentverlies_usd"] == 0.0
+    assert "hlp_drawdown:kill" in _sleutels(g), "de drawdown-melding blijft wel staan"
 
 
 def test_onmeetbaar_wordt_na_drie_rondes_een_alarm(register):

@@ -71,3 +71,14 @@
 | 4 | Dode `_check_treasury_wallet_usdc` | **Verwijderd** (geen aanroepers; grep over de repo) |
 | 5 | Approve kan blijven hangen bij allowance mismatch | Niet gewijzigd: geen geldrisico (USDC blijft op de wallet, allowance naar een geverifieerd contract); staat op de lijst |
 | open vraag | Geld onderweg meetellen of uitsluiten? | Uitsluiten — eenvoudiger, toetsbaar, en de kosten (een switch wacht een bridge van minuten af) zijn verwaarloosbaar |
+
+**Oordeel hertoets (controle-agent, ~5 min): GO-mits — deploy van `108e912` GO** (gedeployed 2026-09-15 ~21:10 UTC; dashboard 200, NAV $5.413,24, geen PHANTOM). Twee voorwaarden vóór M3. **Correctie op mijn bewering in ronde 2:** "nooit meer dan één beweging naar yield tegelijk" klopte **niet** voor `run_fast`. Daar draait de switch-check vóór generate, en die guard keek alleen naar SWITCHING, niet naar APPROVED.
+
+## Reactie bouwer (ronde 3, voorwaarden vóór M3)
+
+| # | Bevinding | Reactie |
+|---|---|---|
+| 1 | `run_fast`: switch (APPROVED) en deploy in dezelfde ronde; in-flight-set vier keer los | **Opgelost.** Eén helper `_yield_beweging_onderweg` (DEPLOY_YIELD in `_DEPLOY_ONDERWEG` of YIELD_SWITCH in `_SWITCH_ONDERWEG` = APPROVED/SWITCHING), gebruikt op alle vijf plekken: generate in `run` en `run_fast`, `_check_hl_excess`, `_check_yield_switch`, `_check_yield_diversification`. Toets: `test_run_fast_geen_deploy_in_de_ronde_waarin_een_switch_ontstaat`. Mutatietoets: de oude regel (alleen SWITCHING) en geen regel worden allebei gevangen. De `active`-sets van de executor zijn een ander begrip en blijven los |
+| 2 | DEPLOY_YIELD in NEEDS_MANUAL_WITHDRAWAL blokkeert stil en voor altijd | **Opgelost.** (a) De monitorcheck op vastgelopen voorstellen kent de status (> 6u → Telegram). (b) De executor zet een handmatige opname na 48 uur op **EXPIRED** (eigen veld `manual_withdrawal_since`; oude voorstellen vallen terug op `updated_at`/`created_at`; een onleesbare tijd verloopt niet). Het saldo wordt dan niet meer gelezen, dus latere USDC maakt hem niet meer BRIDGED. Die USDC wordt daarna als nieuw geld behandeld, met cap en rem. WITHDRAWING (automatische bridge) verloopt niet. Toetsen: `tests/test_treasury_manual_withdrawal.py` (6) |
+| open vraag | Moet NEEDS_MANUAL_WITHDRAWAL na ~48u verlopen? | Ja — zie 2b |
+| bijvangst | `scripts/verify_live.py` gaf na de deploy een valse FAIL "spookposities" | De 6 dip-koper-trades staan op wallet `0xBd6c`, de check las de hoofdwallet. Die trades worden nu uitgesloten (weer een ontbrekende sleeve-guard). Geverifieerd: alle 6 OPEN in het boek én in de sleeve, geen PHANTOM sinds de herstart |

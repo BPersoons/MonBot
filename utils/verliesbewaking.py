@@ -31,6 +31,7 @@ import os
 import time
 import urllib.request
 
+from utils import experimenten as exp_register
 from utils import flows
 
 logger = logging.getLogger("Verliesbewaking")
@@ -331,6 +332,8 @@ def evalueer(m, state, register, stromen=(), nu=None):
             meld("usdc_peg", "alarm", "usdc_peg", "USDC noteert $%.4f" % prijs)
 
     # ── HLP ──────────────────────────────────────────────────────────────
+    # Wat meetelt in het budget en hoe verlies heet: utils/experimenten.py (één definitie,
+    # gedeeld met kpi.py H3 — die rekenden uiteen).
     verlies_experimenten = 0.0
     hlp = experimenten.get("hlp_vault") or {}
     inleg = m.get("hlp_inleg_usd")
@@ -351,13 +354,13 @@ def evalueer(m, state, register, stromen=(), nu=None):
             elif dd >= alarm_dd:
                 meld("hlp_drawdown", "alarm", "hlp_vault",
                      "HLP drawdown %.1f%% (equity $%.2f op inleg $%.2f)" % (dd, equity, inleg))
-            if hlp.get("verliesbudget_telt_mee", True):
-                verlies_experimenten += max(0.0, inleg - equity)
+            if exp_register.telt_mee_voor_budget(hlp):
+                verlies_experimenten += exp_register.verlies_usd(inleg, equity) or 0.0
 
     # ── basis (live vanaf M6; de module levert basis_verlies_usd) ─────────
     basis_verlies = m.get("basis_verlies_usd")
-    if basis_verlies is not None and (experimenten.get("basis_traag") or {}).get(
-            "verliesbudget_telt_mee", True):
+    if basis_verlies is not None and exp_register.telt_mee_voor_budget(
+            experimenten.get("basis_traag")):
         verlies_experimenten += max(0.0, basis_verlies)
 
     # ── verliesbudget ────────────────────────────────────────────────────

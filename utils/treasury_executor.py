@@ -8,6 +8,8 @@ DEPLOY_YIELD (idle HL → Aave):
   APPROVED                 → HL withdrawal to treasury wallet → WITHDRAWING | NEEDS_MANUAL_WITHDRAWAL
   WITHDRAWING              → poll Arbitrum USDC at treasury wallet → BRIDGED
   NEEDS_MANUAL_WITHDRAWAL  → same poll (user withdrew manually) → BRIDGED
+                             | na 48u zonder aankomst → EXPIRED (eindstatus; later
+                               aankomende USDC wordt als nieuw geld behandeld)
   BRIDGED                  → Aave v3 approve + supply → DEPLOYED | FAILED
 
 REBALANCE (Aave → HL, triggered when HL free margin < 25% of total):
@@ -1074,6 +1076,23 @@ def withdraw_aave_to_wallet(amount_usd: float, private_key: str, volledig: bool 
 
 # ── State machine ─────────────────────────────────────────────────────────────
 
+# Een handmatige HL-opname die na zoveel uur niet is aangekomen, verloopt. Anders blokkeert
+# hij alle yield-bewegingen voor altijd, en zet willekeurige USDC die later op de wallet komt
+# hem alsnog naar BRIDGED (A1-hertoets kasbeheer 2026-09-15).
+_MANUAL_WITHDRAWAL_TTL_H = 48
+
+
+def _uren_sinds(iso_ts):
+    """Uren sinds een ISO-tijd (naive = UTC); None als die niet te lezen is."""
+    try:
+        t = datetime.fromisoformat(str(iso_ts).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - t).total_seconds() / 3600.0
+
+
 def advance_proposal(
     proposal: dict,
     exchange_client=None,
@@ -1231,7 +1250,8 @@ def _advance_proposal_inner(
                 f"Bridge ~15 min. Automatische controle loopt."
             )
         else:
-            proposal.update({"status": "NEEDS_MANUAL_WITHDRAWAL", "withdrawal_destination": dest, "updated_at": now})
+            proposal.update({"status": "NEEDS_MANUAL_WITHDRAWAL", "withdrawal_destination": dest,
+                             "manual_withdrawal_since": now, "updated_at": now})
             _notify(
                 f"💰 *Treasury: Handmatige withdrawal nodig*\n\n"
                 f"Automatische bridge kon niet starten. Voer handmatig uit:\n"
@@ -1244,6 +1264,22 @@ def _advance_proposal_inner(
 
     # ── WITHDRAWING / NEEDS_MANUAL_WITHDRAWAL → poll Arbitrum ─────────────────
     if status in ("WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL"):
+        if status == "NEEDS_MANUAL_WITHDRAWAL":
+            sinds = (proposal.get("manual_withdrawal_since") or proposal.get("updated_at")
+                     or proposal.get("created_at"))
+            uren = _uren_sinds(sinds)
+            if uren is not None and uren > _MANUAL_WITHDRAWAL_TTL_H:
+                proposal.update({
+                    "status":     "EXPIRED",
+                    "error":      f"Handmatige opname niet binnen {_MANUAL_WITHDRAWAL_TTL_H}u aangekomen",
+                    "updated_at": now,
+                })
+                _notify(
+                    f"⌛ *Treasury: handmatige opname verlopen*\n"
+                    f"`{proposal.get('id', '?')}` — ${amount:.0f} niet binnen {_MANUAL_WITHDRAWAL_TTL_H}u "
+                    f"op de treasury-wallet. Voorstel gesloten; USDC die later aankomt, wordt als nieuw geld behandeld."
+                )
+                return proposal
         dest    = proposal.get("withdrawal_destination", wallet_address)
         balance = get_arb_usdc_balance(dest)
         needed  = amount * _BRIDGE_TOL
