@@ -12,9 +12,23 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import treasury_executor as te  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _vaste_omgeving(monkeypatch):
+    """De toetsen mogen niet van de shell afhangen.
+
+    A1-audit ronde 5: dezelfde mutatie gaf 18 passed óf 4 failed, puur omdat
+    `HL_VAULT_ADDRESS` wel of niet in de omgeving stond. Productie heeft dat adres, dus
+    de toetsen ook — een toets die overrides wil, doet dat expliciet.
+    """
+    monkeypatch.setenv("HL_VAULT_ADDRESS", "0x92D4D9D4c0371D10F3d62194ECD7d43eB9E4F445")
+    monkeypatch.delenv("HL_WALLET_ADDRESS", raising=False)
 
 
 def _iso(uren_geleden):
@@ -207,12 +221,56 @@ def test_monitor_kiest_de_meest_recente_en_herhaalt_alleen_bij_geld(tmp_path, mo
     monitor._send_telegram.reset_mock()
     with patch("utils.treasury_executor._rpc", _saldi({_TREASURY_WALLET: 20.0, VAULT_ADR: 20.0})):
         monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=100))
-    assert not monitor._send_telegram.called, "$40 pakt het deploy-pad zelf op: geen herhaling"
+    assert not monitor._send_telegram.called, "$40 is doorzeuren niet waard: geen herhaling"
 
     monitor._send_telegram.reset_mock()
     with patch("utils.treasury_executor._rpc", _saldi({_TREASURY_WALLET: 267.28, VAULT_ADR: 0.0})):
         monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=110))
     assert monitor._send_telegram.called, "$267 blijft liggen: na 3 dagen opnieuw melden"
+
+
+def test_onmeetbaar_saldo_blijft_herhalen(tmp_path, monkeypatch):
+    """A1-audit ronde 5: onmeetbaar mag geen "te weinig geld" betekenen.
+
+    Anders zwijgt de check permanent zodra de RPC of het vault-adres een dag wegvalt,
+    terwijl er juist geld kan liggen. Bij het afsluiten gold die regel al.
+    """
+    monkeypatch.chdir(tmp_path)
+    nu = datetime.now(timezone.utc)
+
+    def kapot(methode, params):
+        raise RuntimeError("All Arbitrum RPCs failed")
+
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
+    for uren in (0, 25):
+        with patch("utils.treasury_executor._rpc", kapot):
+            monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=uren))
+    assert monitor._send_telegram.call_count == 2
+    monitor._send_telegram.reset_mock()
+    # de tweede melding viel op t+25u, dus de derde mag pas 72u dáárna
+    with patch("utils.treasury_executor._rpc", kapot):
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=100))
+    assert monitor._send_telegram.called, "onmeetbaar: blijven herhalen, niet verstommen"
+
+
+def test_herhaalklok_blijft_op_72_uur(tmp_path, monkeypatch):
+    """De toestandsmachine `:1` → `:2` → `:h` moet na elke herhaling opnieuw 72u wachten."""
+    monkeypatch.chdir(tmp_path)
+    from utils.treasury_executor import _TREASURY_WALLET
+    nu = datetime.now(timezone.utc)
+    veel = _saldi({_TREASURY_WALLET: 267.28, VAULT_ADR: 0.0})
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
+
+    # De klok loopt telkens vanaf de VORIGE melding: t+0, t+25, dan 72u later (t+100),
+    # en daarna weer 72u (t+180). t+96 en t+110 vallen binnen zo'n venster.
+    gemeld = []
+    for uren in (0, 25, 96, 100, 110, 180):
+        monitor._send_telegram.reset_mock()
+        with patch("utils.treasury_executor._rpc", veel):
+            monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=uren))
+        if monitor._send_telegram.called:
+            gemeld.append(uren)
+    assert gemeld == [0, 25, 100, 180], "kreeg %s — 96u en 110u liggen binnen 72u na de vorige" % gemeld
 
 
 def test_vault_adres_valt_niet_terug_op_de_agent_wallet(tmp_path, monkeypatch):

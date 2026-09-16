@@ -112,6 +112,24 @@ De vorige poging stuurde gestrand geld automatisch naar HL en kreeg **STOP**: de
 - *Waarom een vaste bovengrens van twee meldingen?* Die is vervangen door de meting, precies zoals je voorstelde — zwijgen mag alleen als er weinig geld ligt.
 - *`utils/treasury_executor.py:337/341`?* Daar staat dezelfde terugval (`HL_VAULT_ADDRESS or HL_WALLET_ADDRESS`) voor de withdrawal-client. Buiten deze commit; gaat als losse kleine correctie mee in de eerstvolgende kasbeheer-ronde, met een eigen toets.
 
+## Hertoets (ronde 5)
+**Oordeel: GO-mits** — beide voorwaarden van ronde 4 gemeten bevestigd: het afgesloten geval ging van **8018 naar 112** `eth_call`s per 14 dagen (70×), en de adres-toets wordt rood zodra iemand de oude terugval herstelt. Drie nieuwe punten, alle drie verwerkt.
+
+| # | Bevinding | Reactie |
+|---|---|---|
+| 1 | **Onmeetbaar telde bij de derde melding als "te weinig geld"** — asymmetrisch met het afsluiten, waar `totaal is not None` juist verplicht is. Bij een kapotte RPC: 2 meldingen in 14 dagen in plaats van 6 | **Opgelost.** De voorwaarde is omgedraaid: alleen zwijgen bij een gemeten bedrag onder $100; onmeetbaar blijft melden. Toets: `test_onmeetbaar_saldo_blijft_herhalen` (kapotte RPC, derde melding afgedwongen) |
+| 2 | De kernbewering was niet vastgepind: met `HL_VAULT_ADDRESS` ongezet bleven twee slopende mutaties groen — de shell bepaalde of een mutatie gevangen werd | **Opgelost.** Een `autouse`-fixture zet de omgeving voor het hele bestand vast (vault-adres gezet, agent-wallet gewist); toetsen die iets anders willen, doen dat expliciet |
+| 3 | De herhaalklok had geen toets: `laatste = tweede` in plaats van `herhaald or tweede` bleef groen, terwijl dat 2859 meldingen per 14 dagen geeft | **Opgelost.** `test_herhaalklok_blijft_op_72_uur` legt de reeks 0 / 25 / 100 / 180 uur vast, met 96 en 110 uur als negatieve gevallen |
+| 4 | De rechtvaardiging van de $100-drempel was onjuist ("het deploy-pad pakt het zelf op" — juist níét onder `_MIN_DEPLOY_USD`) | **Gecorrigeerd** in code en toets: de reden is dat doorzeuren onder $100 de moeite niet is, niet dat iets anders het opruimt |
+| 5 | De sleutelterugval op `aave_withdrawn_at` en de INFO-regel `or "zonder id"` blijven ongetoetst | **Aanvaard** — beide staan correct in de code en hebben geen geldgevolg |
+
+**Mijn eigen fout in deze ronde:** de twee nieuwe toetsen rekenden het venster van 72 uur vanaf t+0 in plaats van vanaf de vorige melding, en faalden daardoor terecht. De code klopte; de verwachting niet.
+
+**Antwoorden op de open vragen:**
+- *Waarom mocht onmeetbaar bij `:h` wél stilte betekenen?* Dat mocht niet — een slordigheid met een `not (… and …)`, en precies de regel die dit project al vaker heeft gekost. Hersteld en vastgelegd.
+- *De toetsen onafhankelijk van de omgeving?* Ja, via de fixture.
+- *Blijft $40 buiten beeld?* Ja, bewust: twee meldingen en daarna alleen de INFO-regel. Een dagelijkse samenvatting voegt nu weinig toe; dat komt terug bij de herbouw.
+
 **Bekende beperkingen (bewust, staan op de lijst voor de herbouw):**
 - Alleen de treasury-wallet wordt gelezen, niet het vault-Arb-adres.
 - `BRIDGE_BACK_NEEDED`/`REBALANCING`/`BRIDGING_TO_HL` zonder statuswijziging vallen buiten deze check; Check 14 meldt die na 6 uur, maar zonder te zeggen dat er geld op de wallet staat.

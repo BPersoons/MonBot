@@ -2389,9 +2389,12 @@ class SwarmMonitor:
             self._sent_alerts[basis + ":meting"] = now
             return
 
-        # Derde en latere melding alleen zolang er echt geld ligt: onder $100 pakt het
-        # deploy-pad het zelf op, en dan is herhalen ruis (A1-audit ronde 4, pre-mortem).
-        if beurt == ":h" and not (totaal is not None and totaal >= self.GESTRAND_HERHAAL_MIN_USD):
+        # Derde en latere melding alleen zolang er echt geld ligt. Onmeetbaar is GEEN "te
+        # weinig": dan blijft hij melden, net als bij het afsluiten hierboven — anders
+        # zwijgt hij permanent zodra de RPC of het vault-adres een dag wegvalt (A1-audit
+        # ronde 5). En onder $100 is doorzeuren niet de moeite; níét omdat een ander pad
+        # het opruimt, want onder _MIN_DEPLOY_USD doet niets dat.
+        if beurt == ":h" and totaal is not None and totaal < self.GESTRAND_HERHAAL_MIN_USD:
             logger.info(
                 "SwarmMonitor: gestrande rebalance %s blijft open, saldo treasury %s + vault %s "
                 "— geen herhaalmelding", naam, t_tekst, v_tekst,
