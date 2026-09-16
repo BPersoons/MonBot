@@ -2240,7 +2240,8 @@ class SwarmMonitor:
     GESTRAND_POGING_SEC = 3600        # na een mislukte melding hooguit 1× per uur opnieuw
     GESTRAND_METING_SEC = 6 * 3600    # saldo hooguit 1× per 6u meten als er niets te melden is
     GESTRAND_LANG_SEC = 72 * 3600     # daarna nog hooguit elke 3 dagen, mits er geld ligt
-    GESTRAND_HERHAAL_MIN_USD = 100.0  # onder dit bedrag pakt het deploy-pad het zelf op
+    GESTRAND_HERHAAL_MIN_USD = 100.0  # onder dit bedrag is doorzeuren de moeite niet waard
+    #   (let op: onder _MIN_DEPLOY_USD ruimt géén enkel pad het op — het blijft liggen)
     # Daarna alleen INFO: hooguit twee meldingen per voorstel (sleutels ":1" en ":2"),
     # anders levert één gebeurtenis er veertien op (A1-audit 2026-09-16, ronde 2).
 

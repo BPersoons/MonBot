@@ -299,6 +299,26 @@ def test_vault_adres_valt_niet_terug_op_de_agent_wallet(tmp_path, monkeypatch):
     assert "niet gemeten" in tekst
 
 
+def test_vault_adres_komt_uit_de_secrets_als_de_omgeving_leeg_is(tmp_path, monkeypatch):
+    """In de container staat HL_VAULT_ADDRESS níét in de omgeving.
+
+    `main.py` injecteert de secrets pas in het draaiende proces, en een los `docker exec`
+    ziet ze niet. De secrets-terugval is daarmee het enige pad dat in productie werkt —
+    en dat was door geen enkele toets gedekt (A1-audit ronde 6).
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("HL_VAULT_ADDRESS", raising=False)
+    from utils.treasury_executor import _TREASURY_WALLET
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
+    with patch("utils.treasury_executor._rpc",
+               _saldi({_TREASURY_WALLET: 0.0, VAULT_ADR: 267.28})), \
+         patch("utils.gcp_secrets.get_secret", return_value=VAULT_ADR):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    tekst = monitor._send_telegram.call_args[0][0]
+    assert "$267.28" in tekst, "het vault-saldo hoort gemeten te worden via de secrets"
+    assert VAULT_ADR[-4:] in tekst and "niet gemeten" not in tekst
+
+
 def test_saldo_wordt_hooguit_elke_zes_uur_gemeten(tmp_path, monkeypatch):
     """A1-audit ronde 4: meten vóór de cooldown gaf ~8.000 eth_calls per 14 dagen."""
     monkeypatch.chdir(tmp_path)
