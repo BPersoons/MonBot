@@ -289,6 +289,154 @@ def test_run_fast_geen_deploy_in_de_ronde_waarin_een_switch_ontstaat():
         assert agent.generate_proposals.called is (not switch_vuurt), "switch_vuurt=%s" % switch_vuurt
 
 
+def test_run_doet_eerst_de_rebalance_en_daarna_pas_een_deploy(tmp_path, monkeypatch):
+    """A1-audit bevinding 1: in run() ontstond de deploy vóór de rebalance — beide in één
+    cyclus, wallet→Aave en Aave→wallet tegelijk. In productie 2× gebeurd (18-07, 23-07)."""
+    from unittest.mock import MagicMock
+    monkeypatch.chdir(tmp_path)
+    volgorde = []
+    agent = _agent()
+    agent.get_hl_snapshot = MagicMock(return_value={"balance": 100.0, "free_margin": 90.0})
+    agent.get_yield_opportunities = MagicMock(return_value=[_opp(BENCH)])
+    agent._get_yield_balances = MagicMock(return_value={BENCH: 1000.0})
+    agent._compute_target_allocation = MagicMock(return_value={})
+    agent._get_sleeve_allocation = MagicMock(return_value={"total": 0.0})
+    agent._load_proposals = MagicMock(return_value=[])
+
+    def rebalance(hl, p):
+        volgorde.append("rebalance")
+        return list(p) + [{"id": "TRR_x", "type": "REBALANCE", "status": "APPROVED"}]
+    agent._check_rebalance_needed = MagicMock(side_effect=rebalance)
+
+    def generate(*a, **k):
+        volgorde.append("deploy")
+        return []
+    agent.generate_proposals = MagicMock(side_effect=generate)
+    agent._upsert_proposals = MagicMock(return_value=[])
+    agent._check_hl_excess = MagicMock(side_effect=lambda hl, p, o: p)
+    agent._check_yield_switch = MagicMock(side_effect=lambda o, y, p: (p, []))
+    agent._check_yield_diversification = MagicMock(side_effect=lambda o, y, p: (p, []))
+    agent._check_funding_harvest = MagicMock()
+    agent._monitor_funding_harvest = MagicMock()
+    agent._check_sleeve_funding = MagicMock(side_effect=lambda s, g, hl, p: (p, []))
+    agent._execute_fund_sleeve = MagicMock(side_effect=lambda p: p)
+    agent._check_sleeve_rebalance = MagicMock(side_effect=lambda s, g, p: (p, []))
+    agent._execute_sleeve_rebalance = MagicMock(side_effect=lambda p: p)
+    agent.execute_approved_proposals = MagicMock(side_effect=lambda p: p)
+    agent._save_proposals = MagicMock()
+    agent._get_harvest_state = MagicMock(return_value={})
+    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=500.0):
+        agent.run()
+    assert volgorde == ["rebalance"], "de rebalance draait eerst en blokkeert de deploy: %s" % volgorde
+
+
+def test_fund_trading_blokkeert_een_beweging_naar_yield():
+    """A1-audit bevinding 4: wallet-USDC geoormerkt voor HL mag niet naar Aave geveegd."""
+    for status, geblokkeerd in (("PENDING", True), ("APPROVED", True),
+                                ("MONITORING", True), ("COMPLETED", False)):
+        ps = [{"id": "TRF_x", "type": "FUND_TRADING", "status": status}]
+        assert ta._yield_beweging_onderweg(ps) is geblokkeerd, status
+
+
+def test_tweede_rebalance_kan_niet_ontstaan_tijdens_het_bridgen():
+    """A1-audit bevinding 3: BRIDGING_TO_HL zat niet in de eigen guard van de rebalance."""
+    from unittest.mock import MagicMock
+    hl = {"balance": 10.0, "free_margin": 10.0}
+    for status in ("APPROVED", "REBALANCING", "BRIDGE_BACK_NEEDED", "BRIDGING_TO_HL"):
+        agent = _agent()
+        agent._compute_target_allocation = MagicMock(
+            return_value={"target_trade_usd": 1000.0, "effective_trade_pct": 30, "reason": "toets"})
+        agent._load_allocation_config = MagicMock(return_value={"rebalance_drift_pct": 10})
+        lopend = [{"id": "TRR_a", "type": "REBALANCE", "status": status}]
+        with patch("utils.treasury_executor.get_aave_balance", return_value=2000.0):
+            uit = agent._check_rebalance_needed(hl, list(lopend))
+        assert uit == lopend, "geen tweede rebalance tijdens %s" % status
+
+
+def _gestrand(**extra):
+    p = {"id": "TRR_a", "type": "REBALANCE", "status": "FAILED", "amount_usd": 267.28,
+         "aave_withdrawn_at": "2026-07-23T15:14:42", "error": "bridge minimum"}
+    p.update(extra)
+    return p
+
+
+def test_gestrand_rebalance_geld_gaat_naar_hl_en_niet_terug_naar_aave():
+    """A1-audit bevinding 2: productie 23-07 — $267 terug naar Aave terwijl HL tekortkwam."""
+    agent = _agent()
+    gestrand = _gestrand()
+    uit = agent._gestrand_geld_naar_hl([gestrand], treasury_usdc=267.28)
+    nieuw = [p for p in uit if p.get("type") == "FUND_TRADING"]
+    assert len(nieuw) == 1 and nieuw[0]["status"] == "PENDING"
+    assert nieuw[0]["amount_usd"] == 267.28
+    assert gestrand.get("opgevolgd_door") == nieuw[0]["id"], "anders vuurt hij elke cyclus opnieuw"
+    assert ta._yield_beweging_onderweg(uit) is True, "en dit blokkeert de deploy naar Aave"
+    assert len(agent._verstuurd) == 1, "één melding"
+
+    herhaling = agent._gestrand_geld_naar_hl(uit, treasury_usdc=267.28)
+    assert len([p for p in herhaling if p.get("type") == "FUND_TRADING"]) == 1
+
+
+def test_een_geslaagde_of_vroeg_gefaalde_rebalance_strandt_niet():
+    agent = _agent()
+    klaar = _gestrand(status="COMPLETED", completed_at="2026-07-23T15:30:00")
+    voor_de_opname = _gestrand(aave_withdrawn_at=None)
+    assert agent._gestrande_rebalance([klaar]) is None, "afgerond: geen los geld"
+    assert agent._gestrande_rebalance([voor_de_opname]) is None, "nooit opgenomen: geld staat nog in Aave"
+    assert agent._gestrand_geld_naar_hl([_gestrand()], treasury_usdc=0.0) == [_gestrand()], \
+        "leeg wallet-saldo: niets te bridgen"
+
+
+def test_run_fast_pakt_gestrand_geld_op_en_deployt_niet():
+    """Aansluitingstoets: de controle moet in run_fast zitten, niet alleen als methode."""
+    from unittest.mock import MagicMock
+    agent = _agent()
+    agent.get_hl_snapshot = MagicMock(return_value={"balance": 0.0, "free_margin": 0.0})
+    agent._load_proposals = MagicMock(return_value=[_gestrand()])
+    agent._check_rebalance_needed = MagicMock(side_effect=lambda hl, p: p)
+    agent._load_cached_opportunities = MagicMock(return_value=[])
+    agent.generate_proposals = MagicMock(return_value=[])
+    agent._monitor_funding_harvest = MagicMock()
+    agent._execute_fund_sleeve = MagicMock(side_effect=lambda p: p)
+    agent._execute_sleeve_rebalance = MagicMock(side_effect=lambda p: p)
+    agent.execute_approved_proposals = MagicMock(side_effect=lambda p: p)
+    bewaard = {}
+    agent._save_proposals = MagicMock(side_effect=lambda p: bewaard.update({"p": p}))
+    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=267.28):
+        agent.run_fast()
+    ft = [p for p in bewaard["p"] if p.get("type") == "FUND_TRADING"]
+    assert len(ft) == 1 and ft[0]["amount_usd"] == 267.28, "gestrand geld moet naar HL"
+    assert not agent.generate_proposals.called, "en niet naar Aave"
+
+
+def test_telegram_valt_terug_op_platte_tekst():
+    """A1-audit bevinding 7: een melding die Telegram niet parseert ging volledig verloren."""
+    pogingen = []
+
+    class _Antwoord:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def urlopen(req, timeout=10):
+        import json as _j
+        pogingen.append(_j.loads(req.data.decode("utf-8")))
+        if len(pogingen) == 1:
+            raise RuntimeError("Bad Request: can't parse entities")
+        return _Antwoord()
+
+    agent = ta.TreasuryAgent()
+    with patch.object(ta, "_telegram_token", return_value="t"), \
+         patch.object(ta, "_telegram_chat_id", return_value="c"), \
+         patch("urllib.request.urlopen", urlopen):
+        agent._send_telegram("*vet* `yield_core` _kapot")
+    assert len(pogingen) == 2, "geen tweede poging zonder opmaak"
+    assert pogingen[0].get("parse_mode") == "Markdown"
+    assert "parse_mode" not in pogingen[1]
+    assert pogingen[1]["text"] == "*vet* `yield_core` _kapot", "tekst blijft ongewijzigd"
+
+
 def test_oude_fouten_en_andere_types_tellen_niet():
     agent = _agent()
     oud = [_fout(30), _fout(40)]

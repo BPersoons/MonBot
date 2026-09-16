@@ -28,12 +28,17 @@ def _voorstel(status="NEEDS_MANUAL_WITHDRAWAL", **extra):
     return p
 
 
-def test_handmatige_opname_verloopt_na_48u_zonder_naar_het_saldo_te_kijken():
-    saldo = MagicMock(return_value=1000.0)
-    with patch.object(te, "get_arb_usdc_balance", saldo):
+def test_handmatige_opname_verloopt_na_48u_als_het_geld_er_niet_is():
+    with patch.object(te, "get_arb_usdc_balance", return_value=0.0):
         uit = te.advance_proposal(_voorstel(manual_withdrawal_since=_iso(49)))
     assert uit["status"] == "EXPIRED"
-    assert not saldo.called, "na de verlooptijd mag latere USDC hem niet meer naar BRIDGED zetten"
+
+
+def test_geld_dat_net_op_tijd_aankomt_wint_van_de_verlooptijd():
+    """A1-audit bevinding 6: de verlooptak stond vóór de saldo-poll (venster ~5 min)."""
+    with patch.object(te, "get_arb_usdc_balance", return_value=1000.0):
+        uit = te.advance_proposal(_voorstel(manual_withdrawal_since=_iso(49)))
+    assert uit["status"] == "BRIDGED", "aangekomen geld mag niet alsnog verlopen"
 
 
 def test_binnen_48u_gaat_hij_gewoon_door_als_het_geld_er_is():

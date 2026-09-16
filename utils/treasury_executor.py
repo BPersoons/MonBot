@@ -1264,6 +1264,25 @@ def _advance_proposal_inner(
 
     # ── WITHDRAWING / NEEDS_MANUAL_WITHDRAWAL → poll Arbitrum ─────────────────
     if status in ("WITHDRAWING", "NEEDS_MANUAL_WITHDRAWAL"):
+        # Eerst het saldo lezen, dán pas verlopen: geld dat in de laatste ronde vóór de
+        # verlooptijd binnenkomt hoort gewoon door te gaan (A1-audit 2026-09-16, bevinding 6).
+        dest    = proposal.get("withdrawal_destination", wallet_address)
+        balance = get_arb_usdc_balance(dest)
+        needed  = amount * _BRIDGE_TOL
+        logger.info(f"TreasuryExecutor: Arbitrum USDC @ {dest[:10]}… = ${balance:.2f} (need ≥${needed:.2f})")
+        if balance >= needed:
+            proposal.update({
+                "status":           "BRIDGED",
+                "arb_usdc_balance": round(balance, 2),
+                "bridged_at":       now,
+            })
+            _notify(
+                f"✅ *Treasury: USDC gearriveerd op Arbitrum*\n"
+                f"${balance:.2f} USDC op `{dest[:10]}…`\n"
+                f"Storten in {proposal.get('protocol', 'Aave v3')}…"
+            )
+            return proposal
+
         if status == "NEEDS_MANUAL_WITHDRAWAL":
             sinds = (proposal.get("manual_withdrawal_since") or proposal.get("updated_at")
                      or proposal.get("created_at"))
@@ -1282,22 +1301,6 @@ def _advance_proposal_inner(
                     f"`swarm → yield_core` (zie `/boek-order` stap 1b). Zonder die boeking ziet "
                     f"de KPI het bedrag als opbrengst."
                 )
-                return proposal
-        dest    = proposal.get("withdrawal_destination", wallet_address)
-        balance = get_arb_usdc_balance(dest)
-        needed  = amount * _BRIDGE_TOL
-        logger.info(f"TreasuryExecutor: Arbitrum USDC @ {dest[:10]}… = ${balance:.2f} (need ≥${needed:.2f})")
-        if balance >= needed:
-            proposal.update({
-                "status":           "BRIDGED",
-                "arb_usdc_balance": round(balance, 2),
-                "bridged_at":       now,
-            })
-            _notify(
-                f"✅ *Treasury: USDC gearriveerd op Arbitrum*\n"
-                f"${balance:.2f} USDC op `{dest[:10]}…`\n"
-                f"Storten in {proposal.get('protocol', 'Aave v3')}…"
-            )
         return proposal
 
     # ── BRIDGED → protocol deposit (Aave / ERC-4626 / Compound v3) ───────────
