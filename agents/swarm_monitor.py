@@ -2235,7 +2235,9 @@ class SwarmMonitor:
     # ──────────────────────────────────────────
 
     GESTRAND_MAX_DAGEN = 14           # ouder = dood record, alleen een INFO-regel
-    GESTRAND_COOLDOWN_SEC = 24 * 3600 # per voorstel, niet globaal
+    GESTRAND_HERHAAL_SEC = 24 * 3600  # tweede en laatste melding pas na 24 uur
+    # Daarna alleen INFO: hooguit twee meldingen per voorstel (sleutels ":1" en ":2"),
+    # anders levert één gebeurtenis er veertien op (A1-audit 2026-09-16, ronde 2).
 
     def _check_gestrand_rebalance_geld(self, now: datetime):
         """Meldt een rebalance die faalde ná de Aave-opname. Alleen melden, geen actie.
@@ -2258,66 +2260,106 @@ class SwarmMonitor:
         if isinstance(proposals, dict):
             proposals = proposals.get("proposals", [])
 
-        kandidaten, oud = [], []
+        def _tijd(waarde):
+            try:
+                t = datetime.fromisoformat(str(waarde).replace("Z", "+00:00"))
+                return t.replace(tzinfo=timezone.utc) if t.tzinfo is None else t
+            except Exception:
+                return None
+
+        # Een latere GESLAAGDE rebalance betekent dat het margeprobleem is opgelost; dan is
+        # doormelden ruis (A1-audit 2026-09-16: 14 meldingen voor één gebeurtenis).
+        opgelost_na = [t for t in (
+            _tijd(q.get("completed_at") or q.get("aave_withdrawn_at"))
+            for q in proposals
+            if isinstance(q, dict) and q.get("type") == "REBALANCE" and q.get("status") == "COMPLETED"
+        ) if t is not None]
+
+        kandidaten, oud, scheef, opgelost = [], [], [], []
         for p in proposals:
             if not isinstance(p, dict):
                 continue
             if (p.get("type") != "REBALANCE" or p.get("status") != "FAILED"
                     or not p.get("aave_withdrawn_at") or p.get("completed_at")):
                 continue
-            try:
-                t = datetime.fromisoformat(str(p["aave_withdrawn_at"]).replace("Z", "+00:00"))
-                if t.tzinfo is None:
-                    t = t.replace(tzinfo=timezone.utc)
-                dagen = (now - t).total_seconds() / 86400.0
-            except Exception:
+            t = _tijd(p.get("aave_withdrawn_at"))
+            if t is None:
                 continue
-            (kandidaten if dagen <= self.GESTRAND_MAX_DAGEN else oud).append((p, dagen))
+            dagen = (now - t).total_seconds() / 86400.0
+            if dagen < 0:                       # klokscheefheid of toekomstige stempel
+                scheef.append((p, dagen))
+            elif dagen > self.GESTRAND_MAX_DAGEN:
+                oud.append((p, dagen))
+            elif any(k > t for k in opgelost_na):
+                opgelost.append((p, dagen))
+            else:
+                kandidaten.append((p, dagen))
 
-        if oud:
-            logger.info(
-                "SwarmMonitor: %d gestrande rebalance(s) ouder dan %d dagen — niet gemeld: %s",
-                len(oud), self.GESTRAND_MAX_DAGEN,
-                ", ".join("%s (%.0fd)" % (q.get("id"), d) for q, d in oud),
-            )
+        for naam, lijst in (("ouder dan %d dagen" % self.GESTRAND_MAX_DAGEN, oud),
+                            ("met een tijdstempel in de toekomst", scheef),
+                            ("gevolgd door een geslaagde rebalance", opgelost)):
+            if lijst:
+                logger.info(
+                    "SwarmMonitor: %d gestrande rebalance(s) %s — niet gemeld: %s",
+                    len(lijst), naam,
+                    ", ".join("%s (%.0fd)" % (q.get("id"), d) for q, d in lijst),
+                )
         if not kandidaten:
             return
 
         # De MEEST RECENTE stranding hoort bij de huidige situatie; het oudste record
         # noemen zou een bedrag melden dat nergens bij hoort (A1-audit 2026-09-16).
         p, dagen = min(kandidaten, key=lambda k: k[1])
-        alert_key = "gestrand_rebalance_geld:%s" % p.get("id")
-        last_sent = self._sent_alerts.get(alert_key)
-        if last_sent and (now - last_sent).total_seconds() < self.GESTRAND_COOLDOWN_SEC:
+        basis = "gestrand_rebalance_geld:%s" % (p.get("id") or p.get("aave_withdrawn_at"))
+        eerste = self._sent_alerts.get(basis + ":1")
+        tweede = self._sent_alerts.get(basis + ":2")
+        if tweede or (eerste and (now - eerste).total_seconds() < self.GESTRAND_HERHAAL_SEC):
+            logger.info("SwarmMonitor: gestrande rebalance %s al gemeld — geen herhaling", p.get("id"))
             return
+        beurt = ":2" if eerste else ":1"
 
-        try:
-            from utils.treasury_executor import _rpc, _TREASURY_WALLET, _USDC_ARB
-            ruw = _rpc("eth_call", [{
-                "to": _USDC_ARB,
-                "data": "0x70a08231" + "0" * 24 + _TREASURY_WALLET[2:].lower(),
-            }, "latest"])
-            wallet = "$%.2f" % (int(ruw, 16) / 10 ** 6)
-        except Exception as e:
-            logger.warning(f"SwarmMonitor: wallet-saldo onmeetbaar bij gestrand-check: {e}")
-            wallet = "onmeetbaar"
+        def _saldo(adres):
+            if not adres:
+                return "niet gemeten"
+            try:
+                from utils.treasury_executor import (_rpc, _USDC_ARB, _encode_balance_of,
+                                                     _USDC_DECIMALS)
+                ruw = _rpc("eth_call", [{"to": _USDC_ARB, "data": _encode_balance_of(adres)}, "latest"])
+                return "$%.2f" % (int(ruw, 16) / 10 ** _USDC_DECIMALS)
+            except Exception as e:
+                logger.warning(f"SwarmMonitor: saldo {str(adres)[:10]}… onmeetbaar: {e}")
+                return "onmeetbaar"
+
+        from utils.treasury_executor import _TREASURY_WALLET
+        vault = os.getenv("HL_VAULT_ADDRESS", "") or os.getenv("HL_WALLET_ADDRESS", "")
+        if not vault:
+            try:
+                from utils.gcp_secrets import get_secret
+                vault = get_secret("HL_VAULT_ADDRESS") or ""
+            except Exception:
+                vault = ""
 
         bedrag = float(p.get("amount_usd") or 0.0)
         extra = ("\n(%d gestrande voorstellen; dit is de meest recente)" % len(kandidaten)
                  if len(kandidaten) > 1 else "")
-        self._send_telegram(
-            f"⚠️ *Treasury: rebalance gestrand na de Aave-opname*\n"
-            f"`{p.get('id')}` haalde ${bedrag:.0f} uit Aave ({dagen:.1f} dagen geleden) "
-            f"maar strandde vóór de bridge.{extra}\n"
-            f"Treasury wallet nu: {wallet}\n\n"
-            f"Hoogstens ${bedrag:.0f} hoort bij dít voorstel, en het kan inmiddels door een "
-            f"andere beweging terug in Aave staan. Kasbeheer doet hier zelf niets mee."
+        kop = "herinnering" if beurt == ":2" else "rebalance-bridge niet bevestigd"
+        gelukt = self._send_telegram(
+            f"⚠️ *Treasury: {kop}*\n"
+            f"`{p.get('id')}` haalde ${bedrag:.0f} uit Aave ({dagen:.1f} dagen geleden); "
+            f"de bridge naar HL is niet bevestigd.{extra}\n"
+            f"Treasury wallet: {_saldo(_TREASURY_WALLET)} · vault-Arb-adres: {_saldo(vault)}\n\n"
+            f"Hoogstens ${bedrag:.0f} hoort bij dít voorstel. Het geld kan op een van deze "
+            f"adressen staan, al terug in Aave zijn, óf tóch op HL zijn aangekomen (de "
+            f"bevestiging kan verlopen zijn). Controleer dat vóór je iets bridget — "
+            f"kasbeheer doet hier zelf niets mee."
         )
-        # Pas stempelen ná de melding: een fout hierboven mag geen 24 uur stilte geven.
-        self._sent_alerts[alert_key] = now
+        # Alleen stempelen als de melding echt weg is: anders geeft een mislukte melding
+        # 24 uur stilte (A1-audit 2026-09-16, ronde 2).
+        if gelukt:
+            self._sent_alerts[basis + beurt] = now
         logger.warning(
-            "SwarmMonitor: gestrande rebalance %s ($%.2f, %.1f dagen), wallet %s",
-            p.get("id"), bedrag, dagen, wallet,
+            "SwarmMonitor: gestrande rebalance %s ($%.2f, %.1f dagen), melding %s verstuurd=%s",
+            p.get("id"), bedrag, dagen, beurt, bool(gelukt),
         )
 
     # ──────────────────────────────────────────
@@ -2945,24 +2987,28 @@ class SwarmMonitor:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return resp.status
 
+        # Geeft True terug als de melding echt weg is. Een check die op grond daarvan een
+        # cooldown stempelt, zweeg anders na een MISLUKTE melding (A1-audit 2026-09-16).
         try:
             status = _post({"parse_mode": "Markdown"})
             logger.info(f"✅ Telegram alert sent (status {status})")
-            return
+            return True
         except urllib.error.HTTPError as e:
             if e.code != 400:
                 logger.warning(f"Failed to send Telegram alert: {e}")
-                return
+                return False
             logger.warning("Telegram weigerde de Markdown (400) — opnieuw als platte tekst")
         except Exception as e:
             logger.warning(f"Failed to send Telegram alert: {e}")
-            return
+            return False
 
         try:
             status = _post({})
             logger.info(f"✅ Telegram alert sent as plain text (status {status})")
+            return True
         except Exception as e:
             logger.warning(f"Failed to send Telegram alert (plain-text retry): {e}")
+            return False
 
 
 # ──────────────────────────────────────────────

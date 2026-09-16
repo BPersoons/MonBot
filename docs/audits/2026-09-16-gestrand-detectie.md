@@ -46,7 +46,7 @@ De vorige poging stuurde gestrand geld automatisch naar HL en kreeg **STOP**: de
 
 | # | Bevinding | Reactie |
 |---|---|---|
-| 1 | De check zou geen van beide echte incidenten hebben gezien | **Herontworpen.** Melden gebeurt nu op de **gebeurtenis** (REBALANCE → FAILED mét `aave_withdrawn_at`, binnen 14 dagen), ongeacht het saldo. Het wallet-saldo is een **veld** in de melding geworden. Toets: `test_monitor_meldt_de_gebeurtenis_ook_als_de_wallet_al_leeg_is` (saldo $0,00 → meldt) |
+| 1 | De check zou geen van beide echte incidenten hebben gezien | **Herontworpen** (en let op de correctie hieronder: het gaat om één incident, niet twee). Melden gebeurt nu op de **gebeurtenis** (REBALANCE → FAILED mét `aave_withdrawn_at`, binnen 14 dagen), ongeacht het saldo. Het wallet-saldo is een **veld** in de melding geworden. Toets: `test_monitor_meldt_de_gebeurtenis_ook_als_de_wallet_al_leeg_is` (saldo $0,00 → meldt) |
 | 2 | Stille nul: `get_arb_usdc_balance` geeft 0.0 bij een RPC-storing | **Opgelost.** De check doet zijn eigen `_rpc`-aanroep en meldt letterlijk "onmeetbaar" als die faalt. Toets: `test_monitor_onderscheidt_nul_van_onmeetbaar` |
 | 3 | Cooldown gestempeld vóór de melding → 12u stilte bij één format-fout | **Opgelost.** Stempelen ná `_send_telegram`, en de logregel gebruikt nu dezelfde defensieve `float(... or 0)` |
 | 4 | `max` op leeftijd koos het verkeerde record; bedrag hoorde niet bij het saldo | **Opgelost.** `min` op leeftijd (de verse stranding), het aantal kandidaten in de tekst, en de zin "hoogstens $X hoort bij dít voorstel". Toets met twee kandidaten controleert dat het oude bedrag níét in de melding staat |
@@ -58,6 +58,26 @@ De vorige poging stuurde gestrand geld automatisch naar HL en kreeg **STOP**: de
 **Antwoorden op de open vragen:**
 - *Waarom het saldo als drempel?* Een denkfout: ik redeneerde vanuit "geld dat blijft liggen" in plaats van vanuit de gebeurtenis. Het is nu een veld.
 - *Stilte na 14 dagen?* Niet meer stil: oudere records geven een INFO-regel. Een wekelijkse samenvatting voegt daar weinig aan toe zolang er één dood record is.
+
+## Hertoets (ronde 2)
+**Oordeel: GO-mits** — drie blokkerende voorwaarden, plus vijf punten om te corrigeren. De herontwerp-kern (melden op de gebeurtenis) werd bevestigd met een replay op de echte records.
+
+**Correctie: het gaat om één incident, niet twee.** `TRR_20260718_1852` is op 18-07 om 19:31 **COMPLETED** geworden — dat geld kwam dus gewoon aan. Alleen 23-07 zou een melding hebben opgeleverd. Mijn commit-tekst en claimblad suggereerden dekking van twee gevallen; dat klopt niet.
+
+| # | Voorwaarde / bevinding | Reactie |
+|---|---|---|
+| V1 | De melding kan een mens de verkeerde kant op sturen: geld kan op het **vault-Arb-adres** staan (mislukte bridge-stap 2), of tóch op HL zijn aangekomen (verlopen bevestiging) | **Opgelost.** De melding leest nu **beide** adressen (treasury-wallet én vault-Arb-adres, uit `HL_VAULT_ADDRESS`) en zegt "de bridge naar HL is **niet bevestigd**" in plaats van "strandde vóór de bridge", met de drie mogelijkheden expliciet. Toetsen: `test_monitor_meldt_beide_adressen`, plus de tekstcontroles in `test_monitor_meldt_de_gebeurtenis_ook_als_de_wallet_al_leeg_is` |
+| V2 | 14 meldingen voor één gebeurtenis; ook nog ná de vervangende geslaagde rebalance | **Opgelost, twee kanten.** (a) Een latere **COMPLETED** rebalance sluit het geval af (INFO, geen melding). (b) Hooguit **twee** meldingen per voorstel: de tweede pas na 24u, met kop "herinnering", daarna alleen INFO. Toetsen: `test_monitor_zwijgt_bij_oud_scheef_en_opgelost`, `test_monitor_kiest_de_meest_recente_en_meldt_hoogstens_twee_keer` |
+| V3 | Negatieve leeftijd mogelijk ("-4.8 dagen geleden"), en zo'n record wint altijd de `min()` | **Opgelost.** `0 <= dagen <= 14`; toekomstige stempels krijgen een eigen INFO-regel |
+| 1 | "Stempelen ná de melding" had geen effect: `_send_telegram` slikt alles in | **Echt opgelost.** `_send_telegram` geeft nu `True`/`False` terug (alle takken), en de check stempelt alleen bij `True`. Toets: `test_mislukte_melding_geeft_geen_stilte` (twee rondes, twee pogingen) |
+| 2 | Claim "beide echte incidenten" klopt niet | **Gecorrigeerd** — zie hierboven |
+| 3 | Sleutel per id niet getoetst; voorstel zonder id deelt `…:None` | **Opgelost.** Toets `test_twee_verschillende_strandingen_melden_allebei`; zonder id valt de sleutel terug op `aave_withdrawn_at` in plaats van op `None` |
+| 4 | De regressietoets toetste alleen de constante | **Opgelost.** Hij loopt nu door `_check_hl_excess` met een rebalance in elk van de vier onderweg-statussen en eist dat er géén DEPLOY_YIELD bij komt — precies het pad waarlangs `TRP_20260723_1447_excess` ontstond |
+| 5 | Dubbele `balanceOf`-codering | **Opgelost.** Gebruikt `_encode_balance_of` en `_USDC_DECIMALS` uit de executor |
+
+**Antwoorden op de open vragen:**
+- *Waarom 24u cooldown en 14 meldingen?* Dat was geen keuze maar een gat: er zat geen bovengrens op. Nu twee meldingen, en afsluiten zodra een latere rebalance slaagt.
+- *Vault-Arb-adres meelezen?* Ja, nu al — het was juist het adres waar het geld bij een mislukte stap 2 blijft staan.
 
 **Bekende beperkingen (bewust, staan op de lijst voor de herbouw):**
 - Alleen de treasury-wallet wordt gelezen, niet het vault-Arb-adres.

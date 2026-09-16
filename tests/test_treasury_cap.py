@@ -382,11 +382,22 @@ def test_de_twee_echte_botsingen_van_juli_kunnen_niet_meer():
     15:14:28, veertien seconden vóór aave_withdrawn_at 15:14:42 van TRR_20260723_1501.
     In beide gevallen vochten een deploy en een rebalance om dezelfde dollars.
     """
-    for datum, rebalance_status in (("2026-07-18", "APPROVED"), ("2026-07-23", "BRIDGE_BACK_NEEDED")):
-        lopend = [{"id": "TRR_%s" % datum, "type": "REBALANCE", "status": rebalance_status,
-                   "amount_usd": 267.28, "aave_withdrawn_at": "%sT15:14:42" % datum}]
-        assert ta._yield_beweging_onderweg(lopend) is True, (
-            "een rebalance in %s moet elke nieuwe yield-beweging blokkeren" % rebalance_status)
+    from unittest.mock import MagicMock
+    hl = {"balance": 2000.0, "free_margin": 1800.0}
+    for rebalance_status in ("APPROVED", "REBALANCING", "BRIDGE_BACK_NEEDED", "BRIDGING_TO_HL"):
+        agent = _agent()
+        agent._compute_target_allocation = MagicMock(
+            return_value={"target_trade_usd": 150.0, "effective_trade_pct": 5, "reason": "toets"})
+        agent._load_allocation_config = MagicMock(return_value={"rebalance_drift_pct": 10})
+        agent._conviction_reserved_usd = MagicMock(return_value=0.0)
+        lopend = [{"id": "TRR_juli", "type": "REBALANCE", "status": rebalance_status,
+                   "amount_usd": 267.28, "aave_withdrawn_at": "2026-07-23T15:14:42"}]
+        with patch("utils.treasury_executor.get_total_yield_balance", return_value=2500.0), \
+             patch("utils.treasury_executor.get_arb_usdc_balance", return_value=267.28):
+            uit = agent._check_hl_excess(hl, list(lopend), [_opp(BENCH)])
+        assert uit == lopend, (
+            "HL-overschot mocht geen DEPLOY_YIELD maken tijdens een rebalance in %s — "
+            "precies zo ontstond TRP_20260723_1447_excess" % rebalance_status)
 
 
 def test_oude_fouten_en_andere_types_tellen_niet():

@@ -82,15 +82,28 @@ def _rebalance_gestrand(uren_geleden=2, **extra):
     return p
 
 
+VAULT_ADR = "0x92D4D9D4c0371D10F3d62194ECD7d43eB9E4F445"
+
+
+def _saldi(per_adres):
+    """Nep-_rpc die balanceOf per adres een eigen bedrag geeft."""
+    def rpc(methode, params):
+        data = str(params[0].get("data", "")).lower()
+        for adres, bedrag in per_adres.items():
+            if adres.lower()[2:] in data:
+                return hex(int(round(bedrag * 10 ** 6)))
+        return "0x0"
+    return rpc
+
+
 def _saldo(usdc):
-    """Nep-_rpc die balanceOf beantwoordt met dit bedrag."""
-    return lambda methode, params: hex(int(usdc * 10 ** 6))
+    return lambda methode, params: hex(int(round(usdc * 10 ** 6)))
 
 
 def test_monitor_meldt_de_gebeurtenis_ook_als_de_wallet_al_leeg_is(tmp_path, monkeypatch):
-    """A1-audit: op 18-07 en 23-07 was het geld binnen een minuut terug in Aave.
+    """A1-audit: op 23-07 stond het geld binnen een minuut al terug in Aave.
 
-    Een drempel op het wallet-saldo had beide incidenten gemist — daarom melden we op de
+    Een drempel op het wallet-saldo had dat incident gemist — daarom melden we op de
     gebeurtenis en is het saldo alleen een veld.
     """
     monkeypatch.chdir(tmp_path)
@@ -100,12 +113,25 @@ def test_monitor_meldt_de_gebeurtenis_ook_als_de_wallet_al_leeg_is(tmp_path, mon
     assert monitor._send_telegram.called, "lege wallet is juist het echte geval"
     tekst = monitor._send_telegram.call_args[0][0]
     assert "267" in tekst and "$0.00" in tekst
-    assert "terug in Aave" in tekst, "de melding moet die mogelijkheid noemen"
+    assert "niet bevestigd" in tekst, "niet claimen dat het geld nog op de wallet staat"
+    assert "op HL zijn aangekomen" in tekst, "de bevestiging kan verlopen zijn"
 
     monitor._send_telegram.reset_mock()
     with patch("utils.treasury_executor._rpc", _saldo(0.0)):
         monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
-    assert not monitor._send_telegram.called, "tweede ronde binnen de cooldown: stil"
+    assert not monitor._send_telegram.called, "geen tweede melding binnen 24 uur"
+
+
+def test_monitor_meldt_beide_adressen(tmp_path, monkeypatch):
+    """Bij een mislukte bridge-stap-2 staat het geld op het vault-Arb-adres, niet op de wallet."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HL_VAULT_ADDRESS", VAULT_ADR)
+    from utils.treasury_executor import _TREASURY_WALLET
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
+    with patch("utils.treasury_executor._rpc", _saldi({_TREASURY_WALLET: 0.0, VAULT_ADR: 267.28})):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    tekst = monitor._send_telegram.call_args[0][0]
+    assert "Treasury wallet: $0.00" in tekst and "vault-Arb-adres: $267.28" in tekst
 
 
 def test_monitor_onderscheidt_nul_van_onmeetbaar(tmp_path, monkeypatch):
@@ -122,24 +148,87 @@ def test_monitor_onderscheidt_nul_van_onmeetbaar(tmp_path, monkeypatch):
     assert "onmeetbaar" in monitor._send_telegram.call_args[0][0]
 
 
-def test_monitor_zwijgt_bij_een_oud_record_en_kiest_anders_de_verste(tmp_path, monkeypatch):
+def test_monitor_zwijgt_bij_oud_scheef_en_opgelost(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    # het echte record van 23-07: 55 dagen oud, mag nooit meer melden
+    nu = datetime.now(timezone.utc)
+
+    # het echte record van 23-07: 55 dagen oud
     sm, oud = _monitor(tmp_path, [_rebalance_gestrand(uren_geleden=55 * 24)])
     with patch("utils.treasury_executor._rpc", _saldo(1600.0)):
-        oud._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+        oud._check_gestrand_rebalance_geld(nu)
     assert not oud._send_telegram.called, "dood record mag geen vers geld claimen"
 
-    # twee kandidaten: de melding moet over de MEEST RECENTE gaan
-    sm2, twee = _monitor(tmp_path, [
+    # tijdstempel in de toekomst (klokscheefheid) — nooit melden, ook al wint hij de min()
+    sm, scheef = _monitor(tmp_path, [_rebalance_gestrand(uren_geleden=-120)])
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+        scheef._check_gestrand_rebalance_geld(nu)
+    assert not scheef._send_telegram.called
+
+    # een latere GESLAAGDE rebalance loste het margeprobleem op
+    sm, klaar = _monitor(tmp_path, [
+        _rebalance_gestrand(uren_geleden=5),
+        {"id": "TRR_later", "type": "REBALANCE", "status": "COMPLETED", "amount_usd": 401.83,
+         "aave_withdrawn_at": _iso(4), "completed_at": _iso(3)},
+    ])
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+        klaar._check_gestrand_rebalance_geld(nu)
+    assert not klaar._send_telegram.called, "opgelost = geen melding meer"
+
+
+def test_monitor_kiest_de_meest_recente_en_meldt_hoogstens_twee_keer(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    nu = datetime.now(timezone.utc)
+    sm, monitor = _monitor(tmp_path, [
         _rebalance_gestrand(uren_geleden=13 * 24, id="TRR_OUD", amount_usd=50.0),
         _rebalance_gestrand(uren_geleden=1, id="TRR_VERS", amount_usd=267.28),
     ])
     with patch("utils.treasury_executor._rpc", _saldo(267.28)):
-        twee._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
-    tekst = twee._send_telegram.call_args[0][0]
+        monitor._check_gestrand_rebalance_geld(nu)
+    tekst = monitor._send_telegram.call_args[0][0]
     assert "TRR_VERS" in tekst and "TRR_OUD" not in tekst
     assert "267" in tekst and "$50" not in tekst, "geen bedrag noemen dat nergens bij hoort"
+
+    # tweede melding pas na 24 uur, en daarna nooit meer
+    monitor._send_telegram.reset_mock()
+    with patch("utils.treasury_executor._rpc", _saldo(267.28)):
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=25))
+    assert monitor._send_telegram.called and "herinnering" in monitor._send_telegram.call_args[0][0]
+    monitor._send_telegram.reset_mock()
+    with patch("utils.treasury_executor._rpc", _saldo(267.28)):
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(hours=50))
+    assert not monitor._send_telegram.called, "hooguit twee meldingen per geval"
+
+
+def test_mislukte_melding_geeft_geen_stilte(tmp_path, monkeypatch):
+    """A1-audit ronde 2: `_send_telegram` slikte fouten in, dus stempelen ná de melding
+    betekende niets. Nu geeft hij False terug en blijft de melding openstaan."""
+    monkeypatch.chdir(tmp_path)
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
+    monitor._send_telegram = MagicMock(return_value=False)
+    for _ in range(2):
+        with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+            monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert monitor._send_telegram.call_count == 2, "mislukte melding mag niet stempelen"
+
+
+def test_twee_verschillende_strandingen_melden_allebei(tmp_path, monkeypatch):
+    """De cooldown hangt aan het voorstel-id, niet aan de check."""
+    monkeypatch.chdir(tmp_path)
+    nu = datetime.now(timezone.utc)
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand(uren_geleden=6, id="TRR_EEN")])
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+        monitor._check_gestrand_rebalance_geld(nu)
+    assert "TRR_EEN" in monitor._send_telegram.call_args[0][0]
+
+    (tmp_path / "treasury_proposals.json").write_text(json.dumps([
+        _rebalance_gestrand(uren_geleden=6, id="TRR_EEN"),
+        _rebalance_gestrand(uren_geleden=1, id="TRR_TWEE"),
+    ]), encoding="utf-8")
+    monitor._send_telegram.reset_mock()
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+        monitor._check_gestrand_rebalance_geld(nu + timedelta(minutes=5))
+    assert monitor._send_telegram.called, "een nieuwe stranding moet wél melden"
+    assert "TRR_TWEE" in monitor._send_telegram.call_args[0][0]
 
 
 def test_monitor_meldt_een_hangende_handmatige_opname(tmp_path, monkeypatch):
