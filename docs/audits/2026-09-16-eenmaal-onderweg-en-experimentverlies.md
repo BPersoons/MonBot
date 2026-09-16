@@ -67,6 +67,13 @@
 | 7 | `verlies_usd → None` is in `kpi.py` onbereikbaar en ongetoetst | **Deels opgelost.** De module heeft nu eigen toetsen (`tests/test_experimenten.py`, incl. None/NaN/inf). De tak in `kpi.py` blijft staan als verdediging in de diepte — `bereken` weigert NaN al eerder, dus onbereikbaar is hier gewenst, niet stil |
 | 8 | Dip-koper-spoken worden nergens meer gecontroleerd | **Genoteerd.** `verify_live` kan de dip-koper alleen eerlijk toetsen via de rauwe info-API met `dex: "xyz"` op `0xBd6c`; dat is een aparte check en staat op de lijst |
 
+## Hertoets (ronde 2)
+**Oordeel: GO** voor een **full** deploy (`config/experimenten.json` zit in de image, niet in een mount — een hot-patch zou de nieuwe voorwaardetekst niet meenemen). V1, V2 en V3 gehaald; alle vier mutaties bijten, 300 toetsen groen, en de $1.087,80 is volledig herleid (eerste snapshot 05-07 had `house` = $1.087,80; de oude terugval nam dat als startwaarde).
+
+**Nieuw, vóór M5 (hoort bij V4):** `live + startdatum` zonder geboekte stroom geeft H3 = **$0,00 als getal**, ook bij echt verlies — `inleg = v0 + netto_flow` en `data/flows.json` bestaat nog niet in de container. Daarom staat er nu een **vierde** eis in `config/experimenten.json`: de eerste inleg als stroom boeken. (Deze tekstwijziging is ná de GO toegevoegd; het is een veldwaarde die geen enkele logica leest.)
+
+**Ook genoteerd:** een verkeerde `verlies_meten_vanaf` (bv. 01-07) laat H3 alsnog $1.087,80 melden mét een schone H5. De startdatum is daarmee het enige wat de meting nog fout kan zetten — hij hoort gelijk te lopen met de eerste stroom, en dat is precies wat eis (4) afdwingt.
+
 ### Antwoorden op de open vragen
 - **Waarom wijst `hlp_vault` naar `house`?** Een fout van mij bij het opstellen van het register: `house` klonk als "eigen handel", maar de mapping zegt Gains. Gains staat nu op $0,00 en blijft waar het staat; HLP krijgt bij V4 een eigen potje.
 - **Was de $1.087,80 een echte opname?** Nee — een verhuizing Gains → Aave op 09/10-07, zichtbaar als een even grote stijging van `yield_core`. Er hoort een `flows`-regel bij; die ontbreekt omdat `flows.json` pas sinds 15-09 bestaat. Niet met terugwerkende kracht boeken: de meting begint bij de start van een experiment, en H1 kijkt 90 dagen terug.
