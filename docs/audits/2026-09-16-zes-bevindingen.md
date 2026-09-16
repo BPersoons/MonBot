@@ -55,7 +55,7 @@
 | 7 | De Telegram-fallback dekt een 400 wél, maar niet `ok:false` bij HTTP 200, en verdubbelt de timeout (2×10s per melding) | **Blijft staan in deze commit** (strikt beter dan niets), en gaat mee in de volgende ronde: body lezen en een kortere fallback-timeout |
 
 ## Besluit: splitsen
-Het gestrande-geld-pad (`_gestrande_rebalance`, `_gestrand_geld_naar_hl`, de twee aanroepen) en `_FUND_TRADING_ONDERWEG` zijn **uit deze commit verwijderd**, inclusief hun drie toetsen. Wat blijft: de volgorde in `run()` (bevinding 1 van de vorige ronde), één definitie van "rebalance onderweg" (3), saldo vóór verlopen (6) en de Telegram-fallback (7) — precies de vier die de controle-agent schoon noemde. De verwijderde code blijft leesbaar in `3e6f184`.
+Het gestrande-geld-pad (`_gestrande_rebalance`, `_gestrand_geld_naar_hl`, de twee aanroepen) en `_FUND_TRADING_ONDERWEG` zijn **uit deze commit verwijderd**, inclusief hun **vier** toetsen (de drie gestrande-geld-toetsen plus `test_fund_trading_blokkeert_een_beweging_naar_yield`; geteld in de hertoets: 174 → 170 testfuncties). Wat blijft: de volgorde in `run()` (bevinding 1 van de vorige ronde), één definitie van "rebalance onderweg" (3), saldo vóór verlopen (6) en de Telegram-fallback (7) — precies de vier die de controle-agent schoon noemde. De verwijderde code blijft leesbaar in `3e6f184`.
 
 **Voorwaarden voor de herbouw (eigen ronde, eigen audit):**
 1. Tijdsgrens (`aave_withdrawn_at` binnen 24u) **én** geen latere COMPLETED REBALANCE/DEPLOY_YIELD, met een toets die faalt op het echte record `TRR_20260723_1501`.
