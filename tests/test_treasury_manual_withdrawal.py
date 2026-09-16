@@ -131,7 +131,8 @@ def test_monitor_meldt_beide_adressen(tmp_path, monkeypatch):
     with patch("utils.treasury_executor._rpc", _saldi({_TREASURY_WALLET: 0.0, VAULT_ADR: 267.28})):
         monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
     tekst = monitor._send_telegram.call_args[0][0]
-    assert "Treasury wallet: $0.00" in tekst and "vault-Arb-adres: $267.28" in tekst
+    assert "$0.00" in tekst and "$267.28" in tekst
+    assert "vault-Arb" in tekst and VAULT_ADR[-4:] in tekst, "adres herkenbaar in de melding"
 
 
 def test_monitor_onderscheidt_nul_van_onmeetbaar(tmp_path, monkeypatch):
@@ -164,7 +165,9 @@ def test_monitor_zwijgt_bij_oud_scheef_en_opgelost(tmp_path, monkeypatch):
         scheef._check_gestrand_rebalance_geld(nu)
     assert not scheef._send_telegram.called
 
-    # een latere GESLAAGDE rebalance loste het margeprobleem op
+    # een latere GESLAAGDE rebalance loste het margeprobleem op — mét meetbaar vault-adres,
+    # want zonder dat adres blijft de check bewust melden (zie de toets hieronder)
+    monkeypatch.setenv("HL_VAULT_ADDRESS", VAULT_ADR)
     sm, klaar = _monitor(tmp_path, [
         _rebalance_gestrand(uren_geleden=5),
         {"id": "TRR_later", "type": "REBALANCE", "status": "COMPLETED", "amount_usd": 401.83,
@@ -205,10 +208,13 @@ def test_mislukte_melding_geeft_geen_stilte(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
     monitor._send_telegram = MagicMock(return_value=False)
-    for _ in range(2):
+    nu = datetime.now(timezone.utc)
+    for wanneer in (nu, nu + timedelta(minutes=5), nu + timedelta(hours=2)):
         with patch("utils.treasury_executor._rpc", _saldo(0.0)):
-            monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
-    assert monitor._send_telegram.call_count == 2, "mislukte melding mag niet stempelen"
+            monitor._check_gestrand_rebalance_geld(wanneer)
+    assert monitor._send_telegram.call_count == 2, (
+        "mislukte melding mag niet stempelen, maar wel een uur afremmen: "
+        "poging 1 en 3 wel, poging binnen dat uur niet")
 
 
 def test_twee_verschillende_strandingen_melden_allebei(tmp_path, monkeypatch):
@@ -229,6 +235,58 @@ def test_twee_verschillende_strandingen_melden_allebei(tmp_path, monkeypatch):
         monitor._check_gestrand_rebalance_geld(nu + timedelta(minutes=5))
     assert monitor._send_telegram.called, "een nieuwe stranding moet wél melden"
     assert "TRR_TWEE" in monitor._send_telegram.call_args[0][0]
+
+
+def test_opgelost_telt_alleen_als_er_ook_niets_meer_staat(tmp_path, monkeypatch):
+    """A1-audit ronde 2: een latere geslaagde rebalance leegt alleen het VAULT-adres.
+
+    Geld op de treasury-wallet blijft liggen, en onder $100 raakt ook het deploy-pad het
+    niet aan — dan zou "opgelost" de melding uitzetten terwijl er geld renteloos staat.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HL_VAULT_ADDRESS", VAULT_ADR)
+    voorstellen = [
+        _rebalance_gestrand(uren_geleden=5),
+        {"id": "TRR_later", "type": "REBALANCE", "status": "COMPLETED", "amount_usd": 401.83,
+         "aave_withdrawn_at": _iso(4), "completed_at": _iso(3)},
+    ]
+    sm, blijft = _monitor(tmp_path, voorstellen)
+    with patch("utils.treasury_executor._rpc", _saldo(60.0)):
+        blijft._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert blijft._send_telegram.called, "$60 blijft liggen: blijven melden"
+
+    sm, stil = _monitor(tmp_path, voorstellen)
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+        stil._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert not stil._send_telegram.called, "niets meer te bridgen: afsluiten"
+
+    # onmeetbaar saldo mag NOOIT als "afgesloten" gelden — onmeetbaar is geen nul
+    def kapot(methode, params):
+        raise RuntimeError("All Arbitrum RPCs failed")
+
+    sm, onzeker = _monitor(tmp_path, voorstellen)
+    with patch("utils.treasury_executor._rpc", kapot):
+        onzeker._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert onzeker._send_telegram.called, "onmeetbaar: blijven melden"
+
+    # en zonder vault-adres weet de check niets over dat adres: ook dan doormelden
+    monkeypatch.delenv("HL_VAULT_ADDRESS", raising=False)
+    sm, geen_adres = _monitor(tmp_path, voorstellen)
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)), \
+         patch("utils.gcp_secrets.get_secret", return_value=""):
+        geen_adres._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert geen_adres._send_telegram.called, "vault-adres onbekend: niet stilzwijgend afsluiten"
+
+
+def test_voorstel_zonder_id_meldt_geen_none(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    zonder = _rebalance_gestrand()
+    zonder.pop("id")
+    sm, monitor = _monitor(tmp_path, [zonder])
+    with patch("utils.treasury_executor._rpc", _saldo(0.0)):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    tekst = monitor._send_telegram.call_args[0][0]
+    assert "None" not in tekst and "voorstel zonder id" in tekst
 
 
 def test_monitor_meldt_een_hangende_handmatige_opname(tmp_path, monkeypatch):

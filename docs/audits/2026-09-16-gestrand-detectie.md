@@ -79,6 +79,23 @@ De vorige poging stuurde gestrand geld automatisch naar HL en kreeg **STOP**: de
 - *Waarom 24u cooldown en 14 meldingen?* Dat was geen keuze maar een gat: er zat geen bovengrens op. Nu twee meldingen, en afsluiten zodra een latere rebalance slaagt.
 - *Vault-Arb-adres meelezen?* Ja, nu al — het was juist het adres waar het geld bij een mislukte stap 2 blijft staan.
 
+## Hertoets (ronde 3)
+**Oordeel: GO-mits** — V1, V2 en V3 vervuld (alle vier mutaties van de agent maken een toets rood), met drie kleine voorwaarden en één belangrijke bevinding.
+
+**De belangrijke bevinding, en waarom mijn "opgelost" te sterk was.** Een latere geslaagde rebalance zegt niets over geld op de **treasury-wallet**: de bridge leegt alleen het **vault**-adres (`_bridge_usdc_to_hl` verplaatst stap 1 alleen het bedrag van dat ene voorstel). Geld dat op de treasury-wallet blijft staan wordt opgeruimd door het deploy-pad, en dat vuurt pas vanaf $100. Onder dat bedrag ruimt niets het op — en mijn regel zette de melding dan uit. Replay van de agent: stranding + een andere rebalance die 3 minuten later slaagt → **0 meldingen in 3 dagen**.
+
+| # | Voorwaarde / bevinding | Reactie |
+|---|---|---|
+| 1 | "Opgelost" is een uitspraak over de pijplijn, niet over het geld | **Opgelost.** Een geval sluit alleen als het **gemeten** saldo (treasury + vault) onder het bridgeminimum van $10 ligt; is het hoger of onmeetbaar, dan blijft hij melden. De INFO-regel noemt in beide gevallen de gemeten saldi. Toets: `test_opgelost_telt_alleen_als_er_ook_niets_meer_staat` ($60 → blijft melden, $0 → stil) |
+| 2 | De terugval op `HL_WALLET_ADDRESS` las de **agent**-wallet en noemde dat vault-adres | **Opgelost.** Alleen `HL_VAULT_ADDRESS` (met secrets-terugval), anders "niet gemeten". Beide adressen staan nu met hun laatste vier tekens in de melding |
+| 3 | Voorstel zonder id gaf letterlijk `` `None` haalde $267 uit Aave `` | **Opgelost.** `voorstel zonder id`; toets `test_voorstel_zonder_id_meldt_geen_none` |
+| 4 | Geen backoff bij een kapotte Telegram: ~4.000 pogingen en 8.000 `eth_call`s over 14 dagen | **Opgelost.** Na een mislukte melding hooguit 1× per uur opnieuw — zonder te stempelen, dus de melding blijft openstaan. Toets: drie rondes, twee pogingen |
+| 5 | `CLAUDE.md` zegt "24 checks" | **Bijgewerkt** naar 25 |
+
+**Antwoorden op de open vragen:**
+- *Waarom sloot een geslaagde rebalance het geval af?* Een aanname over de pijplijn die ik niet aan het geld had getoetst. Nu is het saldo doorslaggevend.
+- *Een afsluitende melding bij "opgelost"?* Nee — dat is een tweede melding voor een niet-gebeurtenis. Het sluiten staat met de gemeten saldi in de INFO-regel; Telegram blijft voor dingen die actie vragen.
+
 **Bekende beperkingen (bewust, staan op de lijst voor de herbouw):**
 - Alleen de treasury-wallet wordt gelezen, niet het vault-Arb-adres.
 - `BRIDGE_BACK_NEEDED`/`REBALANCING`/`BRIDGING_TO_HL` zonder statuswijziging vallen buiten deze check; Check 14 meldt die na 6 uur, maar zonder te zeggen dat er geld op de wallet staat.

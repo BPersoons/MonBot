@@ -2236,6 +2236,8 @@ class SwarmMonitor:
 
     GESTRAND_MAX_DAGEN = 14           # ouder = dood record, alleen een INFO-regel
     GESTRAND_HERHAAL_SEC = 24 * 3600  # tweede en laatste melding pas na 24 uur
+    GESTRAND_BRIDGE_MIN_USD = 10.0    # daaronder valt er niets meer te bridgen
+    GESTRAND_POGING_SEC = 3600        # na een mislukte melding hooguit 1× per uur opnieuw
     # Daarna alleen INFO: hooguit twee meldingen per voorstel (sleutels ":1" en ":2"),
     # anders levert één gebeurtenis er veertien op (A1-audit 2026-09-16, ronde 2).
 
@@ -2275,7 +2277,7 @@ class SwarmMonitor:
             if isinstance(q, dict) and q.get("type") == "REBALANCE" and q.get("status") == "COMPLETED"
         ) if t is not None]
 
-        kandidaten, oud, scheef, opgelost = [], [], [], []
+        kandidaten, oud, scheef, mogelijk_opgelost = [], [], [], []
         for p in proposals:
             if not isinstance(p, dict):
                 continue
@@ -2291,19 +2293,72 @@ class SwarmMonitor:
             elif dagen > self.GESTRAND_MAX_DAGEN:
                 oud.append((p, dagen))
             elif any(k > t for k in opgelost_na):
-                opgelost.append((p, dagen))
+                mogelijk_opgelost.append((p, dagen))
             else:
                 kandidaten.append((p, dagen))
 
         for naam, lijst in (("ouder dan %d dagen" % self.GESTRAND_MAX_DAGEN, oud),
-                            ("met een tijdstempel in de toekomst", scheef),
-                            ("gevolgd door een geslaagde rebalance", opgelost)):
+                            ("met een tijdstempel in de toekomst", scheef)):
             if lijst:
                 logger.info(
                     "SwarmMonitor: %d gestrande rebalance(s) %s — niet gemeld: %s",
                     len(lijst), naam,
                     ", ".join("%s (%.0fd)" % (q.get("id"), d) for q, d in lijst),
                 )
+        if not (kandidaten or mogelijk_opgelost):
+            return
+
+        saldi = {}
+
+        def _meet(adres):
+            """(tekst, bedrag) — bedrag is None als het saldo onmeetbaar is."""
+            if not adres:
+                return ("niet gemeten", None)
+            if adres not in saldi:
+                try:
+                    from utils.treasury_executor import (_rpc, _USDC_ARB, _encode_balance_of,
+                                                         _USDC_DECIMALS)
+                    ruw = _rpc("eth_call",
+                               [{"to": _USDC_ARB, "data": _encode_balance_of(adres)}, "latest"])
+                    bedrag = int(ruw, 16) / 10 ** _USDC_DECIMALS
+                    saldi[adres] = ("$%.2f" % bedrag, bedrag)
+                except Exception as e:
+                    logger.warning(f"SwarmMonitor: saldo {str(adres)[:10]}… onmeetbaar: {e}")
+                    saldi[adres] = ("onmeetbaar", None)
+            return saldi[adres]
+
+        from utils.treasury_executor import _TREASURY_WALLET
+        # Alleen HL_VAULT_ADDRESS: de terugval op HL_WALLET_ADDRESS las de agent-wallet uit
+        # en noemde dat "vault-adres" — onmeetbaar vermomd als nul (A1-audit ronde 2).
+        vault = os.getenv("HL_VAULT_ADDRESS", "")
+        if not vault:
+            try:
+                from utils.gcp_secrets import get_secret
+                vault = get_secret("HL_VAULT_ADDRESS") or ""
+            except Exception:
+                vault = ""
+
+        # Een latere GESLAAGDE rebalance bewijst niets over geld op de treasury-wallet: de
+        # bridge leegt alleen het vault-adres, en onder _MIN_DEPLOY_USD ($100) raakt ook het
+        # deploy-pad het niet aan. Daarom pas afsluiten als er echt niets meer staat.
+        if mogelijk_opgelost:
+            t_tekst, t_bedrag = _meet(_TREASURY_WALLET)
+            v_tekst, v_bedrag = _meet(vault)
+            totaal = None if (t_bedrag is None or v_bedrag is None) else t_bedrag + v_bedrag
+            namen = ", ".join("%s (%.0fd)" % (q.get("id") or "zonder id", d)
+                              for q, d in mogelijk_opgelost)
+            if totaal is not None and totaal < self.GESTRAND_BRIDGE_MIN_USD:
+                logger.info(
+                    "SwarmMonitor: %d gestrande rebalance(s) afgesloten — latere rebalance "
+                    "geslaagd en saldo treasury %s + vault %s: %s",
+                    len(mogelijk_opgelost), t_tekst, v_tekst, namen,
+                )
+            else:
+                logger.info(
+                    "SwarmMonitor: latere rebalance geslaagd, maar saldo treasury %s + vault %s "
+                    "— blijft melden: %s", t_tekst, v_tekst, namen,
+                )
+                kandidaten.extend(mogelijk_opgelost)
         if not kandidaten:
             return
 
@@ -2316,38 +2371,26 @@ class SwarmMonitor:
         if tweede or (eerste and (now - eerste).total_seconds() < self.GESTRAND_HERHAAL_SEC):
             logger.info("SwarmMonitor: gestrande rebalance %s al gemeld — geen herhaling", p.get("id"))
             return
+        # Mislukte melding: niet stempelen (dan zou hij 24u zwijgen), maar wél afremmen —
+        # anders elke monitorronde opnieuw, inclusief twee eth_calls (A1-audit ronde 2).
+        poging = self._sent_alerts.get(basis + ":poging")
+        if poging and (now - poging).total_seconds() < self.GESTRAND_POGING_SEC:
+            return
         beurt = ":2" if eerste else ":1"
 
-        def _saldo(adres):
-            if not adres:
-                return "niet gemeten"
-            try:
-                from utils.treasury_executor import (_rpc, _USDC_ARB, _encode_balance_of,
-                                                     _USDC_DECIMALS)
-                ruw = _rpc("eth_call", [{"to": _USDC_ARB, "data": _encode_balance_of(adres)}, "latest"])
-                return "$%.2f" % (int(ruw, 16) / 10 ** _USDC_DECIMALS)
-            except Exception as e:
-                logger.warning(f"SwarmMonitor: saldo {str(adres)[:10]}… onmeetbaar: {e}")
-                return "onmeetbaar"
-
-        from utils.treasury_executor import _TREASURY_WALLET
-        vault = os.getenv("HL_VAULT_ADDRESS", "") or os.getenv("HL_WALLET_ADDRESS", "")
-        if not vault:
-            try:
-                from utils.gcp_secrets import get_secret
-                vault = get_secret("HL_VAULT_ADDRESS") or ""
-            except Exception:
-                vault = ""
-
+        naam = p.get("id") or "voorstel zonder id"
         bedrag = float(p.get("amount_usd") or 0.0)
+        t_tekst, _ = _meet(_TREASURY_WALLET)
+        v_tekst, _ = _meet(vault)
         extra = ("\n(%d gestrande voorstellen; dit is de meest recente)" % len(kandidaten)
                  if len(kandidaten) > 1 else "")
         kop = "herinnering" if beurt == ":2" else "rebalance-bridge niet bevestigd"
         gelukt = self._send_telegram(
             f"⚠️ *Treasury: {kop}*\n"
-            f"`{p.get('id')}` haalde ${bedrag:.0f} uit Aave ({dagen:.1f} dagen geleden); "
+            f"`{naam}` haalde ${bedrag:.0f} uit Aave ({dagen:.1f} dagen geleden); "
             f"de bridge naar HL is niet bevestigd.{extra}\n"
-            f"Treasury wallet: {_saldo(_TREASURY_WALLET)} · vault-Arb-adres: {_saldo(vault)}\n\n"
+            f"Treasury wallet …{_TREASURY_WALLET[-4:]}: {t_tekst} · "
+            f"vault-Arb …{(vault[-4:] if vault else 'onbekend')}: {v_tekst}\n\n"
             f"Hoogstens ${bedrag:.0f} hoort bij dít voorstel. Het geld kan op een van deze "
             f"adressen staan, al terug in Aave zijn, óf tóch op HL zijn aangekomen (de "
             f"bevestiging kan verlopen zijn). Controleer dat vóór je iets bridget — "
@@ -2357,9 +2400,11 @@ class SwarmMonitor:
         # 24 uur stilte (A1-audit 2026-09-16, ronde 2).
         if gelukt:
             self._sent_alerts[basis + beurt] = now
+        else:
+            self._sent_alerts[basis + ":poging"] = now
         logger.warning(
             "SwarmMonitor: gestrande rebalance %s ($%.2f, %.1f dagen), melding %s verstuurd=%s",
-            p.get("id"), bedrag, dagen, beurt, bool(gelukt),
+            naam, bedrag, dagen, beurt, bool(gelukt),
         )
 
     # ──────────────────────────────────────────

@@ -39,7 +39,7 @@ main.py (Heartbeat, 60s-cycli)
   -> ConvictionCore (crypto vasthouden) — BTC/ETH spot op 0x92D4
   -> SleeveNAV — dagelijkse potjes-snapshot (data/sleeve_nav.json), incl. broker
        -> utils/kpi.py — KPI's H1–H5 -> data/kpi.json
-  -> SwarmMonitor — watchdog-thread, elke 5 min, 24 checks
+  -> SwarmMonitor — watchdog-thread, elke 5 min, 25 checks
        -> Check 24: utils/verliesbewaking.py (share price, saldo, USDC-peg, HLP, budget, meting)
   -> DashboardServer — HTTP 8080
 ```
