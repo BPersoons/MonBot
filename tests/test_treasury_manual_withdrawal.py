@@ -65,6 +65,53 @@ def test_onleesbare_tijd_verloopt_niet_stil():
     assert uit["status"] == "NEEDS_MANUAL_WITHDRAWAL"
 
 
+def _monitor(tmp_path, proposals):
+    from agents import swarm_monitor as sm
+    (tmp_path / "treasury_proposals.json").write_text(json.dumps(proposals), encoding="utf-8")
+    state_file = os.path.join(tempfile.gettempdir(), "monitor_alert_state_TEST_ONLY.json")
+    with patch.object(sm.SwarmMonitor, "ALERT_STATE_FILE", state_file):
+        monitor = sm.SwarmMonitor(db_client=MagicMock())
+    monitor._send_telegram = MagicMock()
+    return sm, monitor
+
+
+def _rebalance_gestrand(uren_geleden=2, **extra):
+    p = {"id": "TRR_x", "type": "REBALANCE", "status": "FAILED", "amount_usd": 267.28,
+         "aave_withdrawn_at": _iso(uren_geleden), "error": "bridge minimum"}
+    p.update(extra)
+    return p
+
+
+def test_monitor_meldt_gestrand_rebalance_geld_maar_doet_niets(tmp_path, monkeypatch):
+    """A1-STOP-les: detectie mag melden, niet handelen — en niet op een dood record."""
+    monkeypatch.chdir(tmp_path)
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
+    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=267.28):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert monitor._send_telegram.called
+    tekst = monitor._send_telegram.call_args[0][0]
+    assert "267" in tekst and "andere herkomst" in tekst, "melding moet de slag om de arm houden"
+    # tweede ronde binnen de cooldown: stil
+    monitor._send_telegram.reset_mock()
+    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=267.28):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert not monitor._send_telegram.called
+
+
+def test_monitor_zwijgt_bij_leeg_wallet_en_bij_een_oud_record(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    sm, monitor = _monitor(tmp_path, [_rebalance_gestrand()])
+    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=12.0):
+        monitor._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert not monitor._send_telegram.called, "onder $100 veegt niets dat geld weg"
+
+    # het echte record van 23-07: 55 dagen oud, mag nooit meer melden
+    sm2, oud = _monitor(tmp_path, [_rebalance_gestrand(uren_geleden=55 * 24)])
+    with patch("utils.treasury_executor.get_arb_usdc_balance", return_value=1600.0):
+        oud._check_gestrand_rebalance_geld(datetime.now(timezone.utc))
+    assert not oud._send_telegram.called, "dood record mag geen vers geld claimen"
+
+
 def test_monitor_meldt_een_hangende_handmatige_opname(tmp_path, monkeypatch):
     from agents import swarm_monitor as sm
     monkeypatch.chdir(tmp_path)

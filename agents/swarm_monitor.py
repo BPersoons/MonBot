@@ -304,6 +304,9 @@ class SwarmMonitor:
         # handelsbot beweegt.
         self._safe_check(self._check_verliesbewaking)
 
+        # 25. Gestrand rebalance-geld — alleen melden, geen actie (A1-audit 2026-09-16).
+        self._safe_check(self._check_gestrand_rebalance_geld, now)
+
         # Add detected_at timestamp to all findings
         now_str = now.strftime("%H:%M:%S UTC")
         for f in findings:
@@ -2226,6 +2229,79 @@ class SwarmMonitor:
         if _telegram_token() and _telegram_chat_id():
             self._send_telegram("\n".join(lines))
         logger.warning(f"SwarmMonitor: {len(stuck)} stuck proposal(s)")
+
+    # ──────────────────────────────────────────
+    # Check 25: gestrand rebalance-geld (alleen melden)
+    # ──────────────────────────────────────────
+
+    GESTRAND_MIN_USD = 100.0          # onder dit bedrag veegt niets het geld weg
+    GESTRAND_MAX_DAGEN = 14           # ouder = dood record, alleen loggen
+    GESTRAND_COOLDOWN_SEC = 12 * 3600
+
+    def _check_gestrand_rebalance_geld(self, now: datetime):
+        """Meldt geld dat op de treasury-wallet is blijven staan na een mislukte rebalance.
+
+        **Alleen melden, geen actie.** Een eerdere poging om dit automatisch naar HL te
+        sturen kreeg A1-STOP: de detectie had geen tijdsgrens en matchte een 55 dagen oud
+        FAILED-record, waardoor ze vers geld van een ander potje zou claimen. Daarom hier
+        een leeftijdsgrens én een expliciete slag om de arm in de tekst: geld op de wallet
+        kan ook een andere herkomst hebben. Zie docs/audits/2026-09-16-zes-bevindingen.md.
+        """
+        try:
+            with open("treasury_proposals.json") as f:
+                proposals = json.load(f)
+        except Exception:
+            return
+
+        kandidaten = []
+        for p in proposals:
+            if (p.get("type") != "REBALANCE" or p.get("status") != "FAILED"
+                    or not p.get("aave_withdrawn_at") or p.get("completed_at")):
+                continue
+            try:
+                t = datetime.fromisoformat(str(p["aave_withdrawn_at"]).replace("Z", "+00:00"))
+                if t.tzinfo is None:
+                    t = t.replace(tzinfo=timezone.utc)
+                dagen = (now - t).total_seconds() / 86400.0
+            except Exception:
+                continue
+            if dagen <= self.GESTRAND_MAX_DAGEN:
+                kandidaten.append((p, dagen))
+            else:
+                logger.debug(
+                    f"SwarmMonitor: gestrande rebalance {p.get('id')} is {dagen:.0f} dagen oud — niet gemeld"
+                )
+        if not kandidaten:
+            return
+
+        try:
+            from utils.treasury_executor import get_arb_usdc_balance, _TREASURY_WALLET
+            wallet = get_arb_usdc_balance(_TREASURY_WALLET)
+        except Exception as e:
+            logger.warning(f"SwarmMonitor: wallet-saldo onleesbaar bij gestrand-check: {e}")
+            return
+        if wallet < self.GESTRAND_MIN_USD:
+            return
+
+        alert_key = "gestrand_rebalance_geld"
+        last_sent = self._sent_alerts.get(alert_key)
+        if last_sent and (now - last_sent).total_seconds() < self.GESTRAND_COOLDOWN_SEC:
+            return
+        self._sent_alerts[alert_key] = now
+
+        p, dagen = max(kandidaten, key=lambda k: k[1])
+        logger.warning(
+            f"SwarmMonitor: mogelijk gestrand rebalance-geld — {p.get('id')} "
+            f"(${p.get('amount_usd', 0):.0f}, {dagen:.1f} dagen) en wallet ${wallet:.2f}"
+        )
+        self._send_telegram(
+            f"⚠️ *Treasury: mogelijk gestrand rebalance-geld*\n"
+            f"`{p.get('id')}` haalde ${float(p.get('amount_usd') or 0):.0f} uit Aave "
+            f"({dagen:.1f} dagen geleden) maar strandde vóór de bridge.\n"
+            f"Nu op de treasury wallet: ${wallet:.2f}\n\n"
+            f"Dat geld was voor HL-marge bedoeld. Controleer of het daarheen moet — "
+            f"kasbeheer doet hier zelf niets mee, en het saldo kan ook een andere herkomst hebben."
+        )
 
     # ──────────────────────────────────────────
     # Check 15: MONITOR deadlock per ticker
