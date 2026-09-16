@@ -253,8 +253,14 @@ def _wait_receipt(tx_hash: str, timeout: int = _TX_WAIT_S) -> dict | None:
     return None
 
 
-def _send_tx(to: str, data: str, private_key: str, gas_limit: int) -> str:
-    """Sign and submit a legacy tx on Arbitrum. Returns tx hash."""
+def _send_tx(to: str, data: str, private_key: str, gas_limit: int, value: int = 0) -> str:
+    """Sign and submit a legacy tx on Arbitrum. Returns tx hash.
+
+    `value` is wei en staat standaard op 0: elke bestaande aanroeper stuurt een
+    contract-aanroep zonder ETH, en dat gedrag blijft ongewijzigd. Alleen een expliciete
+    waarde verstuurt ETH; de enige aanroeper die dat doet is `stuur_eth_voor_gas`, met een
+    harde bovengrens.
+    """
     Account = _EthAccount
 
     account = Account.from_key(private_key)
@@ -267,7 +273,7 @@ def _send_tx(to: str, data: str, private_key: str, gas_limit: int) -> str:
         "gasPrice": gas_p,
         "gas":     gas_limit,
         "to":      to,
-        "value":   0,
+        "value":   int(value),
         "data":    data,
     }
     signed = Account.sign_transaction(tx, private_key)
@@ -298,6 +304,49 @@ def _estimate_gas(to: str, data: str, from_addr: str, fallback: int,
         logger.warning(f"TreasuryExecutor: gas estimate failed ({e}) — using fallback {fallback}")
         return fallback
     return max(fallback, min(int(est * buffer), cap))
+
+
+# ── Gas bijvullen tussen eigen wallets ─────────────────────────────────────────
+
+_MAX_GAS_TOPUP_ETH  = 0.001    # harde bovengrens: dit pad mag nooit écht geld verplaatsen
+_GAS_PLAIN_TRANSFER = 21_000   # kale ETH-overboeking (geen contract-aanroep)
+
+
+def stuur_eth_voor_gas(naar: str, bedrag_eth: float, private_key: str) -> str:
+    """Stuurt een kleine hoeveelheid ETH tussen EIGEN wallets, puur om gas bij te vullen.
+
+    Dit is het enige pad in de codebase dat waarde (ETH) verstuurt; alle andere transacties
+    zijn contract-aanroepen met `value` 0. Daarom bewust eng gehouden:
+    - hooguit `_MAX_GAS_TOPUP_ETH`;
+    - uitsluitend naar de treasury-wallet;
+    - en alleen als de afzender genoeg overhoudt voor zijn eigen transacties.
+    """
+    bedrag = float(bedrag_eth)
+    if not (0 < bedrag <= _MAX_GAS_TOPUP_ETH):
+        raise RuntimeError(
+            f"Gasbijvulling {bedrag} ETH ligt buiten de toegestane grens (0, {_MAX_GAS_TOPUP_ETH}]"
+        )
+    if str(naar).lower() != _TREASURY_WALLET.lower():
+        raise RuntimeError(
+            f"Gasbijvulling mag alleen naar de treasury-wallet ({_TREASURY_WALLET[:10]}…), "
+            f"niet naar {str(naar)[:12]}…"
+        )
+
+    afzender = _EthAccount.from_key(private_key).address
+    saldo = int(_rpc("eth_getBalance", [afzender, "latest"]), 16) / 10 ** 18
+    nodig = bedrag + _MIN_ETH_FOR_GAS      # de afzender houdt zelf ook gas over
+    if saldo < nodig:
+        raise RuntimeError(
+            f"Afzender {afzender[:10]}… heeft {saldo:.6f} ETH; nodig ≥ {nodig:.6f} "
+            f"(bijvulling {bedrag:.6f} + eigen gasmarge {_MIN_ETH_FOR_GAS})"
+        )
+
+    wei = int(round(bedrag * 10 ** 18))
+    logger.info(
+        f"TreasuryExecutor: gasbijvulling {bedrag:.6f} ETH van {afzender[:10]}… "
+        f"naar {naar[:10]}… (saldo afzender {saldo:.6f})"
+    )
+    return _send_tx(naar, "0x", private_key, _GAS_PLAIN_TRANSFER, value=wei)
 
 
 # ── HL withdrawal ─────────────────────────────────────────────────────────────
@@ -334,11 +383,14 @@ def _create_vault_withdrawal_client():
         return None
 
     # Vault address (the account that owns the funds)
-    vault_addr = os.getenv("HL_VAULT_ADDRESS", "") or os.getenv("HL_WALLET_ADDRESS", "")
+    # Alleen HL_VAULT_ADDRESS: HL_WALLET_ADDRESS is de AGENT-wallet, een ander account.
+    # Daarmee terugvallen bouwt een opname-client voor de verkeerde rekening (A1-audit
+    # 2026-09-16, dezelfde verwarring als in SwarmMonitor Check 25).
+    vault_addr = os.getenv("HL_VAULT_ADDRESS", "")
     if not vault_addr:
         try:
             from utils.gcp_secrets import get_secret
-            vault_addr = get_secret("HL_VAULT_ADDRESS") or get_secret("HL_WALLET_ADDRESS") or ""
+            vault_addr = get_secret("HL_VAULT_ADDRESS") or ""
         except Exception:
             pass
 
