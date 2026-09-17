@@ -235,3 +235,30 @@ def test_send_tx_stuurt_standaard_geen_waarde():
     with patch.object(te, "_rpc", rpc), patch.object(te, "_EthAccount", _Acc):
         te._send_tx("0xdoel", "0x", "0xkey", 40_000, value=123)
     assert ondertekend["value"] == 123
+
+
+def test_afzender_houdt_de_reserve_van_de_hoofdwallet_over():
+    """A1-audit 2026-09-17: met alleen _MIN_ETH_FOR_GAS kon een toegestane bijvulling de
+    REBALANCE blokkeren en Check 26 laten afgaan. Nu één reserve voor alle drie."""
+    net_te_weinig = 0.0002 + te._HOOFDWALLET_RESERVE_ETH - 1e-9
+    patches, verstuurd = _omgeving(saldo_eth=net_te_weinig)
+    with pytest.raises(RuntimeError, match="reserve"):
+        _met(patches, lambda: te.stuur_eth_voor_gas(te._TREASURY_WALLET, 0.0002, "0xkey"))
+    assert not verstuurd
+    assert net_te_weinig > 0.0002 + te._MIN_ETH_FOR_GAS, "de oude grens had dit doorgelaten"
+
+
+def test_bijvulling_van_vanavond_past_binnen_de_reserve():
+    """0,00035 vanaf 0,000497046 (gemeten 17-09) laat ~0,000147 over: boven de reserve."""
+    assert 0.000497046 >= 0.00035 + te._HOOFDWALLET_RESERVE_ETH
+
+
+
+def test_reserve_rekent_de_kosten_van_de_overboeking_mee():
+    """A1-audit r2: precies op de grens eindigde de hoofdwallet ~4,6e-7 onder de reserve."""
+    op_de_grens = 0.0002 + te._HOOFDWALLET_RESERVE_ETH + 1e-9
+    patches, verstuurd = _omgeving(saldo_eth=op_de_grens)
+    with pytest.raises(RuntimeError, match="reserve"):
+        _met(patches, lambda: te.stuur_eth_voor_gas(te._TREASURY_WALLET, 0.0002, "0xkey"))
+    assert not verstuurd
+    assert te._GAS_KOSTEN_OVERBOEKING_ETH >= 4.3e-7

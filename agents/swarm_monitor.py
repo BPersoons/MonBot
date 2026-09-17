@@ -307,6 +307,9 @@ class SwarmMonitor:
         # 25. Gestrand rebalance-geld — alleen melden, geen actie (A1-audit 2026-09-16).
         self._safe_check(self._check_gestrand_rebalance_geld, now)
 
+        # 26. ETH voor gas op de treasury-wallet en de hoofdwallet — alleen melden.
+        self._safe_check(self._check_eth_gas, now)
+
         # Add detected_at timestamp to all findings
         now_str = now.strftime("%H:%M:%S UTC")
         for f in findings:
@@ -2423,6 +2426,128 @@ class SwarmMonitor:
             "SwarmMonitor: gestrande rebalance %s ($%.2f, %.1f dagen), melding %s verstuurd=%s",
             naam, bedrag, dagen, beurt, bool(gelukt),
         )
+
+    # ──────────────────────────────────────────
+    # Check 26: ETH voor gas (alleen melden)
+    # ──────────────────────────────────────────
+
+    # De grens is een AANTAL transacties, geen vast ETH-bedrag: na de bijvulling van 17-09
+    # houdt de hoofdwallet ~0,000147 ETH over (~27 bridges); een vaste 0,00015 zou daar
+    # meteen en blijvend alarm geven. Kosten per transactie, het aantal en de reserve van
+    # de hoofdwallet komen uit treasury_executor — één plek, zodat bijvullen, de
+    # REBALANCE-voorcontrole en deze check dezelfde grens gebruiken (A1-audit 2026-09-17).
+    GAS_ROLLEN = (
+        # rol, naam voor Bart (docs/NAMEN.md), wat er stopt als het op is
+        ("treasury", "treasury-wallet", "kasbeheer: Aave/Fluid-opnames en -stortingen"),
+        ("vault", "hoofdwallet", "bridges naar Hyperliquid (REBALANCE, FUND_TRADING)"),
+    )
+    GAS_HERSTEL_FACTOR = 1.5          # pas weer 'goed' boven grens × 1,5 — geen melding per schommeling
+    GAS_METING_SEC = 3600             # saldo hooguit 1× per uur meten
+    GAS_HERHAAL_SEC = 72 * 3600       # zolang het laag blijft: hooguit elke 3 dagen opnieuw
+    GAS_ONMEETBAAR_SEC = 24 * 3600    # zo lang onmeetbaar → één melding (daarna elke 3 dagen)
+    # Een mislukte melding wordt niet gestempeld; de uurpoort op de meting remt de
+    # volgende poging al af.
+
+    def _check_eth_gas(self, now: datetime):
+        """Waarschuwt vóórdat kasbeheer of een bridge op gebrek aan gas vastloopt.
+
+        `_check_eth_gas` in treasury_executor blokkeert elke transactie onder
+        `_MIN_ETH_FOR_GAS`. Zonder deze check blijkt dat pas midden in een beweging —
+        bij een REBALANCE ná de Aave-opname, precies het patroon van gestrand geld
+        (A2-audit gasbijvulling 2026-09-16, "gemiste kans").
+
+        Onmeetbaar is geen 'genoeg' en ook geen 'op': de bestaande staat blijft staan,
+        en pas na een dag zonder meting volgt één melding.
+        """
+        vorige = self._sent_alerts.get("eth_gas:gemeten")
+        if vorige and (now - vorige).total_seconds() < self.GAS_METING_SEC:
+            return
+        self._sent_alerts["eth_gas:gemeten"] = now
+
+        from utils.treasury_executor import (_GAS_KOSTEN_AAVE_ETH, _GAS_KOSTEN_BRIDGE_ETH,
+                                             _GAS_WAARSCHUW_TX, _HOOFDWALLET_RESERVE_ETH,
+                                             _MIN_ETH_FOR_GAS, _TREASURY_WALLET, _rpc,
+                                             _vault_adres)
+        kosten = {"treasury": _GAS_KOSTEN_AAVE_ETH, "vault": _GAS_KOSTEN_BRIDGE_ETH}
+        adressen = {"treasury": _TREASURY_WALLET, "vault": _vault_adres()}
+
+        saldi = {}
+        for rol, _naam, _wat in self.GAS_ROLLEN:
+            adres = adressen.get(rol)
+            saldi[rol] = None
+            if not adres:
+                logger.warning("SwarmMonitor: ETH-saldo %s onmeetbaar — adres onbekend", rol)
+                continue
+            try:
+                saldi[rol] = int(_rpc("eth_getBalance", [adres, "latest"]), 16) / 10 ** 18
+            except Exception as e:
+                logger.warning(f"SwarmMonitor: ETH-saldo {rol} onmeetbaar: {e}")
+
+        for rol, naam, wat in self.GAS_ROLLEN:
+            saldo, adres = saldi[rol], adressen.get(rol) or ""
+            if saldo is None:
+                self._eth_gas_onmeetbaar(rol, naam, wat, now)
+                continue
+            self._sent_alerts.pop(f"eth_gas_onmeetbaar:{rol}:sinds", None)
+            self._sent_alerts.pop(f"eth_gas_onmeetbaar:{rol}", None)
+
+            ruimte = max(0.0, (saldo - _MIN_ETH_FOR_GAS) / kosten[rol])
+            sleutel = f"eth_gas_laag:{rol}"
+            if ruimte >= _GAS_WAARSCHUW_TX * self.GAS_HERSTEL_FACTOR:
+                if self._sent_alerts.pop(sleutel, None):
+                    logger.info("SwarmMonitor: ETH-saldo %s weer voldoende (%.6f ETH)", rol, saldo)
+                continue
+            if ruimte >= _GAS_WAARSCHUW_TX:
+                continue     # tussen grens en herstel: staat laten zoals hij is
+
+            gemeld = self._sent_alerts.get(sleutel)
+            if gemeld and (now - gemeld).total_seconds() < self.GAS_HERHAAL_SEC:
+                continue
+
+            if rol == "treasury":
+                hoofd = saldi.get("vault")
+                if hoofd is None:
+                    oplossing = "Of de hoofdwallet kan bijvullen, is nu onbekend (saldo onmeetbaar)."
+                elif hoofd - _HOOFDWALLET_RESERVE_ETH >= _GAS_WAARSCHUW_TX * _GAS_KOSTEN_AAVE_ETH:
+                    oplossing = (f"De hoofdwallet kan {hoofd - _HOOFDWALLET_RESERVE_ETH:.6f} ETH missen: "
+                                 "intern bijvullen met `stuur_eth_voor_gas` (vraagt een A2-GO).")
+                else:
+                    oplossing = ("De hoofdwallet kan niets missen zonder zelf in gebrek te komen: "
+                                 "dit vraagt nieuw ETH, dus een besluit van Bart.")
+            else:
+                oplossing = ("De hoofdwallet is zelf de bron voor bijvullen: dit vraagt nieuw ETH, "
+                             "dus een besluit van Bart.")
+            op = "is OP" if ruimte < 1 else f"nog ~{ruimte:.0f} transacties"
+            gelukt = self._send_telegram(
+                f"⛽ Gas bijna op — {naam} …{adres[-4:]}: {saldo:.6f} ETH, {op} "
+                f"voordat {wat} stopt (grens {_MIN_ETH_FOR_GAS} ETH).\n{oplossing}"
+            )
+            if gelukt:
+                self._sent_alerts[sleutel] = now
+            logger.warning(
+                "SwarmMonitor: ETH-saldo %s laag (%.6f ETH, ~%.0f tx), melding verstuurd=%s",
+                rol, saldo, ruimte, bool(gelukt),
+            )
+
+    def _eth_gas_onmeetbaar(self, rol: str, naam: str, wat: str, now: datetime):
+        """Eén melding als een saldo een dag lang niet te meten is (A1-audit 2026-09-17)."""
+        k_sinds = f"eth_gas_onmeetbaar:{rol}:sinds"
+        k_melding = f"eth_gas_onmeetbaar:{rol}"
+        sinds = self._sent_alerts.get(k_sinds)
+        if sinds is None:
+            self._sent_alerts[k_sinds] = now
+            return
+        if (now - sinds).total_seconds() < self.GAS_ONMEETBAAR_SEC:
+            return
+        gemeld = self._sent_alerts.get(k_melding)
+        if gemeld and (now - gemeld).total_seconds() < self.GAS_HERHAAL_SEC:
+            return
+        uren = (now - sinds).total_seconds() / 3600
+        if self._send_telegram(
+            f"⛽ ETH-saldo van de {naam} al {uren:.0f} uur onmeetbaar. Een gastekort voor "
+            f"{wat} zou nu pas midden in een beweging blijken. Controleer de RPC en het adres."
+        ):
+            self._sent_alerts[k_melding] = now
 
     # ──────────────────────────────────────────
     # Check 15: MONITOR deadlock per ticker

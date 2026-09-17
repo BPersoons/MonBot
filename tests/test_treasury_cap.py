@@ -405,3 +405,149 @@ def test_oude_fouten_en_andere_types_tellen_niet():
     oud = [_fout(30), _fout(40)]
     ander = [dict(_fout(1), type="FUND_SLEEVE"), dict(_fout(2), type="FUND_SLEEVE")]
     assert agent._deploy_geblokkeerd(oud + ander) is False
+
+
+
+def _rebalance_agent():
+    from unittest.mock import MagicMock
+    agent = _agent()
+    agent._compute_target_allocation = MagicMock(
+        return_value={"target_trade_usd": 1000.0, "effective_trade_pct": 30, "reason": "toets"})
+    agent._load_allocation_config = MagicMock(return_value={"rebalance_drift_pct": 10})
+    agent._send_telegram = MagicMock()
+    return agent
+
+
+def test_blijvende_rebalance_weigering_geeft_geen_meldingsregen():
+    """A1-audit 2026-09-17: elke fast-pass een nieuw voorstel en twee meldingen (~24/uur)."""
+    agent = _rebalance_agent()
+    hl = {"balance": 10.0, "free_margin": 10.0}
+    voorstellen = []
+    with patch("utils.treasury_executor.get_aave_balance", return_value=2000.0):
+        for ronde in range(12):                       # een uur aan fast-passes
+            voorstellen = agent._check_rebalance_needed(hl, voorstellen)
+            for p in voorstellen:
+                if p.get("status") == "APPROVED":     # de executor weigert (bv. gas)
+                    p.update({"status": "FAILED", "error": "Te weinig gas op vault",
+                              "updated_at": datetime.utcnow().isoformat()})
+    rebalances = [p for p in voorstellen if p.get("type") == "REBALANCE"]
+    assert len(rebalances) == ta.TreasuryAgent._REBALANCE_MAX_FOUTEN_24U
+    pauzes = [c for c in agent._send_telegram.call_args_list if "gepauzeerd" in str(c.args[0])]
+    assert len(pauzes) == 1, "één pauzemelding per 24 uur"
+
+
+def test_rem_telt_alleen_de_laatste_24_uur():
+    agent = _rebalance_agent()
+    oud = (datetime.utcnow() - timedelta(hours=25)).isoformat()
+    voorstellen = [{"id": f"TRR_{i}", "type": "REBALANCE", "status": "FAILED", "updated_at": oud}
+                   for i in range(5)]
+    hl = {"balance": 10.0, "free_margin": 10.0}
+    with patch("utils.treasury_executor.get_aave_balance", return_value=2000.0):
+        uit = agent._check_rebalance_needed(hl, list(voorstellen))
+    assert len(uit) == 6, "oude fouten blokkeren niet"
+
+
+def test_rem_telt_geen_andere_soorten_fouten():
+    agent = _rebalance_agent()
+    nu = datetime.utcnow().isoformat()
+    voorstellen = [{"id": f"TRP_{i}", "type": "DEPLOY_YIELD", "status": "FAILED", "updated_at": nu}
+                   for i in range(3)]
+    hl = {"balance": 10.0, "free_margin": 10.0}
+    with patch("utils.treasury_executor.get_aave_balance", return_value=2000.0):
+        uit = agent._check_rebalance_needed(hl, list(voorstellen))
+    assert len(uit) == 4
+
+
+def test_winrate_telt_potje_en_oogstregels_niet_mee(tmp_path, monkeypatch):
+    """A1-audit 2026-09-17: 5 van de 13 gesloten trades waren van het potje; met genoeg
+    daarvan kon de WR-boost REBALANCE wekken. Guard-gat nummer zeven."""
+    import json
+    monkeypatch.chdir(tmp_path)
+    trades = [{"id": f"T{i}", "status": "CLOSED", "pnl": 1.0, "exit_time": f"2026-09-{i + 1:02d}"}
+              for i in range(19)]
+    trades += [{"id": f"S{i}", "status": "CLOSED", "pnl": 5.0, "thematic_exposure": True,
+                "exit_time": "2026-09-20"} for i in range(5)]
+    trades += [{"id": "H1", "status": "CLOSED", "pnl": 5.0, "harvest": True, "exit_time": "2026-09-21"}]
+    (tmp_path / "trade_log.json").write_text(json.dumps(trades), encoding="utf-8")
+    agent = _agent()
+    assert agent._get_recent_wr() is None, "19 echte trades: te weinig, potjesregels vullen niet aan"
+    trades.append({"id": "T19", "status": "CLOSED", "pnl": -1.0, "exit_time": "2026-09-22"})
+    (tmp_path / "trade_log.json").write_text(json.dumps(trades), encoding="utf-8")
+    assert agent._get_recent_wr() == pytest.approx(95.0)
+
+
+
+def test_rem_drempel_is_twee():
+    assert ta.TreasuryAgent._REBALANCE_MAX_FOUTEN_24U == 2
+
+
+def test_geslaagde_rebalances_remmen_niet():
+    agent = _rebalance_agent()
+    nu = datetime.utcnow().isoformat()
+    voorstellen = [{"id": f"TRR_ok{i}", "type": "REBALANCE", "status": "COMPLETED", "updated_at": nu}
+                   for i in range(3)]
+    hl = {"balance": 10.0, "free_margin": 10.0}
+    with patch("utils.treasury_executor.get_aave_balance", return_value=2000.0):
+        uit = agent._check_rebalance_needed(hl, list(voorstellen))
+    assert len(uit) == 4, "een geslaagde rebalance is geen reden om te pauzeren"
+
+
+def test_pauzemelding_hooguit_een_keer_per_dag(monkeypatch):
+    import time as _time
+    agent = _rebalance_agent()
+    klok = [1_800_000_000.0]
+    monkeypatch.setattr(_time, "time", lambda: klok[0])
+    from datetime import timezone as _tz
+    vers = datetime.fromtimestamp(klok[0], _tz.utc).isoformat()
+    fouten = [{"id": f"TRR_f{i}", "type": "REBALANCE", "status": "FAILED", "updated_at": vers}
+              for i in range(2)]
+    hl = {"balance": 10.0, "free_margin": 10.0}
+
+    def pauzes():
+        return [c for c in agent._send_telegram.call_args_list if "gepauzeerd" in str(c.args[0])]
+
+    with patch("utils.treasury_executor.get_aave_balance", return_value=2000.0):
+        agent._check_rebalance_needed(hl, list(fouten))
+        klok[0] += 2 * 3600
+        agent._check_rebalance_needed(hl, list(fouten))
+        assert len(pauzes()) == 1, "binnen de dag geen tweede pauzemelding"
+        # Nieuwe fouten houden de rem dicht; na 25u komt er één nieuwe pauzemelding.
+        klok[0] += 24 * 3600
+        vers2 = datetime.fromtimestamp(klok[0], _tz.utc).isoformat()
+        nieuw = [dict(f, updated_at=vers2) for f in fouten]
+        agent._check_rebalance_needed(hl, list(nieuw))
+    assert len(pauzes()) == 2
+
+
+def test_rem_venster_is_24_uur_ook_met_tijdzone_en_zonder(monkeypatch):
+    """A1-audit r2: een naïeve tijd werd als lokale tijd gelezen (CEST → 26u-venster)."""
+    import time as _time
+    from datetime import timezone as _tz
+    agent = _rebalance_agent()
+    nu = 1_800_000_000.0
+    monkeypatch.setattr(_time, "time", lambda: nu)
+    hl = {"balance": 10.0, "free_margin": 10.0}
+    for naief in (True, False):
+        oud = datetime.fromtimestamp(nu - 24.5 * 3600, _tz.utc)
+        tekst = oud.replace(tzinfo=None).isoformat() if naief else oud.isoformat()
+        fouten = [{"id": f"TRR_{i}", "type": "REBALANCE", "status": "FAILED", "updated_at": tekst}
+                  for i in range(2)]
+        with patch("utils.treasury_executor.get_aave_balance", return_value=2000.0):
+            uit = agent._check_rebalance_needed(hl, list(fouten))
+        assert len(uit) == 3, "24,5u oude fouten remmen niet (naief=%s)" % naief
+
+
+def test_verse_naieve_fout_remt_ook_buiten_utc(monkeypatch):
+    """23u oud, zonder tijdzone: moet remmen. Als lokale tijd gelezen (CEST) leek hij 25u oud."""
+    import time as _time
+    from datetime import timezone as _tz
+    agent = _rebalance_agent()
+    nu = 1_800_000_000.0
+    monkeypatch.setattr(_time, "time", lambda: nu)
+    oud = datetime.fromtimestamp(nu - 23 * 3600, _tz.utc).replace(tzinfo=None).isoformat()
+    fouten = [{"id": f"TRR_{i}", "type": "REBALANCE", "status": "FAILED", "updated_at": oud}
+              for i in range(2)]
+    hl = {"balance": 10.0, "free_margin": 10.0}
+    with patch("utils.treasury_executor.get_aave_balance", return_value=2000.0):
+        uit = agent._check_rebalance_needed(hl, list(fouten))
+    assert len(uit) == 2, "23u oude fouten houden de rem dicht"

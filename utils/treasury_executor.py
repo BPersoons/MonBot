@@ -320,6 +320,64 @@ _MAX_GAS_TOPUP_ETH  = 0.001    # harde bovengrens: dit pad mag nooit écht geld 
 _GAS_PLAIN_TRANSFER_MIN = 40_000
 
 
+# Gemeten kosten per transactie uit receipts (16-09): Aave-actie 3,4–3,9e-6 ETH, bridge
+# 1,7e-6. Een ERC-20-overboeking is niet apart gemeten; die rekenen we als een Aave-actie.
+_GAS_KOSTEN_AAVE_ETH = 3.9e-6
+_GAS_KOSTEN_BRIDGE_ETH = 1.7e-6
+_GAS_KOSTEN_OVERBOEKING_ETH = 1e-6   # kale ETH-overboeking; gemeten 4,3e-7
+_GAS_MARGE_FACTOR = 2      # ruimte voor een duurdere gasperiode midden in de keten
+# Eén definitie van 'genoeg gas' voor kasbeheer, bijvullen en monitor Check 26: minder dan
+# dit aantal transacties boven _MIN_ETH_FOR_GAS is 'bijna op' (A1-audit 2026-09-17).
+_GAS_WAARSCHUW_TX = 15
+# De hoofdwallet houdt dit altijd over voor zijn eigen bridges; ook bij een bijvulling.
+_HOOFDWALLET_RESERVE_ETH = _MIN_ETH_FOR_GAS + _GAS_WAARSCHUW_TX * _GAS_KOSTEN_BRIDGE_ETH
+
+
+def _rebalance_kan_afmaken(treasury_pk: str) -> None:
+    """Gooit RuntimeError als een REBALANCE ná de Aave-opname zou vastlopen.
+
+    De keten is: Aave-opname (treasury) → USDC naar de vault (treasury) → bridge (vault).
+    `_check_eth_gas` keek per stap, dus een tekort op de vault bleek pas ná de opname — en
+    dan bleef het geld op Arbitrum liggen terwijl HL marge tekortkwam (A2-audit
+    gasbijvulling 2026-09-16; het patroon van 18-07 en 23-07). Deze controle draait
+    ervóór, voor de hele keten:
+
+    - de vault-sleutel moet er zijn, en bij HL_VAULT_ADDRESS horen:
+      `get_vault_private_key` valt anders terug op HL_PRIVATE_KEY, de agent-wallet —
+      een ánder HL-account, waar de bridge het geld dan zou bijschrijven;
+    - beide wallets houden na hun stappen nog `_MIN_ETH_FOR_GAS` over, met marge.
+
+    Een onleesbaar saldo gooit ook: liever niet beginnen dan halverwege stranden.
+    """
+    Account = _EthAccount
+    treasury = Account.from_key(treasury_pk).address
+    vault_pk = get_vault_private_key()
+    if not vault_pk:
+        raise RuntimeError("Geen vault-sleutel: de bridge naar HL zou vastlopen. Niets opgenomen.")
+    vault = Account.from_key(vault_pk).address
+    verwacht = _vault_adres()
+    if not verwacht or vault.lower() != verwacht.lower():
+        raise RuntimeError(
+            f"Vault-sleutel hoort bij {vault[:10]}…, niet bij HL_VAULT_ADDRESS "
+            f"({(verwacht or 'onbekend')[:10]}…): de bridge zou op een ander HL-account landen. "
+            "Niets opgenomen."
+        )
+    nodig = (
+        (treasury, "treasury", _MIN_ETH_FOR_GAS + _GAS_MARGE_FACTOR * 2 * _GAS_KOSTEN_AAVE_ETH),
+        (vault, "vault", _MIN_ETH_FOR_GAS + _GAS_MARGE_FACTOR * _GAS_KOSTEN_BRIDGE_ETH),
+    )
+    for adres, rol, minimum in nodig:
+        try:
+            saldo = int(_rpc("eth_getBalance", [adres, "latest"]), 16) / 10 ** 18
+        except Exception as e:
+            raise RuntimeError(f"ETH-saldo {rol} onleesbaar ({e}). Niets opgenomen.") from e
+        if saldo < minimum:
+            raise RuntimeError(
+                f"Te weinig gas op {rol} ({saldo:.6f} ETH, nodig ≥ {minimum:.6f} voor de hele "
+                f"rebalance). Niets opgenomen."
+            )
+
+
 def _vault_adres() -> str:
     """Adres van de HL-vault (0x92D4…): env → SDK-secret → REST.
 
@@ -374,11 +432,16 @@ def stuur_eth_voor_gas(naar: str, bedrag_eth: float, private_key: str) -> str:
         )
 
     saldo = int(_rpc("eth_getBalance", [afzender, "latest"]), 16) / 10 ** 18
-    nodig = bedrag + _MIN_ETH_FOR_GAS      # de afzender houdt zelf ook gas over
+    # De hoofdwallet houdt genoeg over voor zijn eigen bridges. Met alleen _MIN_ETH_FOR_GAS
+    # kon een toegestane bijvulling juist de REBALANCE blokkeren en Check 26 laten afgaan
+    # (A1-audit 2026-09-17: drie drempels voor dezelfde reserve).
+    # Plus de kosten van deze overboeking zelf (gemeten 4,3e-7; ruim genomen), anders eindigt
+    # een bijvulling op de grens nét onder de reserve (A1-audit r2).
+    nodig = bedrag + _HOOFDWALLET_RESERVE_ETH + _GAS_KOSTEN_OVERBOEKING_ETH
     if saldo < nodig:
         raise RuntimeError(
             f"Afzender {afzender[:10]}… heeft {saldo:.6f} ETH; nodig ≥ {nodig:.6f} "
-            f"(bijvulling {bedrag:.6f} + eigen gasmarge {_MIN_ETH_FOR_GAS})"
+            f"(bijvulling {bedrag:.6f} + eigen reserve {_HOOFDWALLET_RESERVE_ETH:.7f})"
         )
 
     wei = int(round(bedrag * 10 ** 18))
@@ -745,6 +808,15 @@ def _bridge_usdc_to_hl(amount_usd: float, treasury_pk: str, vault_pk: str) -> st
             f"ABORT: treasury_pk address {treasury} != expected {_TREASURY_WALLET}. Wrong key?"
         )
 
+    # HL schrijft de storting bij op het account van de AFZENDER. Een terugval-sleutel
+    # (HL_PRIVATE_KEY, de agent-wallet) zou het geld op een ander HL-account zetten.
+    verwacht = _vault_adres()
+    if not verwacht or vault_arb.lower() != verwacht.lower():
+        raise RuntimeError(
+            f"ABORT: vault key address {vault_arb} != HL_VAULT_ADDRESS {verwacht or '(onbekend)'}. "
+            "Bridge would credit another HL account. No funds moved."
+        )
+
     if not _verify_is_contract(_HL_BRIDGE_ARB):
         raise RuntimeError(f"ABORT: HL bridge {_HL_BRIDGE_ARB} has no bytecode.")
 
@@ -760,9 +832,11 @@ def _bridge_usdc_to_hl(amount_usd: float, treasury_pk: str, vault_pk: str) -> st
             f"TreasuryExecutor: bridge step 1 — transferring {amount_usd:.2f} USDC "
             f"treasury → vault ({vault_arb[:10]}…)"
         )
-        transfer_hash = _send_tx(
-            _USDC_ARB, _encode_erc20_transfer(vault_arb, amount_raw), treasury_pk, _GAS_TRANSFER
-        )
+        transfer_data = _encode_erc20_transfer(vault_arb, amount_raw)
+        # Geschat, met _GAS_TRANSFER als ondergrens: receipts gebruikten tot 78% van de vaste
+        # 80k, en een tekort hier valt ná de Aave-opname (A1-audit 2026-09-17).
+        transfer_gas = _estimate_gas(_USDC_ARB, transfer_data, treasury, _GAS_TRANSFER)
+        transfer_hash = _send_tx(_USDC_ARB, transfer_data, treasury_pk, transfer_gas)
         receipt = _wait_receipt(transfer_hash)
         if not receipt or receipt.get("status") != "0x1":
             raise RuntimeError(f"USDC transfer to vault Arb address failed: {transfer_hash}")
@@ -1318,6 +1392,7 @@ def _advance_proposal_inner(
                 proposal.update({"status": "FAILED", "error": "No private key for Aave withdrawal", "updated_at": now})
                 return proposal
             try:
+                _rebalance_kan_afmaken(private_key)
                 tx_hash = withdraw_aave_to_wallet(amount, private_key)
                 proposal.update({"status": "REBALANCING", "aave_withdraw_tx": tx_hash, "updated_at": now})
                 _notify(
@@ -1548,6 +1623,11 @@ def _advance_proposal_inner(
         vault_pk = get_vault_private_key()
         if not vault_pk:
             logger.warning("TreasuryExecutor: BRIDGE_BACK_NEEDED — no vault key, skipping auto-bridge")
+            return proposal
+        # Onbekend vault-adres (secret-hapering): wachten, net als bij een ontbrekende sleutel.
+        # Anders maakt de adrescontrole in de bridge hier FAILED van, ná de opname.
+        if not _vault_adres():
+            logger.warning("TreasuryExecutor: BRIDGE_BACK_NEEDED — vault-adres onbekend, wacht")
             return proposal
         baseline_hl = 0.0
         if exchange_client:

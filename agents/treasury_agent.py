@@ -575,6 +575,9 @@ class TreasuryAgent:
                 if t.get("status") == "CLOSED"
                 and t.get("pnl") is not None
                 and not (t.get("id", "")).startswith("RECOVERED_")
+                # Potje- en oogstregels zijn geen handelsbot-trades; meetellen gaf de
+                # WR-boost een route om REBALANCE te wekken (A1-audit 2026-09-17).
+                and not (t.get("harvest") or t.get("thematic_exposure"))
             ]
             closed.sort(key=lambda t: t.get("exit_time") or t.get("updated_at") or "")
             recent = closed[-lookback:]
@@ -805,7 +808,7 @@ class TreasuryAgent:
         bestemming — elke 5 cycli gas, zonder einde. Na twee fouten in 24 uur is dit
         handwerk, geen herhaling.
         """
-        grens = datetime.utcnow().timestamp() - 24 * 3600
+        grens = time.time() - 24 * 3600
         fouten = [
             p for p in all_proposals
             if p.get("type") in ("DEPLOY_YIELD", "YIELD_SWITCH") and p.get("status") == "FAILED"
@@ -813,7 +816,7 @@ class TreasuryAgent:
         ]
         if len(fouten) < self._DEPLOY_MAX_FOUTEN_24U:
             return False
-        nu = datetime.utcnow().timestamp()
+        nu = time.time()
         if nu - getattr(self, "_deploy_blok_gemeld", 0.0) > 24 * 3600:
             self._deploy_blok_gemeld = nu
             laatste = fouten[-1]
@@ -825,6 +828,39 @@ class TreasuryAgent:
                 f"USDC blijft op de treasury-wallet."
             )
         logger.warning(f"TreasuryAgent: deploys geblokkeerd — {len(fouten)} fouten in 24u")
+        return True
+
+    _REBALANCE_MAX_FOUTEN_24U = 2
+
+    def _rebalance_geblokkeerd(self, all_proposals: list) -> bool:
+        """True na herhaald mislukte rebalances: dan geen nieuwe REBALANCE-voorstellen.
+
+        A1-audit 2026-09-17: een weigering die blijft (bv. te weinig gas op de hoofdwallet)
+        gaf elke fast-pass een nieuw voorstel en twee meldingen — ~24 per uur. Telt elke
+        FAILED REBALANCE, met of zonder opname. Eén mislukte rebalance mét opname blokkeert
+        hier nog niets; die meldt Check 25 (gestrand geld), en automatisch herstel is M3 (c).
+        De rem gaat weer open 24 uur na de OUDSTE van de fouten in het venster.
+        """
+        grens = time.time() - 24 * 3600
+        fouten = [
+            p for p in all_proposals
+            if p.get("type") == "REBALANCE" and p.get("status") == "FAILED"
+            and self._parse_ts(p.get("updated_at") or p.get("created_at") or "") > grens
+        ]
+        if len(fouten) < self._REBALANCE_MAX_FOUTEN_24U:
+            return False
+        nu = time.time()
+        if nu - getattr(self, "_rebalance_blok_gemeld", 0.0) > 24 * 3600:
+            self._rebalance_blok_gemeld = nu
+            laatste = fouten[-1]
+            self._send_telegram(
+                f"⚠️ *Treasury: rebalances gepauzeerd*\n"
+                f"{len(fouten)} mislukte rebalances in 24u "
+                f"(laatste `{laatste.get('id')}`: {str(laatste.get('error', ''))[:120]}).\n"
+                f"Er komen geen nieuwe rebalance-voorstellen zolang er in de laatste 24u "
+                f"{self._REBALANCE_MAX_FOUTEN_24U} of meer mislukten."
+            )
+        logger.warning(f"TreasuryAgent: rebalances geblokkeerd — {len(fouten)} fouten in 24u")
         return True
 
     @staticmethod
@@ -1107,8 +1143,13 @@ class TreasuryAgent:
 
     @staticmethod
     def _parse_ts(v: str) -> float:
+        """Epoch-seconden. Een tijd zonder zone is UTC (`utcnow().isoformat()`), niet lokale
+        tijd: anders was het 24u-venster van de remmen buiten de VM 26 uur (A1-audit r2)."""
         try:
-            return datetime.fromisoformat(v.replace("Z", "+00:00")).timestamp()
+            t = datetime.fromisoformat(v.replace("Z", "+00:00"))
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=timezone.utc)
+            return t.timestamp()
         except Exception:
             return 0.0
 
@@ -1180,6 +1221,8 @@ class TreasuryAgent:
         # Aave-opname voor hetzelfde tekort toelaten (A1-audit 2026-09-16, bevinding 3).
         if any(p.get("type") == "REBALANCE" and p.get("status") in _REBALANCE_ONDERWEG
                for p in all_proposals):
+            return all_proposals
+        if self._rebalance_geblokkeerd(all_proposals):
             return all_proposals
 
         needed = min(round(target_trade - hl_balance, 2), aave_bal)
