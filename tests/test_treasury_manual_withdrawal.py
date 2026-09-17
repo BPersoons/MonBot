@@ -29,6 +29,9 @@ def _vaste_omgeving(monkeypatch):
     """
     monkeypatch.setenv("HL_VAULT_ADDRESS", "0x92D4D9D4c0371D10F3d62194ECD7d43eB9E4F445")
     monkeypatch.delenv("HL_WALLET_ADDRESS", raising=False)
+    # De monitor gebruikt nu `_vault_adres`, dat als laatste de REST-API bevraagt. Een
+    # toets mag nooit het echte secret ophalen; wie die weg wil, patcht hem expliciet.
+    monkeypatch.setattr("utils.treasury_executor._fetch_secret_rest", lambda naam: "")
 
 
 def _iso(uren_geleden):

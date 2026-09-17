@@ -136,10 +136,78 @@ def test_mislukte_transactie_is_geen_succes():
     assert verstuurd, "hij is wél verstuurd — daarom moet de fout luid zijn"
 
 
-def test_geen_receipt_is_ook_geen_succes():
+def test_geen_receipt_is_onbekend_en_zegt_niet_opnieuw_starten():
+    """Geen receipt ≠ mislukt: de transactie kan alsnog landen. Opnieuw starten = dubbel."""
     patches, _ = _omgeving(status=None)
-    with pytest.raises(RuntimeError, match="MISLUKT"):
+    with pytest.raises(RuntimeError, match="ONBEKEND") as fout:
         _met(patches, lambda: te.stuur_eth_voor_gas(te._TREASURY_WALLET, 0.00035, "0xkey"))
+    assert "NIET opnieuw starten" in str(fout.value)
+
+
+def test_haperende_hermeting_maakt_een_gelukte_overboeking_geen_fout():
+    """De receipt (0x1) is het bewijs; de hermeting erna is alleen informatie."""
+    patches, verstuurd = _omgeving()
+    telling = {"n": 0}
+
+    def rpc(methode, params):
+        if methode == "eth_estimateGas":
+            return hex(22_599)
+        if methode == "eth_getBalance":
+            telling["n"] += 1
+            if telling["n"] > 1:                       # de hermeting ná de receipt
+                raise RuntimeError("All Arbitrum RPCs failed")
+            return hex(int(0.000497 * 10 ** 18))
+        raise AssertionError(methode)
+
+    patches[0] = patch.object(te, "_rpc", rpc)
+    h = _met(patches, lambda: te.stuur_eth_voor_gas(te._TREASURY_WALLET, 0.00035, "0xkey"))
+    assert h == "0xhash" and verstuurd, "geslaagd blijft geslaagd"
+
+
+# ── `_vault_adres`: één definitie, direct getoetst ──────────────────────────────
+# A1-audit 2026-09-17: de functie zelf werd door geen enkele toets geraakt (de toetsen
+# hierboven vervangen hem). Drie mutaties bleven daardoor groen.
+
+AGENT = "0xE18F1961000000000000000000000000000000AA"
+
+
+def test_vault_adres_valt_nooit_terug_op_de_agent_wallet(monkeypatch):
+    monkeypatch.delenv("HL_VAULT_ADDRESS", raising=False)
+    monkeypatch.setenv("HL_WALLET_ADDRESS", AGENT)
+    with patch("utils.gcp_secrets.get_secret", return_value=""), \
+         patch.object(te, "_fetch_secret_rest", lambda naam: ""):
+        assert te._vault_adres() == "", "de agent-wallet is een ander account"
+
+
+def test_vault_adres_gebruikt_de_rest_weg_als_de_sdk_leeg_is(monkeypatch):
+    monkeypatch.delenv("HL_VAULT_ADDRESS", raising=False)
+    gevraagd = []
+
+    def rest(naam):
+        gevraagd.append(naam)
+        return VAULT if naam == "HL_VAULT_ADDRESS" else ""
+
+    with patch("utils.gcp_secrets.get_secret", return_value=""), \
+         patch.object(te, "_fetch_secret_rest", rest):
+        assert te._vault_adres() == VAULT
+    assert gevraagd == ["HL_VAULT_ADDRESS"], "nooit om HL_WALLET_ADDRESS vragen"
+
+
+def test_vault_adres_neemt_de_sdk_als_die_hem_heeft(monkeypatch):
+    monkeypatch.delenv("HL_VAULT_ADDRESS", raising=False)
+    rest = MagicMock(return_value="")
+    with patch("utils.gcp_secrets.get_secret", return_value=VAULT), \
+         patch.object(te, "_fetch_secret_rest", rest):
+        assert te._vault_adres() == VAULT
+    assert not rest.called, "REST is de laatste weg, niet de eerste"
+
+
+def test_opname_client_komt_niet_uit_op_de_agent_wallet(monkeypatch):
+    """Sleutel wél, vault-adres níét: dan geen client — zeker niet een voor de agent-wallet."""
+    monkeypatch.setenv("HL_VAULT_PRIVATE_KEY", "0x" + "1" * 64)
+    monkeypatch.setenv("HL_WALLET_ADDRESS", AGENT)
+    with patch.object(te, "_vault_adres", lambda: ""):
+        assert te._create_vault_withdrawal_client() is None
 
 
 def test_send_tx_stuurt_standaard_geen_waarde():

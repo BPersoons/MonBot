@@ -2331,16 +2331,11 @@ class SwarmMonitor:
                     saldi[adres] = ("onmeetbaar", None)
             return saldi[adres]
 
-        from utils.treasury_executor import _TREASURY_WALLET
-        # Alleen HL_VAULT_ADDRESS: de terugval op HL_WALLET_ADDRESS las de agent-wallet uit
-        # en noemde dat "vault-adres" — onmeetbaar vermomd als nul (A1-audit ronde 2).
-        vault = os.getenv("HL_VAULT_ADDRESS", "")
-        if not vault:
-            try:
-                from utils.gcp_secrets import get_secret
-                vault = get_secret("HL_VAULT_ADDRESS") or ""
-            except Exception:
-                vault = ""
+        # Eén definitie van het vault-adres, gedeeld met kasbeheer (env → SDK → REST, nooit
+        # HL_WALLET_ADDRESS). Een eigen kopie hier liep al uit de pas: hij miste de REST-weg
+        # (A1-audit 2026-09-17).
+        from utils.treasury_executor import _TREASURY_WALLET, _vault_adres
+        vault = _vault_adres()
 
         # De MEEST RECENTE stranding hoort bij de huidige situatie; het oudste record
         # noemen zou een bedrag melden dat nergens bij hoort (A1-audit 2026-09-16).

@@ -74,3 +74,20 @@ Mainnet is gemeten en bewust niet gebruikt: de hoofdwallet heeft daar 0,001329 E
 - *On-chain gas ontbreekt in H1?* Akkoord om dat als **bekend gat** te noteren (~$0,40/maand op ~$160/jaar). Meetcode bouwen voor dat bedrag is niet in verhouding; het hoort wel eerlijk in H5 te staan, niet stilzwijgend te ontbreken.
 
 **Mutatietoetsen:** bovengrens, gasmarge, gaslimiet-ondergrens en de receipt-controle maken elk een toets rood (de laatste zeven tegelijk).
+
+## Hertoets (ronde 2) — 2026-09-17
+**Oordeel: A1 GO-mits · A2 GO-mits.** Beide blokkerende punten live nagemeten en in orde: `eth_estimateGas` mét waarde geeft nu 21.337, de nieuwe `_estimate_gas` levert 40.000 (ondergrens wint), 21.000 wordt door de keten geweigerd en 40.000 gaat door. De opgebouwde transactie is ontleed (EIP-155, chainId 42161, value 3,5e14, lege data). **0,00035 ETH is het juiste bedrag:** bij het verbruik van de laatste 90 dagen heeft de vault daarna gas voor ~14 maanden en de treasury voor ~12.
+
+| # | Bevinding | Reactie |
+|---|---|---|
+| 1 | **`_vault_adres` hing aan geen enkele toets** — drie mutaties (terugval op de agent-wallet, REST-weg weg, terugval in de opname-client) bleven groen in alle 330 toetsen, omdat mijn toets de functie in zijn geheel verving | **Opgelost.** Vier directe toetsen: nooit terugvallen op `HL_WALLET_ADDRESS`, REST als laatste weg, SDK vóór REST, en geen opname-client als er een sleutel is maar geen vault-adres. Alle drie de mutaties maken nu een toets rood. Voor de derde keer in twee dagen dezelfde les: een fix zonder toets die rood wordt bij terugdraaien, is geen fix |
+| 2 | Een geslaagde overboeking kon als fout eindigen (hermeting buiten `try`), en "geen receipt" heette "mislukt" | **Opgelost.** Hermeting in `try/except`; zonder receipt heet het nu **ONBEKEND** met "niet opnieuw starten" erbij. Twee toetsen |
+| 3 | De monitor zocht het vault-adres zelf op, zonder de REST-weg | **Opgelost.** Check 25 gebruikt nu `_vault_adres` uit kasbeheer — één definitie. Het toetsbestand van de monitor patcht de REST-weg standaard weg, zodat geen toets ooit het echte secret ophaalt |
+| 4 | Uitvoerscript: geen nameting na een fout; vals alarm als kasbeheer tegelijk iets doet | **Opgelost.** Nameting in `finally`, en het script weigert te starten zolang er een voorstel niet in een eindstatus staat |
+| 5 | Kosten te ruim geschat | **Gecorrigeerd** in het plan: gemeten ~$0,08/maand (niet $0,40), een kale overboeking ~$0,001 (niet $0,01) |
+| pre-mortem | Een REBALANCE controleert het vault-gas pas bij de bridge, ná de Aave-opname | **Genoteerd voor M3**, samen met de gemiste kans hieronder |
+| gemiste kans | Geen vroege waarschuwing op het ETH-saldo van beide wallets | **Genoteerd voor M3**: een monitorcheck onder ~0,00015 ETH. Niet in deze ronde — dat is nieuwe code met een eigen audit |
+
+**Antwoord op de open vraag** (eerder ETH van 0x92D4 naar de treasury?): dat weet ik niet. De daling van ~0,0005 ETH op de vault tussen dag −120 en −90, terwijl de treasury gevuld raakte, wijst er wel op. "Eerste waarde-transactie" klopt dus alleen voor **de code**, niet voor de wallets.
+
+**Uitvoering:** pas ná de M4-meting van 17-09 18:10 UTC. De functie zit niet in de draaiende image, en elke herstart zet de 24-uursklok terug.

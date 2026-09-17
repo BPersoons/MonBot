@@ -392,11 +392,22 @@ def stuur_eth_voor_gas(naar: str, bedrag_eth: float, private_key: str) -> str:
     # Elk ander waardepad in dit bestand wacht op de receipt; deze deed dat niet, waardoor
     # een mislukte overboeking eruitzag als geslaagd terwijl het gas wél weg was.
     receipt = _wait_receipt(tx_hash)
-    if not receipt or receipt.get("status") != "0x1":
-        status = receipt.get("status") if receipt else "geen receipt"
-        raise RuntimeError(f"Gasbijvulling MISLUKT (status {status}) — tx {tx_hash}")
-    na = int(_rpc("eth_getBalance", [naar, "latest"]), 16) / 10 ** 18
-    logger.info(f"TreasuryExecutor: gasbijvulling bevestigd — {naar[:10]}… heeft nu {na:.6f} ETH")
+    if not receipt:
+        # Geen receipt binnen de wachttijd is ONBEKEND, niet mislukt: de transactie kan
+        # alsnog landen. Opnieuw starten zou dan dubbel sturen (A1-audit 2026-09-17).
+        raise RuntimeError(
+            f"Gasbijvulling ONBEKEND (geen receipt binnen de wachttijd) — tx {tx_hash}. "
+            f"Controleer het saldo van beide wallets; NIET opnieuw starten."
+        )
+    if receipt.get("status") != "0x1":
+        raise RuntimeError(f"Gasbijvulling MISLUKT (status {receipt.get('status')}) — tx {tx_hash}")
+    # De receipt is het bewijs; een hapering bij de hermeting mag een geslaagde
+    # overboeking niet alsnog als fout laten eindigen.
+    try:
+        na = int(_rpc("eth_getBalance", [naar, "latest"]), 16) / 10 ** 18
+        logger.info(f"TreasuryExecutor: gasbijvulling bevestigd — {naar[:10]}… heeft nu {na:.6f} ETH")
+    except Exception as e:
+        logger.warning(f"TreasuryExecutor: gasbijvulling bevestigd (status 0x1), hermeting faalde: {e}")
     return tx_hash
 
 
