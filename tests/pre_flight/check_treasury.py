@@ -32,6 +32,12 @@ import unittest.mock as mock
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("PreFlight-Treasury")
 
+# Echte TreasuryAgent → echte Telegram-meldingen, tenzij geblokkeerd (ook als deze
+# controle los wordt gedraaid, buiten pytest en buiten check_pipeline).
+from tests.telegram_blokkade import installeer as _blokkeer_telegram  # noqa: E402
+
+_blokkeer_telegram()
+
 _FAKE_PK = "a" * 64  # non-empty, truthy; never hits real crypto in mocked tests
 
 

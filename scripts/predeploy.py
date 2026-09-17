@@ -52,6 +52,12 @@ def _lees(pad):
 
 
 def main(argv):
+    # Een teken dat de console niet kent, mag de poort nooit laten vallen: een
+    # gedachtestreepje in de pytest-uitvoer crashte hem op cp1252 (2026-09-17).
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except Exception:
+        pass
     snel = "--snel" in argv
     resultaten = []
 
@@ -70,8 +76,11 @@ def main(argv):
 
     for naam, cmd in stappen:
         print("== %s ==" % naam)
+        # De kinderen schrijven UTF-8, zodat het lezen als UTF-8 ook klopt; anders werd
+        # elk niet-ASCII-teken uit een cp1252-proces een vervangteken.
         proc = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace")
+                              encoding="utf-8", errors="replace",
+                              env=dict(os.environ, PYTHONIOENCODING="utf-8"))
         staart = (proc.stdout + proc.stderr).strip().splitlines()[-6:]
         for regel in staart:
             print("  " + regel)

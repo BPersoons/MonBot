@@ -36,6 +36,26 @@ def test_audit_mist_state_files_regel():
         "STATE_FILES niet gevonden in scripts/deploy_update.sh"]
 
 
+def test_vreemde_tekens_in_de_uitvoer_laten_de_poort_niet_crashen(monkeypatch):
+    """2026-09-17: een vervangteken in de pytest-uitvoer crashte de poort op cp1252 —
+    en daarmee ook de geplande deploy van die avond."""
+    import io
+    import subprocess
+    from scripts import predeploy
+
+    console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", console)
+
+    def nep_run(cmd, **kwargs):
+        assert kwargs.get("env", {}).get("PYTHONIOENCODING") == "utf-8", \
+            "kinderen moeten UTF-8 schrijven, anders klopt het lezen niet"
+        return subprocess.CompletedProcess(
+            cmd, 0, stdout="Telegram: 7 � onderschept — ok\n", stderr="")
+
+    monkeypatch.setattr(predeploy.subprocess, "run", nep_run)
+    assert predeploy.main(["--snel"]) == 0
+
+
 def test_de_echte_repo_is_consistent():
     """Draait tegen de echte bestanden: faalt zodra er weer een statebestand drift."""
     with open(os.path.join(REPO, "docker-compose.prod.yml"), encoding="utf-8") as fh:

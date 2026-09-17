@@ -18,6 +18,12 @@ import os
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("PreFlight-Pipeline")
 
+# Deze controle bouwt echte agents op (ook via check_treasury); die mogen Bart niets
+# sturen. Loopt buiten pytest, dus de blokkade uit conftest geldt hier niet vanzelf.
+from tests.telegram_blokkade import installeer as _blokkeer_telegram  # noqa: E402
+
+_blokkeer_telegram()
+
 # ── Contract definitions ─────────────────────────────────────────────────────
 # Each entry: caller (description), callee (class, method name), required_params
 # (list of param names the caller passes — all must exist in the callee signature).
@@ -206,6 +212,9 @@ if __name__ == "__main__":
         logger.error(f"Backtester smoke test crashed: {e}")
         all_ok = False
 
+    from tests.telegram_blokkade import ONDERSCHEPT
+    if ONDERSCHEPT:
+        logger.info("Telegram: %d melding(en) onderschept - niets naar Bart verstuurd", len(ONDERSCHEPT))
     if all_ok:
         logger.info("PRE-FLIGHT PIPELINE CONTRACT CHECK PASSED")
         sys.exit(0)
