@@ -17,6 +17,7 @@ Exposes:
 
 import json
 import logging
+import math
 import os
 from datetime import date
 from typing import Dict
@@ -27,19 +28,84 @@ COST_LOG_FILE  = "cost_log.json"
 LLM_USAGE_FILE = "llm_usage.json"
 TRADE_LOG_FILE = "trade_log.json"
 
-# Infrastructuurkosten per dag. Override via env var INFRA_COST_USD_DAILY.
+# Infrastructuurkosten per dag = rekenkracht van de VM + vaste bijkosten.
 #
-# Stond op 1,00 met de toelichting "GCP e2-medium ~$30/month". De VM is echter
-# een **e2-small** in europe-west1 en kost ~$160/jaar = ~$0,44/dag — de teller
-# overdreef de kosten 2,3×. Gecorrigeerd 2026-08-12, gemeten via
-# `gcloud compute instances describe` (machineType = e2-small).
+# Dit getal is de noemer van H1 (netto winst) en van elke kosten-batenafweging.
+# Geschiedenis: tot 2026-08-12 stond hier 1,00 ("e2-medium"), daarna een vaste
+# 0,44 (alleen de e2-small). Een vast getal veroudert stil bij elke verkleining,
+# daarom volgt de rekenkracht nu het machinetype dat de VM zelf opgeeft.
 #
-# Dit is niet cosmetisch: dit getal is de noemer waartegen elke feature wordt
-# afgewogen (zie docs/PLAN_2026-08.md par. 3, memory project_product_economics).
-# Een verkeerde kostenbasis maakt elk rendement kunstmatig hopeloos.
-#
-# Bij een migratie naar e2-micro: ~$0,22. Verander dan ook deze waarde.
-INFRA_COST_USD_DAILY = float(os.getenv("INFRA_COST_USD_DAILY", "0.44"))
+# Prijzen: Cloud Billing Catalog, listprijs europe-west1, gemeten 2026-09-17
+# (docs/audits/2026-09-17-m4-kosten-herzien.md). Rekenkracht per dag (730 u/mnd):
+_COMPUTE_USD_PER_DAG = {
+    "e2-micro": 0.221,    # 0,25 vCPU + 1 GB
+    "e2-small": 0.442,    # 0,5 vCPU + 2 GB
+    "e2-medium": 0.884,   # 1 vCPU + 4 GB
+}
+# Onbekend of onleesbaar machinetype → de duurste bekende. Onmeetbaar is nooit
+# goedkoop: een te lage kostenbasis laat H1 er beter uitzien dan hij is.
+_COMPUTE_ONBEKEND = max(_COMPUTE_USD_PER_DAG.values())
+# Vaste bijkosten per dag, CONSERVATIEF: een gratis staffel telt pas als de factuur hem
+# laat zien (catalogus en documentatie spreken elkaar tegen; A2-audit 2026-09-17):
+#   schijf 30 GB pd-standard 0,039   (catalogus: 30 GB gratis, ook europe-west1; free-tier-docs: alleen VS)
+#   extern IP 0,122                  (catalogus: 720 u gratis; VPC-prijspagina: "one hour per month per account")
+#   registry 0,008                   (2,8 GB, 0,5 GB gratis)
+#   secrets 0,043                    (28 actieve versies — ook DISABLED telt — waarvan 6 gratis)
+#   uitgaand verkeer 0,020           (~0,11 GB/dag gemeten × $0,12 Premium)
+# Werk dit bij zodra de factuur per SKU er is of er secretversies zijn vernietigd.
+_BIJKOSTEN_USD_PER_DAG = 0.232
+
+_METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/machine-type"
+_MISLUKT_OPNIEUW_SEC = 3600
+_machinetype_cache: Dict[str, object] = {}
+
+
+def _machinetype() -> str:
+    """Machinetype van deze VM volgens de metadataserver ('' als onleesbaar).
+
+    Een gelezen waarde geldt voor het hele proces: verkleinen kan alleen met
+    stop/start, en dan start de container opnieuw. Een mislukte lezing wordt na
+    een uur opnieuw geprobeerd, zodat één hapering niet de hele looptijd telt.
+    """
+    import time
+    if _machinetype_cache.get("waarde"):
+        return _machinetype_cache["waarde"]
+    if time.monotonic() - _machinetype_cache.get("mislukt_om", -1e18) < _MISLUKT_OPNIEUW_SEC:
+        return ""
+    try:
+        import urllib.request
+        req = urllib.request.Request(_METADATA_URL, headers={"Metadata-Flavor": "Google"})
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            # "projects/<nr>/zones/<zone>/machineTypes/e2-small"
+            waarde = resp.read().decode("utf-8").strip().rsplit("/", 1)[-1]
+        if waarde:
+            _machinetype_cache["waarde"] = waarde
+            return waarde
+    except Exception as e:
+        logger.debug(f"machinetype onleesbaar: {e}")
+    _machinetype_cache["mislukt_om"] = time.monotonic()
+    return ""
+
+
+def infra_kosten_per_dag() -> float:
+    """Infrastructuurkosten per dag in USD. Env var INFRA_COST_USD_DAILY gaat voor."""
+    handmatig = os.getenv("INFRA_COST_USD_DAILY")
+    if handmatig:
+        try:
+            waarde = float(handmatig)
+            # Nul is geen geldige kostenbasis: een lege of foute instelling mag H1 niet
+            # stil winstgevend maken.
+            if math.isfinite(waarde) and waarde > 0:
+                return waarde
+        except ValueError:
+            pass
+        logger.warning(f"INFRA_COST_USD_DAILY={handmatig!r} ongeldig — genegeerd")
+    mt = _machinetype()
+    compute = _COMPUTE_USD_PER_DAG.get(mt)
+    if compute is None:
+        logger.warning("machinetype %s onbekend — reken de duurste (%s)", mt or "onleesbaar", _COMPUTE_ONBEKEND)
+        compute = _COMPUTE_ONBEKEND
+    return round(compute + _BIJKOSTEN_USD_PER_DAG, 3)
 
 # Hyperliquid taker fee (0.05%); two legs per closed trade
 HL_TAKER_FEE_RATE = 0.0005
@@ -60,7 +126,12 @@ class CostTracker:
         inp, out, think, llm_cost = self._get_llm_cost_breakdown()
         fees        = self._calc_exchange_fees(today)
         pnl         = self._calc_trading_pnl(today)
-        total_cost  = round(llm_cost + INFRA_COST_USD_DAILY + fees, 4)
+        infra       = infra_kosten_per_dag()
+        # Beursfees horen NIET in total_cost: H1 rekent met de potjes-NAV, en daar zijn fees al
+        # afgetrokken. Meetellen is dubbel tellen. `exchange_fees_usd` blijft ter informatie
+        # (A1-audit r2 2026-09-17: fees stonden 30/30 dagen op 0 doordat `size` niet bestaat —
+        # toevallig juist; wie dat naar `quantity` repareert, mag H1 niet raken).
+        total_cost  = round(llm_cost + infra, 4)
         net_roi     = round(pnl - total_cost, 4)
 
         # Cost per executed trade (avoid division by zero)
@@ -74,7 +145,8 @@ class CostTracker:
             "llm_output_tokens":     out,
             "llm_thinking_tokens":   think,
             "llm_cost_usd":          llm_cost,
-            "infra_cost_usd_daily":  INFRA_COST_USD_DAILY,
+            "infra_cost_usd_daily":  infra,
+            "machine_type":          _machinetype() or None,
             "exchange_fees_usd":     fees,
             "total_cost_usd":        total_cost,
             "trading_pnl_usd":       pnl,
