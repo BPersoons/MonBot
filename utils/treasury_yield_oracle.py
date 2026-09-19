@@ -23,11 +23,20 @@ import urllib.request
 logger = logging.getLogger("YieldOracle")
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-_ARB_RPCS  = [
-    "https://arbitrum.gateway.tenderly.co",   # public gateway; eth_call works from GCP
-    "https://1rpc.io/arb",
-    "https://rpc.ankr.com/arbitrum",
-]
+# Eén lijst met de executor: die had er zeven, deze drie — waarvan er twee dood zijn
+# (1rpc 403, ankr "API key required", gemeten 2026-09-19). Daardoor hing de verliesbewaking
+# en de strikte saldo-lezing feitelijk aan Tenderly alleen (audit 19-09, bevinding 6).
+try:
+    from utils.treasury_executor import _ARB_RPCS as _ARB_RPCS_GEDEELD
+    _ARB_RPCS = list(_ARB_RPCS_GEDEELD)
+except Exception:          # executor niet importeerbaar: eigen minimum, luid in de log
+    logging.getLogger("TreasuryYieldOracle").warning(
+        "RPC-lijst van de executor niet te lezen — terugval op de eigen lijst")
+    _ARB_RPCS = [
+        "https://arbitrum.gateway.tenderly.co",
+        "https://api.zan.top/arb-one",
+        "https://arbitrum.drpc.org",
+    ]
 _AAVE_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
 _USDC_ARB  = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
 _RAY       = 10 ** 27

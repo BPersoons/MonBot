@@ -1011,45 +1011,73 @@ def _deposit_compound_v3(amount_usd: float, comet_address: str, private_key: str
 
 # ── Aave balance + withdrawal ─────────────────────────────────────────────────
 
+def _saldo_uit_antwoord(raw, adres: str) -> float:
+    """Ruw eth_call-antwoord → getal. Gooit bij een LEEG antwoord.
+
+    Een echte nul is 32 nulbytes; `"0x"` betekent dat de call niet is uitgevoerd —
+    verkeerd adres, node zonder state, of een node die stilletjes niets teruggeeft.
+    Dat als nul lezen maakt van een storing een "leeg protocol", en daarop nam
+    kasbeheer beslissingen (A1/A2-audit 2026-09-19, bevinding 5).
+    """
+    if raw is None or raw == "0x" or raw == "":
+        raise RuntimeError(f"Leeg antwoord van {adres[:12]}… — saldo onmeetbaar, geen nul")
+    return float(int(raw, 16))
+
+
+def lees_aave_saldo(wallet_address: str) -> float:
+    """aUSDCn-saldo op Arbitrum. **Gooit door** als de keten niet te lezen is.
+
+    Gebruik deze waar het verschil tussen "nul" en "onbekend" telt (totalen, concentratie,
+    beslissingen). `get_aave_balance` hieronder slikt fouten in en geeft 0.0 — handig voor
+    een logregel, gevaarlijk voor een som.
+    """
+    result = _rpc("eth_call", [{"to": _AUSDC_ARB, "data": _encode_balance_of(wallet_address)}, "latest"])
+    return _saldo_uit_antwoord(result, _AUSDC_ARB) / (10 ** _USDC_DECIMALS)
+
+
 def get_aave_balance(wallet_address: str) -> float:
-    """aUSDCn balance = deposited USDC (1:1 + accrued interest) on Arbitrum."""
+    """aUSDCn balance = deposited USDC (1:1 + accrued interest) on Arbitrum. 0.0 bij een fout."""
     try:
-        result = _rpc("eth_call", [{"to": _AUSDC_ARB, "data": _encode_balance_of(wallet_address)}, "latest"])
-        if not result or result == "0x":
-            return 0.0
-        return int(result, 16) / (10 ** _USDC_DECIMALS)
+        return lees_aave_saldo(wallet_address)
     except Exception as e:
         logger.warning(f"TreasuryExecutor: Aave balance check failed: {e}")
         return 0.0
 
 
+def lees_erc4626_saldo(vault_address: str, wallet_address: str) -> float:
+    """USDC-waarde van ERC-4626-aandelen. **Gooit door** als de keten niet te lezen is."""
+    raw_shares = _rpc("eth_call", [
+        {"to": vault_address, "data": "0x70a08231" + _addr(wallet_address)},
+        "latest",
+    ])
+    shares = int(_saldo_uit_antwoord(raw_shares, vault_address))
+    if shares == 0:
+        return 0.0
+    # convertToAssets(uint256 shares) → assets in USDC (6 decimals)
+    raw_assets = _rpc("eth_call", [
+        {"to": vault_address, "data": "0x07a2d13a" + _u256(shares)},
+        "latest",
+    ])
+    return _saldo_uit_antwoord(raw_assets, vault_address) / (10 ** _USDC_DECIMALS)
+
+
 def get_erc4626_balance(vault_address: str, wallet_address: str) -> float:
-    """USDC value of ERC-4626 vault shares held by wallet_address."""
+    """USDC value of ERC-4626 vault shares held by wallet_address. 0.0 bij een fout."""
     try:
-        raw_shares = _rpc("eth_call", [
-            {"to": vault_address, "data": "0x70a08231" + _addr(wallet_address)},
-            "latest",
-        ])
-        if not raw_shares or raw_shares == "0x":
-            return 0.0
-        shares = int(raw_shares, 16)
-        if shares == 0:
-            return 0.0
-        # convertToAssets(uint256 shares) → assets in USDC (6 decimals)
-        raw_assets = _rpc("eth_call", [
-            {"to": vault_address, "data": "0x07a2d13a" + _u256(shares)},
-            "latest",
-        ])
-        if not raw_assets or raw_assets == "0x":
-            return 0.0
-        return int(raw_assets, 16) / (10 ** _USDC_DECIMALS)
+        return lees_erc4626_saldo(vault_address, wallet_address)
     except Exception as e:
         logger.debug(f"TreasuryExecutor: ERC-4626 balance failed ({vault_address[:10]}…): {e}")
         return 0.0
 
 
 def get_total_yield_balance(wallet_address: str) -> float:
-    """Sum of all deployed yield balances across all automated protocols."""
+    """Som van alle uitgezette rendementssaldi, ongeacht de `automated`-vlag.
+
+    Die vlag zegt of er automatisch geld HEEN mag, niet of er geld LIGT; filteren erop
+    liet geld verdwijnen zodra een protocol werd teruggezet (A2-audit 2026-09-15,
+    bevinding 6). Een onleesbaar saldo telt hier als 0 — gebruik voor beslissingen
+    `lees_aave_saldo`/`lees_erc4626_saldo` of `verliesbewaking._saldi_onchain`.
+    """
     try:
         with open("config/treasury_protocols.json") as f:
             protocols = json.load(f).get("protocols", [])
@@ -1058,8 +1086,6 @@ def get_total_yield_balance(wallet_address: str) -> float:
 
     total = 0.0
     for cfg in protocols:
-        if not cfg.get("automated"):
-            continue
         ptype = cfg.get("type", "")
         try:
             if ptype == "aave_v3":
@@ -1069,7 +1095,7 @@ def get_total_yield_balance(wallet_address: str) -> float:
                 if vault:
                     total += get_erc4626_balance(vault, wallet_address)
         except Exception as e:
-            logger.debug(f"TreasuryExecutor: yield balance failed for {cfg.get('id')}: {e}")
+            logger.warning(f"TreasuryExecutor: yield balance failed for {cfg.get('id')}: {e}")
     return round(total, 2)
 
 

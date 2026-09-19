@@ -115,16 +115,21 @@ def test_saldi_onchain_rekent_aave_vault_en_wallet(monkeypatch):
         ("0xatoken", "0x70a08231"): hex(2_490_150_079),
         ("0xvault", "0x70a08231"): hex(500 * 10 ** 18),
         ("0xvault", "0x07a2d13a"): hex(565_000_000),
+        ("0xuitgezet", "0x70a08231"): hex(100 * 10 ** 18),
+        ("0xuitgezet", "0x07a2d13a"): hex(120_000_000),
         (vb.USDC_ARB, "0x70a08231"): hex(12_500_000),
     }
     monkeypatch.setattr(yo, "_eth_call", lambda to, data: antwoorden[(to, data[:10])])
     protocollen = [
         {"id": "aave", "type": "aave_v3", "automated": True, "receipt_token": "0xatoken"},
         {"id": "fluid", "type": "erc4626", "automated": True, "vault_address": "0xvault"},
-        {"id": "uit", "type": "erc4626", "automated": False, "vault_address": "0xnooit"},
+        # `automated: false` betekent "hier mag niet automatisch geld heen", niet "hier ligt
+        # geen geld". Tot 2026-09-19 sloeg de lus dit protocol over, en dan verdween het
+        # saldo uit de bewaking zodra een protocol werd teruggezet (A2-audit 15-09, bev. 6).
+        {"id": "uit", "type": "erc4626", "automated": False, "vault_address": "0xuitgezet"},
     ]
     saldi, wallet = vb._saldi_onchain(protocollen)
-    assert saldi == {"aave": 2490.150079, "fluid": 565.0} and wallet == 12.5
+    assert saldi == {"aave": 2490.150079, "fluid": 565.0, "uit": 120.0} and wallet == 12.5
 
     def kapot(to, data):
         raise RuntimeError("alle RPC's weg")

@@ -34,12 +34,19 @@
   "experimenten": {
     "fluid_rente": {
       "sleeve": "yield_core",
+      "protocol_id": "fluid-fusdc-arbitrum",
       "status": "gepland",
       "mijlpaal": "M3",
       "hypothese": "Fluid fUSDC op Arbitrum levert structureel meer dan Aave Arbitrum (180d gem. 5,46% vs ~2,6%) zonder wezenlijk extra risico.",
       "kpi": "gemeten APR over 14 dagen, flow-gecorrigeerd",
-      "poort": {"min_apr_pct": 4.0, "max_afwijking_defillama_pp": 1.0, "min_dagen": 14},
-      "kill": {"dagen_onder_benchmark": 30},
+      "poort": {
+        "min_apr_pct": 4.0,
+        "max_afwijking_defillama_pp": 1.0,
+        "min_dagen": 14
+      },
+      "kill": {
+        "dagen_onder_benchmark": 30
+      },
       "verliesbudget_telt_mee": false
     },
     "hlp_vault": {
@@ -51,9 +58,20 @@
       "verlies_meten_vanaf": null,
       "voorwaarde_voor_inleg": "DRIE dingen, anders meet H3 het verkeerde potje of niets: (1) 'sleeve' hierboven wijst naar 'house' en dat is het GAINS gUSDC-vault (config/sleeves.json), niet HLP — HLP moet eerst een eigen potje met een eigen bron in utils/sleeve_nav.py krijgen; (2) status op 'live'; (3) verlies_meten_vanaf op het moment van de eerste inleg (ISO, UTC); (4) de inleg zelf als STROOM boeken (/boek-order -> data/flows.json), anders is inleg = 0 en meldt H3 $0,00 verlies ook als het geld echt weg is. Zonder (2) telt het experiment nergens mee (er komt dan wel een alarm zodra er inleg staat); zonder (3) is H3 onmeetbaar i.p.v. een getal; zonder (4) is het een stille nul. Definitie: utils/experimenten.py.",
       "kpi": "tijdgewogen rendement en drawdown vanaf piek, flow-gecorrigeerd",
-      "alarm": {"drawdown_pct": 3.0},
-      "kill": {"drawdown_pct": 8.0, "weken_onder_benchmark": 8, "actie": "MELDEN; opnameverzoek (4 dagen blokkade) — automatisch pas zodra de HLP-module bestaat"},
-      "poort": {"datum": "2026-11-07", "min_excess_pp": 3.0, "max_drawdown_pct": 5.0, "daarna": "ophogen tot hlp_max_aandeel_van_veilig"},
+      "alarm": {
+        "drawdown_pct": 3.0
+      },
+      "kill": {
+        "drawdown_pct": 8.0,
+        "weken_onder_benchmark": 8,
+        "actie": "MELDEN; opnameverzoek (4 dagen blokkade) — automatisch pas zodra de HLP-module bestaat"
+      },
+      "poort": {
+        "datum": "2026-11-07",
+        "min_excess_pp": 3.0,
+        "max_drawdown_pct": 5.0,
+        "daarna": "ophogen tot hlp_max_aandeel_van_veilig"
+      },
       "verliesbudget_telt_mee": true
     },
     "basis_traag": {
@@ -61,20 +79,39 @@
       "status": "wacht_op_regime",
       "verlies_meten_vanaf": null,
       "besluit_2026_09_15": "Backtest-poort gehaald (8,24% netto 2023-2026, elk jaar >= 0), maar huidig regime 180d 4,41% (2x) / 3,31% (1x) < Fluid 5,46%. Spot telt op de unified account niet als onderpand. Niet live; heractiveren op de trigger hieronder.",
-      "heractivatie": {"venster_dagen": 30, "min_funding_apr_boven_fluid_pp": 3.0, "dan": "3 weken shadow, daarna de bestaande poort"},
+      "heractivatie": {
+        "venster_dagen": 30,
+        "min_funding_apr_boven_fluid_pp": 3.0,
+        "dan": "3 weken shadow, daarna de bestaande poort"
+      },
       "mijlpaal": "M6",
       "hypothese": "Short perp + long spot op BTC/ETH/HYPE, weken vasthouden, levert >= 6% netto APR op kapitaal, elk kalenderjaar >= 0.",
       "kpi": "netto P&L = funding - fees +/- basisbeweging, op ingezet kapitaal",
-      "alarm": {"verlies_usd": 10, "funding_negatief_dagen": 3},
-      "kill": {"verlies_usd": 25, "funding_negatief_dagen": 14, "actie": "sluiten, reduceOnly"},
-      "poort": {"backtest_min_netto_apr_pct": 6.0, "backtest_min_jaar_pct": 0.0, "shadow_weken": 3, "shadow_tolerantie_pp": 3.0, "live_notional_usd": 500},
+      "alarm": {
+        "verlies_usd": 10,
+        "funding_negatief_dagen": 3
+      },
+      "kill": {
+        "verlies_usd": 25,
+        "funding_negatief_dagen": 14,
+        "actie": "sluiten, reduceOnly"
+      },
+      "poort": {
+        "backtest_min_netto_apr_pct": 6.0,
+        "backtest_min_jaar_pct": 0.0,
+        "shadow_weken": 3,
+        "shadow_tolerantie_pp": 3.0,
+        "live_notional_usd": 500
+      },
       "verliesbudget_telt_mee": true
     },
     "dip_koper": {
       "sleeve": "thematic_exposure",
       "status": "live",
       "hypothese": "Index-achtig rendement; geen extra kapitaal (besluit 2026-09-15). Evaluatie 2026-09-25.",
-      "alarm": {"drawdown_pct": 15.0},
+      "alarm": {
+        "drawdown_pct": 15.0
+      },
       "kill": null,
       "verliesbudget_telt_mee": false
     }

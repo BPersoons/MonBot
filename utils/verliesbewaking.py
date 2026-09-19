@@ -114,6 +114,35 @@ def _aave_liquidity_index():
     return int.from_bytes(data[32:64], "big") / 1e27
 
 
+BENCHMARK_ID = "aave-v3-arbitrum-usdc"
+
+
+def _boek_rendementsmeting(st: dict, pid: str, koers: float, nu: float) -> None:
+    """Bewaart de EERSTE en de laatste koers per protocol, met tijdstempel.
+
+    Een share price (of Aave's liquidityIndex) loopt alleen op met het rendement: stortingen
+    en opnames veranderen hem niet. Twee metingen met een tijdsverschil geven dus een
+    flow-gecorrigeerde APR — de meter die de M3-poort nodig heeft en die er tot 2026-09-19
+    niet was (A2-audit: "geen experimentgeld vóór de meter er staat").
+
+    De reeks staat los van `share_prices`, want dat is een lopend MAXIMUM voor de
+    dalingsdetectie; een maximum is geen meetreeks.
+    """
+    if not koers or koers <= 0:
+        return
+    reeks = st.setdefault("rendement_reeks", {})
+    r = reeks.setdefault(pid, {})
+    if not (r.get("eerste") or {}).get("koers"):
+        r["eerste"] = {"koers": float(koers), "ts": float(nu)}
+    r["laatste"] = {"koers": float(koers), "ts": float(nu)}
+    # Eén punt per dag, zodat ook "30 dagen onder de benchmark" (de kill-regel uit het
+    # register) te meten is. Zonder reeks is dat een regel die niemand kan toetsen.
+    dagen = r.setdefault("dagelijks", [])
+    if not dagen or float(nu) - float(dagen[-1].get("ts", 0)) >= 86400:
+        dagen.append({"koers": float(koers), "ts": float(nu)})
+        del dagen[:-40]
+
+
 def _erc4626_share_price(vault):
     """Prijs van één heel vault-aandeel in USDC: convertToAssets(10**decimals) / 1e6.
 
@@ -150,8 +179,9 @@ def _saldi_onchain(protocollen):
 
     saldi = {}
     for p in protocollen:
-        if not p.get("automated"):
-            continue
+        # GEEN filter op `automated`: die vlag zegt of er automatisch geld HEEN mag, niet
+        # of er geld LIGT. Een protocol dat wordt teruggezet op automated=false houdt zijn
+        # saldo, en dat hoort in de bewaking te blijven (A2-audit 2026-09-15, bevinding 6).
         if p.get("type") == "aave_v3" and p.get("receipt_token"):
             saldi[p["id"]] = uint(p["receipt_token"], "0x70a08231" + adres) / 1e6
         elif p.get("type") == "erc4626" and p.get("vault_address"):
@@ -159,6 +189,14 @@ def _saldi_onchain(protocollen):
             saldi[p["id"]] = (uint(p["vault_address"],
                                    "0x07a2d13a" + hex(aandelen)[2:].zfill(64)) / 1e6
                               if aandelen else 0.0)
+        elif p.get("vault_address") or p.get("receipt_token") or p.get("comet_address"):
+            # Wél een adres, maar geen leesroute voor dit type: dat is een storing, geen nul.
+            raise ValueError(
+                "geen leesroute voor %s (type %s) terwijl er een adres staat"
+                % (p.get("id"), p.get("type") or "onbekend"))
+        else:
+            # Bewust niet geconfigureerd (bv. compound zonder comet_address): geen geld, geen alarm.
+            logger.debug("verliesbewaking: %s heeft geen adres — overgeslagen", p.get("id"))
     wallet = uint(USDC_ARB, "0x70a08231" + adres) / 1e6
     return saldi, wallet
 
@@ -275,6 +313,7 @@ def evalueer(m, state, register, stromen=(), nu=None):
                  "Aave liquidityIndex DAALDE van %.9f naar %.9f — dat hoort nooit te gebeuren"
                  % (vorige, idx), vi.get("kill_actie"))
         st["aave_liquidity_index"] = max(vorige or 0.0, idx)
+        _boek_rendementsmeting(st, BENCHMARK_ID, idx, nu)
 
     koersen = st.setdefault("share_prices", {})
     for pid, prijs in (m.get("share_prices") or {}).items():
@@ -287,6 +326,7 @@ def evalueer(m, state, register, stromen=(), nu=None):
                  "Share price van %s DAALDE van %.6f naar %.6f" % (pid, vorige, prijs),
                  vi.get("kill_actie"))
         koersen[pid] = max(vorige or 0.0, prijs)
+        _boek_rendementsmeting(st, pid, prijs, nu)
 
     totaal = m.get("yield_totaal_usd")
     vorig = st.get("yield_saldo")

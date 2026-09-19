@@ -793,9 +793,26 @@ class TreasuryAgent:
         """
         if self._deploy_geblokkeerd(all_proposals):
             return all_proposals, [], []
-        all_proposals, switch_notifs = self._check_yield_switch(opportunities, yield_balances, all_proposals)
+
+        # Beslissen doen we op de STRIKTE saldi. In het milde dict telt een ontbrekend of
+        # onleesbaar protocol precies als nul, en dat is in een som en een percentage niet te
+        # onderscheiden van "leeg". Gemeten in de audit van 19-09: een onleesbaar Aave-saldo
+        # gaf een goedgekeurde switch die $305 uit een ander protocol zou trekken, op een
+        # concentratie die niet bestond.
+        strikt = self._strikte_yield_saldi()
+        if strikt is None:
+            logger.warning("TreasuryAgent: saldi onleesbaar — geen switch of diversificatie deze ronde")
+            return all_proposals, [], []
+        gemist = set(yield_balances) - set(strikt)
+        if gemist:
+            logger.warning(
+                "TreasuryAgent: strikte en milde saldi lopen uiteen (%s) — geen beweging deze ronde",
+                ", ".join(sorted(gemist)))
+            return all_proposals, [], []
+
+        all_proposals, switch_notifs = self._check_yield_switch(opportunities, strikt, all_proposals)
         all_proposals, diversify_notifs = self._check_yield_diversification(
-            opportunities, yield_balances, all_proposals)
+            opportunities, strikt, all_proposals)
         return all_proposals, switch_notifs, diversify_notifs
 
     _DEPLOY_MAX_FOUTEN_24U = 2
@@ -1443,23 +1460,41 @@ class TreasuryAgent:
     # ── Yield balance tracking ────────────────────────────────────────────────
 
     def _get_yield_balances(self) -> dict:
-        """Returns {protocol_id: balance_usd} for every automated protocol."""
-        from utils.treasury_executor import get_aave_balance, get_erc4626_balance, _TREASURY_WALLET
+        """{protocol_id: saldo_usd} voor elk protocol dat geld KAN houden.
+
+        Ook protocollen met `automated: false`. Die vlag zegt of er automatisch geld
+        HEEN mag, niet of er geld LIGT. Tot 2026-09-19 sloeg deze lus ze over, en dus
+        verdween geld uit het totaal zodra een protocol werd teruggezet op
+        `automated: false` — precies wat er gebeurt bij het terugdraaien van Fluid
+        (A2-audit 2026-09-15, bevinding 6). Gevolg: een valse drawdown, een verkeerde
+        concentratie en een diversificatie die op lucht rekent.
+
+        Een saldo dat we niet kúnnen lezen (onbekend type, RPC weg) telt niet stil als
+        nul mee: het protocol blijft dan uit de dict en er gaat een waarschuwing in de log.
+        """
+        # De strikte lezers: `get_aave_balance`/`get_erc4626_balance` geven 0.0 terug bij een
+        # RPC-fout, en dat zou hier stil als "geen geld" tellen.
+        from utils.treasury_executor import lees_aave_saldo, lees_erc4626_saldo, _TREASURY_WALLET
         balances: dict[str, float] = {}
         for cfg in self._load_protocol_config():
-            if not cfg.get("automated"):
-                continue
             pid   = cfg["id"]
             ptype = cfg.get("type", "")
             try:
                 if ptype == "aave_v3":
-                    balances[pid] = get_aave_balance(_TREASURY_WALLET)
+                    balances[pid] = lees_aave_saldo(_TREASURY_WALLET)
                 elif ptype == "erc4626":
                     vault = cfg.get("vault_address")
-                    balances[pid] = get_erc4626_balance(vault, _TREASURY_WALLET) if vault else 0.0
+                    if not vault:
+                        logger.warning(f"TreasuryAgent: {pid} heeft geen vault_address — saldo onbekend")
+                        continue
+                    balances[pid] = lees_erc4626_saldo(vault, _TREASURY_WALLET)
+                else:
+                    logger.warning(
+                        f"TreasuryAgent: saldo van {pid} (type {ptype or 'onbekend'}) niet te lezen — "
+                        "telt NIET als nul mee"
+                    )
             except Exception as e:
-                logger.debug(f"TreasuryAgent: yield balance failed for {pid}: {e}")
-                balances[pid] = 0.0
+                logger.warning(f"TreasuryAgent: saldo van {pid} onleesbaar ({e}) — telt NIET als nul mee")
         return balances
 
     def _check_yield_switch(
@@ -1680,8 +1715,12 @@ class TreasuryAgent:
         if overweight_pct <= _MAX_SINGLE_CONCENTRATION:
             return all_proposals, pending_notifs
 
-        # Amount to move: bring source down to target concentration
-        move_amount = overweight_bal - total_yield * _DIVERSIFY_TARGET_PCT / 100
+        # Amount to move: bring source down to target concentration. Het doel mag nooit
+        # boven de cap uit het register liggen — anders staan er twee drempels voor hetzelfde
+        # (CLAUDE.md: drempels op één plek; audit 19-09, bevinding 13).
+        cap_pct = _max_aandeel_per_protocol()[0] * 100
+        doel_pct = min(_DIVERSIFY_TARGET_PCT, cap_pct)
+        move_amount = overweight_bal - total_yield * doel_pct / 100
         if move_amount < 50.0:
             return all_proposals, pending_notifs
 

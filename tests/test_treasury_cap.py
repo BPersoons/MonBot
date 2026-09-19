@@ -131,6 +131,9 @@ def test_rem_zit_voor_switch_diversificatie_hl_excess_en_deploy_in_run_fast():
         agent._check_rebalance_needed = MagicMock(side_effect=lambda hl, p: p)
         agent._load_cached_opportunities = MagicMock(return_value=[_opp(BENCH)])
         agent._get_yield_balances = MagicMock(return_value={BENCH: 1000.0})
+        # Sinds 19-09 beslist de switch/diversificatie op de STRIKTE saldi; zonder RPC in een
+        # toets zou die None zijn en zou de ronde (terecht) worden overgeslagen.
+        agent._strikte_yield_saldi = MagicMock(return_value={BENCH: 1000.0})
         agent._check_yield_switch = MagicMock(side_effect=lambda o, y, p: (p, []))
         agent._check_yield_diversification = MagicMock(side_effect=lambda o, y, p: (p, []))
         agent._check_hl_excess = MagicMock(side_effect=lambda hl, p, o: p)
@@ -164,6 +167,9 @@ def test_rem_zit_voor_switch_diversificatie_hl_excess_en_deploy_in_run(tmp_path,
         agent.get_hl_snapshot = MagicMock(return_value={"balance": 100.0, "free_margin": 90.0})
         agent.get_yield_opportunities = MagicMock(return_value=[_opp(BENCH)])
         agent._get_yield_balances = MagicMock(return_value={BENCH: 1000.0})
+        # Sinds 19-09 beslist de switch/diversificatie op de STRIKTE saldi; zonder RPC in een
+        # toets zou die None zijn en zou de ronde (terecht) worden overgeslagen.
+        agent._strikte_yield_saldi = MagicMock(return_value={BENCH: 1000.0})
         agent._compute_target_allocation = MagicMock(return_value={})
         agent._get_sleeve_allocation = MagicMock(return_value={"total": 0.0})
         agent._load_proposals = MagicMock(return_value=list(fouten))
@@ -270,6 +276,9 @@ def test_run_fast_geen_deploy_in_de_ronde_waarin_een_switch_ontstaat():
         agent._check_rebalance_needed = MagicMock(side_effect=lambda hl, p: p)
         agent._load_cached_opportunities = MagicMock(return_value=[_opp(BENCH)])
         agent._get_yield_balances = MagicMock(return_value={BENCH: 1000.0})
+        # Sinds 19-09 beslist de switch/diversificatie op de STRIKTE saldi; zonder RPC in een
+        # toets zou die None zijn en zou de ronde (terecht) worden overgeslagen.
+        agent._strikte_yield_saldi = MagicMock(return_value={BENCH: 1000.0})
 
         def switch(o, y, p, vuurt=switch_vuurt):
             if vuurt:
