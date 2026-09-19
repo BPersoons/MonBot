@@ -45,15 +45,18 @@ _COMPUTE_USD_PER_DAG = {
 # Onbekend of onleesbaar machinetype → de duurste bekende. Onmeetbaar is nooit
 # goedkoop: een te lage kostenbasis laat H1 er beter uitzien dan hij is.
 _COMPUTE_ONBEKEND = max(_COMPUTE_USD_PER_DAG.values())
-# Vaste bijkosten per dag, CONSERVATIEF: een gratis staffel telt pas als de factuur hem
-# laat zien (catalogus en documentatie spreken elkaar tegen; A2-audit 2026-09-17):
-#   schijf 30 GB pd-standard 0,039   (catalogus: 30 GB gratis, ook europe-west1; free-tier-docs: alleen VS)
-#   extern IP 0,122                  (catalogus: 720 u gratis; VPC-prijspagina: "one hour per month per account")
-#   registry 0,008                   (2,8 GB, 0,5 GB gratis)
-#   secrets 0,043                    (28 actieve versies — ook DISABLED telt — waarvan 6 gratis)
-#   uitgaand verkeer 0,020           (~0,11 GB/dag gemeten × $0,12 Premium)
-# Werk dit bij zodra de factuur per SKU er is of er secretversies zijn vernietigd.
-_BIJKOSTEN_USD_PER_DAG = 0.232
+# Vaste bijkosten per dag, GEMETEN op de factuur (Billing → Reports per SKU, september 2026,
+# omgerekend met EUR/USD 1,15). Dit verving de conservatieve schatting van 0,232:
+#   schijf 30 GB pd-standard 0,015   (€0,013 — de gratis 30 GiB geldt, maar wordt met andere
+#                                     schijven van het account gedeeld)
+#   secrets 0,035                    (€0,030 — 28 actieve versies, 6 gratis)
+#   registry 0,009                   (€0,008 nu; met 1-2 images zakt dit naar ~0,003)
+#   uitgaand verkeer 0,002           (~0,11 GB/dag; staat nauwelijks op de factuur)
+#   extern IP 0,000                  (staat NIET op de factuur: de staffel van 720 u/mnd geldt,
+#                                     anders dan de VPC-prijspagina zegt)
+# De rekenkracht hieronder blijft de listprijs uit de catalogus; de factuur gaf €0,353/dag
+# (~$0,407) voor de e2-small, dus die kant is nog licht aan de voorzichtige kant.
+_BIJKOSTEN_USD_PER_DAG = 0.061
 
 _METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance/machine-type"
 _MISLUKT_OPNIEUW_SEC = 3600

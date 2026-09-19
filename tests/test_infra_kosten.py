@@ -109,14 +109,19 @@ def test_dagstaat_boekt_de_infra_kosten_en_het_type(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     _metadata(monkeypatch, ["projects/1/zones/z/machineTypes/e2-small"])
     s = ct.CostTracker().get_daily_summary()
-    assert s["infra_cost_usd_daily"] == pytest.approx(0.442 + 0.232)
+    assert s["infra_cost_usd_daily"] == pytest.approx(0.442 + ct._BIJKOSTEN_USD_PER_DAG)
     assert s["machine_type"] == "e2-small"
-    assert s["total_cost_usd"] == pytest.approx(0.674)   # geen LLM, geen fees in een lege map
+    assert s["total_cost_usd"] == pytest.approx(0.503)   # geen LLM, geen fees in een lege map
 
 
-def test_bijkosten_tellen_onbevestigde_staffels_mee():
-    """Schijf en IP-adres tellen tot de factuur het tegendeel laat zien (A2-audit 2026-09-17)."""
-    assert ct._BIJKOSTEN_USD_PER_DAG >= 0.039 + 0.122
+def test_bijkosten_komen_overeen_met_de_factuur():
+    """Gemeten op de factuur van september 2026 (schijf, secrets, registry, verkeer; IP is gratis).
+
+    Een marge naar boven mag, naar beneden niet: een te lage kostenbasis laat H1 er beter
+    uitzien dan hij is.
+    """
+    gemeten = round(0.015 + 0.035 + 0.009 + 0.002, 6)
+    assert gemeten <= round(ct._BIJKOSTEN_USD_PER_DAG, 6) <= gemeten * 1.5
 
 
 def test_onverwachte_fout_bij_het_lezen_valt_ook_op_de_duurste(monkeypatch):
@@ -133,4 +138,4 @@ def test_beursfees_tellen_niet_mee_in_de_totale_kosten(monkeypatch, tmp_path):
     monkeypatch.setattr(ct.CostTracker, "_calc_exchange_fees", lambda self, d: 3.21)
     s = ct.CostTracker().get_daily_summary()
     assert s["exchange_fees_usd"] == 3.21
-    assert s["total_cost_usd"] == pytest.approx(0.674)
+    assert s["total_cost_usd"] == pytest.approx(0.503)
