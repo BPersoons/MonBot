@@ -125,7 +125,7 @@ Lezen/schrijven op de VM zonder SCP: `B=$(printf '%s' "$SCRIPT" | base64 -w0); g
 |---|---|
 | Project ID | `gen-lang-client-0441524375` |
 | Region / Zone | `europe-west1` / `europe-west1-b` |
-| VM | `agent-trader-swarm-vm` — **e2-small** (2 vCPU gedeeld, 2 GB); naar e2-micro gepland (M4, poort: 24u container < 450 MiB) |
+| VM | `agent-trader-swarm-vm` — **e2-micro** (0,25 vCPU, 1 GB + 1 GB swap) sinds 2026-09-19; container-piek was 404,7 MiB over 36 u. Terug naar e2-small: `stop` → `set-machine-type` → `start` (~5 min) |
 | Image URI | `europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest` |
 | Container | `agent_trader_swarm` (canonieke compose-dir `/home/bartpersoons_gmail_com`) |
 | Ports | `8080` (dashboard) |

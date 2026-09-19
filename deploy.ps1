@@ -10,7 +10,7 @@ $ZONE = "$($Env:REGION)-b"
 $VM_NAME = "agent-trader-swarm-vm"
 $REPO_NAME = "agent-trader"
 $IMAGE_NAME = "swarm"
-$MACHINE_TYPE = "e2-medium"
+$MACHINE_TYPE = "e2-micro"   # M4, 2026-09-19: verkleind na een geheugenmeting van 36 u
 $FULL_IMAGE_URI = "$($Env:REGION)-docker.pkg.dev/$($Env:PROJECT_ID)/$REPO_NAME/${IMAGE_NAME}:latest"
 
 Write-Host "🚀 Agent Trader Swarm Deployment" -ForegroundColor Blue
