@@ -18,6 +18,7 @@ Usage:
 
 import json
 import logging
+import time
 import urllib.request
 
 logger = logging.getLogger("YieldOracle")
@@ -37,6 +38,8 @@ except Exception:          # executor niet importeerbaar: eigen minimum, luid in
         "https://api.zan.top/arb-one",
         "https://arbitrum.drpc.org",
     ]
+_POGINGEN = 3          # rondes over de lijst; alleen Tenderly werkt vanaf GCP
+_PAUZE_SEC = 0.6       # oplopend: 0,6 s en 1,2 s tussen de rondes
 _AAVE_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
 _USDC_ARB  = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
 _RAY       = 10 ** 27
@@ -54,20 +57,29 @@ def _eth_call(to: str, data: str) -> str:
         "params": [{"to": to, "data": data}, "latest"],
         "id": 1,
     }).encode()
+    # Meer endpoints geven hier geen redundantie: vanaf GCP werkt alleen Tenderly, de rest
+    # geeft 403/429 (gemeten 19-09 in de container, en eerder al vastgelegd in memory).
+    # De echte buffer is dus OPNIEUW PROBEREN. Dat telt: sinds de saldo-lezing strikt is,
+    # legt één mislukte ronde de hele kasbeheerbeweging stil.
     last_exc: Exception = RuntimeError("no RPCs configured")
-    for url in _ARB_RPCS:
-        try:
-            req = urllib.request.Request(
-                url, data=payload,
-                headers={"Content-Type": "application/json"}, method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=10) as r:
-                resp = json.loads(r.read())
-            if "error" in resp:
-                raise RuntimeError(str(resp["error"]))
-            return resp.get("result", "0x")
-        except Exception as e:
-            last_exc = e
+    for poging in range(_POGINGEN):
+        if poging:
+            time.sleep(_PAUZE_SEC * poging)
+        for url in _ARB_RPCS:
+            try:
+                req = urllib.request.Request(
+                    url, data=payload,
+                    headers={"Content-Type": "application/json"}, method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    resp = json.loads(r.read())
+                if "error" in resp:
+                    raise RuntimeError(str(resp["error"]))
+                if poging:
+                    logger.info("eth_call geslaagd bij poging %d (%s)", poging + 1, url)
+                return resp.get("result", "0x")
+            except Exception as e:
+                last_exc = e
     raise last_exc
 
 

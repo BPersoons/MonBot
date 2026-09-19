@@ -231,3 +231,56 @@ def test_protocol_zonder_adres_is_gewoon_uit(monkeypatch):
     saldi, wallet = vb._saldi_onchain([{"id": "compound-v3-arbitrum-usdc", "type": "compound_v3",
                                         "automated": False, "comet_address": None}])
     assert saldi == {} and wallet == 1000.0
+
+
+# ── Eén werkende RPC: opnieuw proberen is de echte buffer (19-09) ────────────
+
+def test_eth_call_probeert_opnieuw_na_een_hapering(monkeypatch):
+    from utils import treasury_yield_oracle as yo
+
+    pogingen = []
+
+    class _Antwoord:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b'{"jsonrpc":"2.0","id":1,"result":"0x2a"}'
+
+    def nep_urlopen(req, timeout=None):
+        pogingen.append(req.full_url)
+        if len(pogingen) <= len(yo._ARB_RPCS):      # eerste ronde faalt overal
+            raise OSError("HTTP Error 403: Forbidden")
+        return _Antwoord()
+
+    monkeypatch.setattr(yo.urllib.request, "urlopen", nep_urlopen)
+    monkeypatch.setattr(yo.time, "sleep", lambda s: None)
+    assert yo._eth_call("0xdead", "0xbeef") == "0x2a"
+    assert len(pogingen) == len(yo._ARB_RPCS) + 1, "tweede ronde begint weer bovenaan"
+
+
+def test_eth_call_gooit_door_als_alles_blijft_falen(monkeypatch):
+    from utils import treasury_yield_oracle as yo
+
+    n = []
+
+    def nep_urlopen(req, timeout=None):
+        n.append(1)
+        raise OSError("HTTP Error 403: Forbidden")
+
+    monkeypatch.setattr(yo.urllib.request, "urlopen", nep_urlopen)
+    monkeypatch.setattr(yo.time, "sleep", lambda s: None)
+    with pytest.raises(OSError):
+        yo._eth_call("0xdead", "0xbeef")
+    assert len(n) == len(yo._ARB_RPCS) * yo._POGINGEN, "elke ronde alle endpoints"
+
+
+def test_een_protocol_zonder_adres_geeft_geen_waarschuwing(monkeypatch, caplog):
+    """Compound staat bewust zonder adres in de config; elke ronde waarschuwen is ruis."""
+    import logging
+    with caplog.at_level(logging.WARNING, logger="TreasuryAgent"):
+        _agent(monkeypatch)._get_yield_balances()
+    assert not [r for r in caplog.records if "compound" in r.getMessage()]

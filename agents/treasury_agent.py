@@ -1488,11 +1488,16 @@ class TreasuryAgent:
                         logger.warning(f"TreasuryAgent: {pid} heeft geen vault_address — saldo onbekend")
                         continue
                     balances[pid] = lees_erc4626_saldo(vault, _TREASURY_WALLET)
-                else:
+                elif cfg.get("vault_address") or cfg.get("receipt_token") or cfg.get("comet_address"):
+                    # Wél een adres, maar geen leesroute voor dit type: dat is een storing.
                     logger.warning(
                         f"TreasuryAgent: saldo van {pid} (type {ptype or 'onbekend'}) niet te lezen — "
                         "telt NIET als nul mee"
                     )
+                else:
+                    # Bewust niet geconfigureerd (compound zonder comet_address): geen alarm,
+                    # anders staat er elke ronde een waarschuwing over iets dat uit staat.
+                    logger.debug(f"TreasuryAgent: {pid} heeft geen adres — overgeslagen")
             except Exception as e:
                 logger.warning(f"TreasuryAgent: saldo van {pid} onleesbaar ({e}) — telt NIET als nul mee")
         return balances
