@@ -53,7 +53,35 @@ Besluit Bart 21-09 ("het is optie 1"). De VM draait niet meer 24/7 maar **elke d
 ---
 
 ## Audit
-*(in te vullen door de controle-agent)*
+
+*Controle-agent, 2026-09-21 (overgenomen door de bouwer; alleen leestools).*
+
+**Oordeel: STOP.**
+
+**Blokkerend**
+1. **Nazorgcriterium (a) is vandaag geraakt; de kostenbasis van V1/V2 valt weg.** 10 van 89 metingen ≥ 450 MiB, eerste om 05:00Z, hoogste 493 MiB om 05:45Z. De afspraak (PLAN:52, `2d76651`) is terugdraaien zonder herziening. Op e2-small kost het venster $0,227/dag ($83/jaar) en blijft H1 negatief. Combineren is oprekken: met een dagelijkse herstart zijn de voetafdruk en de driedaagse trend niet meer meetbaar. De som telt swapcache dubbel — een reden om een volgende poort vooraf beter te definiëren, niet om deze achteraf te herzien.
+2. **Het waakhondontwerp werkt niet zoals bedoeld.** (a) Blind voor een VM die niet start: geen uptime-meting, dus de AND is onwaar. De service agent mist bovendien de rechten `compute.instances.start/stop` die een instance schedule nodig heeft. (b) Elke ochtend vals alarm: uptime verschijnt na ~1 min, de eerste hartslag pas na 3–5 min. (c) Eén combiner kan "(A OF B) EN C" niet uitdrukken; AND over drie condities vraagt dat beide hartslagen wegvallen.
+
+**Belangrijk**
+3. **Om 21:30 wordt het proces elke dag hard afgeschoten**: python is PID 1 zonder signaalafhandeling, na 10 s volgt SIGKILL. Met in-place schrijven kan het positiebestand afgekapt raken; `thematic_exposure_lab.py:386-392` geeft dan een lege toestand terug en de posities zijn stil onbeheerd. Bij FUND_SLEEVE gaat het geld de deur uit vóór de status is opgeslagen.
+4. **Valse alarmen bij elke koude start**: dip-koperstilstand (grens 180 min, nachtelijke stilstand 900 min), Check 17 met een marge van 41 s, en een snapshotgat van 36 u op de overgangsdag.
+5. **Een kostenteller in de container telt uren te weinig**: niet de uren waarin de VM draait maar de container niet, niet het laatste uur, niet hele dagen zonder proces. De bron moet buiten de container liggen (`instance/uptime`).
+6. **V5/V6 keken naar de rustigste namen en de verkeerde uitstapregel.** KIOXIA beweegt 's nachts 0,90%/u tegen 0,68% overdag (slechtste nacht −15,3%); 4 van de laatste 5 sluitingen kwamen van de meelopende winstbescherming, gevalideerd met ~24 controles per dag tegen ~9 in het venster.
+7. **V2 rekent met de genoteerde Aave-rente, H1 met de gerealiseerde aangroei**: yield_core leverde ~$52/jaar, niet $73. H1 komt daarmee rond nul, niet "positief".
+8. **De verzwakking van H4 vraagt een expliciet besluit van Bart**: het gat valt ook op 07:00–14:30 CEST, en een VM die niet start betekent ≥ 24 uur onzichtbaar.
+9. **De bootketen reikt verder dan het opstartscript**: `unattended-upgrades` en de apt-timers halen bij elke boot hun gemiste run in, bovenop de koude start.
+
+**Klein:** nazorgmeetlat werkt niet met een dagelijkse herstart; Telegram-commando's uit de nacht worden uren te laat uitgevoerd; CI-deploys buiten het venster mislukken (49 van 101 commits sinds 1-9); het venster zou op vier plekken komen te staan.
+
+**Zonder bevinding:** V1-rekensom, V3 (alle openingen 14:31–19:49 UTC, structureel door de instapregel), V4, V7, V8, V10; geen actief kasbeheervoorstel; koude start ~4,3 min; geen nieuwe dubbele acties bij de start.
+
+**Gemiste kansen:** secrets en registry opruimen levert ~$13/jaar zonder operationeel risico; stops op de beurs maken een venster voor de dip-koper grotendeels neutraal.
 
 ## Reactie bouwer
-*(per open punt: opgelost in `<hash>` of weerlegd met bewijs)*
+
+*2026-09-21.*
+
+- **Bevinding 1 uitgevoerd:** zelf nageteld (10 van 89 metingen ≥ 450 MiB, piek 493 MiB om 05:45 UTC, samenvallend met apt). **De VM is om 07:27 UTC teruggedraaid naar e2-small**, conform de afspraak. NAV $5.480,27 tegen $5.480,03 ervoor, verify_live 10/10, dashboard 200. De kostenteller leest het machinetype zelf en rekent weer $0,503/dag.
+- **Het venster in deze vorm is gestopt.** Het besluit van Bart (de kosten moeten omlaag) blijft staan; deze uitvoering niet. Een nieuwe poging komt als nieuw idee in de motor, met de voorwaarden uit deze audit: stops op de beurs, een nette afsluiting (SIGTERM-handler, sluitingstijd voor kasbeheer), een waakhond met het venster in de conditie zelf, en een kostenteller op `instance/uptime`.
+- **Bevinding 7 overgenomen:** in de rapportage aan Bart heet H1 voortaan "rond nul, afhankelijk van de rente" en rekent hij met de gerealiseerde aangroei.
+- **De gemiste kans (secrets en registry)** wordt het eerstvolgende, risicoloze werk.
