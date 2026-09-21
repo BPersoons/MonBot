@@ -287,3 +287,14 @@ def test_lees_dip_koper_onderscheidt_ontbrekend_van_onleesbaar(tmp_path):
     open(pad, "w").write('{"positions": {"XYZ-NVDA": {"status": "OPEN"}}}')
     inhoud, onleesbaar = vb._lees_dip_koper(pad)
     assert onleesbaar is False and "XYZ-NVDA" in inhoud["positions"]
+
+
+def test_lees_metingen_geeft_de_onleesbaar_vlag_door(register, tmp_path, monkeypatch):
+    """De helper alleen toetsen is niet genoeg: de regel die de vlag in de metingen zet,
+    moet zelf rood kunnen worden (audit ronde 2, bev. a)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(vb, "_veilig", lambda fn, *a: None)          # geen netwerk
+    open(vb.THEMATIC_FILE, "w").write("")                            # half geschreven
+    assert vb.lees_metingen(register, nu=NU)["dip_koper_onleesbaar"] is True
+    open(vb.THEMATIC_FILE, "w").write('{"positions": {}}')
+    assert vb.lees_metingen(register, nu=NU)["dip_koper_onleesbaar"] is False

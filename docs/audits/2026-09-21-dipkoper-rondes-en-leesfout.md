@@ -99,3 +99,25 @@ Het gevolg bij een echt verse installatie: de dip-koper staat stil tot iemand `{
 
 **Mutaties ronde 2:** 8 van 8 rood. Eén mutatie bleef eerst groen: in sleeve_nav liet ik een `None` naar 0,0 gaan. Mijn toets stopte toen al eerder, bij een ontbrekende `treasury_state`. Na het aanscherpen wordt die mutatie ook rood.
 
+### Controle-agent, ronde 2 (21-09): **GO**
+*(De bouwer heeft dit oordeel letterlijk overgenomen.)*
+
+**Open punten uit ronde 1: opgelost.**
+- Elke `create_order`-aanroep is nagelopen. Alle sluitende orders zijn nu `reduce_only=True`:
+  - `execution_agent` 551 en 1289;
+  - `treasury_agent` 1991 (nieuw);
+  - `thematic_exposure_lab` 1410 (nieuw).
+- De openende orders staan terecht zonder `reduce_only`.
+- Verliesbewaking en sleeve_nav zijn opgelost. De enige aanroeper, `snapshot_if_new_day`, vangt `None` af.
+- De check dat `gesloten_rondes` een lijst is, wordt rood als je hem terugdraait.
+
+**Nieuwe bevindingen, allemaal klein:**
+- **a.** De regel die de vlag in `lees_metingen` doorgeeft, had geen toets.
+- **b.** Voor een waarderingsfout in sleeve_nav was er geen toets.
+- **c.** Een spookpositie blijft stil hangen: de reduceOnly-order wordt geweigerd en de dip-koper probeert het elke cyclus opnieuw, met alleen een logregel. Voorstel: een melding na N mislukte pogingen.
+- **d.** De verliesbewaking controleert `gesloten_rondes` niet. Dat vangt `dip_koper_stilstand` na 180 minuten op, en dat is aanvaardbaar.
+
+**Reactie bouwer:**
+- **a en b** opgelost in de toetscommit hierna. Het terugdraaien van elk van beide maakt nu een toets rood: `test_lees_metingen_geeft_de_onleesbaar_vlag_door`, en `[]` en `{"positions": [1]}` in de sleeve_nav-toets.
+- **c** staat genoteerd in PLAN als vervolgpunt.
+- **d** aanvaard.

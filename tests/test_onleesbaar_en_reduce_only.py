@@ -18,7 +18,8 @@ from utils import sleeve_nav as sn  # noqa: E402
 def test_sleeve_nav_dip_koper_ontbrekend_nul_onleesbaar_none(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert sn.SleeveNAV._thematic_exposure_value() == 0.0          # bestaat nog niet
-    for tekst in ("", '{"cash_usd": 12.7, "positions": {"XYZ'):
+    # kapotte JSON, en geldige JSON die niet te waarderen is (audit ronde 2, bev. b)
+    for tekst in ("", '{"cash_usd": 12.7, "positions": {"XYZ', "[]", '{"positions": [1]}'):
         (tmp_path / sn.THEMATIC_EXPOSURE_FILE).write_text(tekst)
         assert sn.SleeveNAV._thematic_exposure_value() is None, repr(tekst)
     (tmp_path / sn.THEMATIC_EXPOSURE_FILE).write_text('{"cash_usd": 12.7, "positions": {}}')

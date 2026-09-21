@@ -139,3 +139,23 @@ De schaduwmeting mag lopen. Voorwaarde 1 moet vóór 01-10 geregeld zijn, voorwa
 
 **Mutaties ronde 2:** 6 van 6 rood. Eén mutatie bleef eerst groen: de dagdrempel. Mijn toets "te vroeg" keek naar een maand die er al was. Na het aanpassen wordt ook die mutatie rood.
 
+### Controle-agent, ronde 2 (21-09): **GO-mits**, de schaduwmeting mag lopen
+*(De bouwer heeft dit oordeel letterlijk overgenomen.)*
+
+**Opgelost:**
+- Er gaat geen opdracht meer uit (`ADVIES = False`).
+- "1,4-2,9pp" klopt. "Gelijke daling" klopt op 3 van de 4 markten; in de VS is de mix 2,7pp dieper.
+- VS: NIET GESLAAGD (−1,8pp) klopt.
+- Dat EAFE in de steekproef zat, klopt.
+- De stilte-melding werkt: de mutaties op de dagdrempel, de herhaalrem en de vorige maand worden alle drie rood.
+- Punt 4, 5 en 6 zijn opgelost.
+
+**Nog te doen:**
+- **a. [belangrijk, vóór 03-11]** De enige toets in euro's ontbreekt in het register en in de docstring: IWDA 2010-2026, rendement 9,0% tegen 12,4%, daling ×0,65. Daarmee wordt criterium 1 niet gehaald.
+- **b.** "Halveert, ook tegen de mix" is te sterk. De werkelijke factor 2007-2026 ligt tussen ×0,44 en ×0,74.
+- **c.** "Altijd lagere daling" voor de mix geldt tegen 100% WEBN, niet tegen de regel. Met 2008 erin was de mix 41-44% diep en de regel 18-33%.
+- **d.** `besluiten.md` motiveert nog met de vergelijking tegen vasthouden.
+- **e.** Een onterechte ONMEETBAAR-melding als yfinance leeg terugkomt terwijl de maand al in het grootboek staat.
+- **f.** Drie onderdelen zijn niet getoetst: `controleer_volledigheid` in beide takken van `main`, en het `nieuw`-filter.
+- **g.** Faalt een eerdere stap in de workflow, dan wordt de uitstapstap overgeslagen.
+- **h.** Een laat binnengekomen maand tussen twee bekende maanden. Dat is een randgeval.
