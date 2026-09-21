@@ -225,7 +225,17 @@
       "hypothese": "Een uitstapregel (Faber, 10-maandsgemiddelde, gepubliceerd 2007) haalt het grootste deel van de crashdiepte weg voor weinig rendement: 'we moeten niet oneindig uitzitten' (Bart, 21-09).",
       "bron": "research/uitstapregel.py, Amerikaanse markt 1927-2026 (Kenneth French)",
       "benchmark": "de markt vasthouden",
-      "volgende_stap": "Papiertoets NET NIET geslaagd op de vooraf vastgelegde grens: 2007-2026 (buiten de steekproef) daling 18% tegen 50% (2008: -5% tegen -50%), maar rendement 9,2% tegen 11,0% = -1,8pp (grens -1,5pp). 1927-2026: daling 43% tegen 84%, rendement -0,7pp. De afweging is een VOORKEUR van Bart, geen statistische poort: ~1-2pp per jaar inleveren voor crashes van ~20% in plaats van ~50%. Signaal nu (slot aug): WEBN 8% boven het 10-mnd-gemiddelde = in de markt blijven. Wacht op Barts keuze en op zijn beleggingshorizon."
+      "volgende_stap": "Bart koos 21-09 voor stabiel groeien (besluiten.md): de afweging van ~1-2pp per jaar voor crashes van ~20% in plaats van ~50% is daarmee aanvaard. Eerste toets (VS 1927-2026): daling 43% tegen 84%, buiten de steekproef 2007-2026 18% tegen 50%, rendement -1,8pp. Volgende: dezelfde regel op een tweede dataset (ontwikkelde markten, Kenneth French, 1990-2026) en op het fonds dat we echt houden, in euro's; slaagt dat, dan trede 2: een maandelijks signaal voor WEBN/GRID naar Bart (DeGiro heeft geen API)."
+    },
+    "uitstapregel_crypto": {
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-09-21",
+      "soort": "nieuwe_bron",
+      "hypothese": "Dezelfde uitstapregel (10-maandsgemiddelde, niet afgesteld) maakt de kern-crypto (BTC/ETH op Hyperliquid) stabieler: minder diepe dalingen, meer rendement per eenheid daling.",
+      "bron": "Bart 21-09 (stabiel groeien, in- en uitstappen); research/uitstapregel_crypto.py",
+      "benchmark": "BTC/ETH vasthouden",
+      "volgende_stap": "GESTOPT: niet geslaagd op de vooraf vastgelegde criteria. BTC 2015-2026: daling 60% tegen 76% (grens 60% van 76 = 45%), rendement/daling 1,19 tegen 0,88; alleen 2021-2026 haalt beide. ETH 2018-2026: daling 67% tegen 77%, rendement 15% tegen 31% per jaar, rendement/daling slechter. Crypto zakt sneller dan een maandregel reageert. Niet opnieuw proberen met een ander venster op dezelfde data."
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."
