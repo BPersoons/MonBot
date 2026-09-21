@@ -216,6 +216,16 @@
       "bron": "Bart 21-09; de industrie-momentumtoets laat zien dat de radar informatie bevat, maar met risico",
       "benchmark": "WEBN (het fonds dat we bezitten)",
       "volgende_stap": "Ketenanalyse is niet eerlijk terug te toetsen (je kiest de keten met kennis van nu). Daarom vooruit meten, zoals de scorekaart: per kwartaal radar + keten + UCITS-ETF-keuze vastleggen VOORDAT de uitkomst bekend is, en tegen WEBN volgen. Ontwerp maken; geen geld."
+    },
+    "uitstapregel_crash": {
+      "status": "papier",
+      "trede": 1,
+      "sinds": "2026-09-21",
+      "soort": "nieuwe_bron",
+      "hypothese": "Een uitstapregel (Faber, 10-maandsgemiddelde, gepubliceerd 2007) haalt het grootste deel van de crashdiepte weg voor weinig rendement: 'we moeten niet oneindig uitzitten' (Bart, 21-09).",
+      "bron": "research/uitstapregel.py, Amerikaanse markt 1927-2026 (Kenneth French)",
+      "benchmark": "de markt vasthouden",
+      "volgende_stap": "Papiertoets NET NIET geslaagd op de vooraf vastgelegde grens: 2007-2026 (buiten de steekproef) daling 18% tegen 50% (2008: -5% tegen -50%), maar rendement 9,2% tegen 11,0% = -1,8pp (grens -1,5pp). 1927-2026: daling 43% tegen 84%, rendement -0,7pp. De afweging is een VOORKEUR van Bart, geen statistische poort: ~1-2pp per jaar inleveren voor crashes van ~20% in plaats van ~50%. Signaal nu (slot aug): WEBN 8% boven het 10-mnd-gemiddelde = in de markt blijven. Wacht op Barts keuze en op zijn beleggingshorizon."
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."
