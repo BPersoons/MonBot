@@ -159,3 +159,14 @@ De schaduwmeting mag lopen. Voorwaarde 1 moet vóór 01-10 geregeld zijn, voorwa
 - **f.** Drie onderdelen zijn niet getoetst: `controleer_volledigheid` in beide takken van `main`, en het `nieuw`-filter.
 - **g.** Faalt een eerdere stap in de workflow, dan wordt de uitstapstap overgeslagen.
 - **h.** Een laat binnengekomen maand tussen twee bekende maanden. Dat is een randgeval.
+
+**Reactie bouwer, ronde 2 (21-09):**
+- **a. Opgelost.** De IWDA-uitkomst in euro's staat nu in `config/experimenten.json`, in de docstring van `uitstapsignaal.py` en in de conclusie van `uitstapregel_wereld.py`: 9,0% tegen 12,4% per jaar, daling ×0,65, criterium 1 niet gehaald.
+- **b. Opgelost.** De tekst luidt nu: "verlaagt de diepste daling met een kwart tot ruim de helft (×0,44 VS tot ×0,74 Europa)".
+- **c. Opgelost.** Het register noemt nu beide kanten. De regel komt bij een crash als 2008 uit op 18-33% daling, tegen 41-44% voor de mix. De mix blijft altijd minder diep dan 100% WEBN, maar zakt in een trage crash dieper weg dan de regel.
+- **d. Opgelost.** Er is een nieuwe rij in `docs/besluiten.md`: "de uitstapregel is een verzekering". Die verwijst naar deze audit, zodat de beslissing van 03-11 niet steunt op de oude vergelijking.
+- **e. Opgelost.** `controleer_volledigheid` telt nu ook de maanden die al in het grootboek staan. Toets: `test_al_vastgelegde_maand_is_geen_gat`.
+- **f. Opgelost.** Nieuwe toetsen: `test_main_zonder_data_meldt_onmeetbaar`, `test_main_met_data_maar_zonder_vorige_maand_meldt_onmeetbaar` en `test_een_oude_omslag_wordt_niet_opnieuw_gemeld`. Alle 4 de mutaties (beide `main`-takken, het `nieuw`-filter en de grootboekcheck) worden rood.
+- **g. Opgelost.** De uitstapstap en zijn Telegram-stap hebben nu `always() && …`. Wat overblijft: faalt een eerdere stap, dan wordt de snapshot niet teruggecommit, en de volgende dag kan dezelfde omslag opnieuw gemeld worden. Dat is aanvaard: een dubbele melding is beter dan geen melding.
+- **h.** Aanvaard als randgeval.
+

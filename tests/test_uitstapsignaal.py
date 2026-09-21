@@ -126,3 +126,46 @@ def test_ontbrekend_maandslot_na_de_vijfde_meldt_een_keer():
     assert melding and "ONMEETBAAR" in melding and "2026-01" in melding
     assert u.controleer_volledigheid(ledger, rijen, date(2026, 2, 6)) is None    # maar één keer
     assert u.controleer_volledigheid(ledger, [], date(2026, 3, 5))               # ook zonder data
+
+
+class _Vandaag(date):
+    @classmethod
+    def today(cls):
+        return cls(2026, 10, 7)
+
+
+def _main_opzet(monkeypatch, tmp_path, koersen):
+    monkeypatch.setattr(u, "date", _Vandaag)
+    monkeypatch.setattr(u, "LEDGER", str(tmp_path / "ledger.json"))
+    monkeypatch.setattr(u, "_dagkoersen", lambda ticker: koersen)
+    uitvoer = tmp_path / "gh_output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(uitvoer))
+    return uitvoer
+
+
+def test_main_zonder_data_meldt_onmeetbaar(monkeypatch, tmp_path):
+    uitvoer = _main_opzet(monkeypatch, tmp_path, {})
+    u.main(["uitstapsignaal.py", "meet"])
+    assert "triggered=true" in uitvoer.read_text(encoding="utf-8")
+    assert "ONMEETBAAR" in uitvoer.read_text(encoding="utf-8")
+
+
+def test_main_met_data_maar_zonder_vorige_maand_meldt_onmeetbaar(monkeypatch, tmp_path):
+    uitvoer = _main_opzet(monkeypatch, tmp_path, _reeks([100.0 + i for i in range(20)]))  # t/m 2026-08
+    u.main(["uitstapsignaal.py", "meet"])
+    tekst = uitvoer.read_text(encoding="utf-8")
+    assert "triggered=true" in tekst and "2026-09" in tekst
+
+
+def test_al_vastgelegde_maand_is_geen_gat():
+    """Een lege yfinance-dag na het vastleggen is geen ONMEETBAAR (audit r2, bev. e)."""
+    ledger = {"maanden": [{"maand": "2026-09", "slot": 12.0, "stand": "in"}]}
+    assert u.controleer_volledigheid(ledger, [], date(2026, 10, 7)) is None
+
+
+def test_een_oude_omslag_wordt_niet_opnieuw_gemeld():
+    rijen = u.standen(u.maandsloten(_reeks(_twee_omslagen()[:-1]), date(2026, 11, 5)))
+    ledger = {"maanden": []}
+    u.verwerk(ledger, rijen[:-1], [])
+    assert u.verwerk(ledger, rijen, []) is not None
+    assert u.verwerk(ledger, rijen, []) is None, "dezelfde omslag elke werkdag opnieuw"

@@ -65,14 +65,15 @@ jobs:
       # en meldt alleen een omslag. Breekt de scorekaart niet als yfinance hapert.
       - name: Uitstapsignaal WEBN
         id: uitstap
-        if: github.event.schedule != '0 8 * * 1'
+        # always(): ook meten als een eerdere scorekaartstap faalde (audit r2, bev. g)
+        if: always() && github.event.schedule != '0 8 * * 1'
         continue-on-error: true
         run: python research/uitstapsignaal.py meet
 
       # continue-on-error houdt de scorekaart heel, maar een crash mag niet stil blijven:
       # stilte ziet eruit als "nog in" (audit 21-09).
       - name: Telegram bij een omslag of crash van het uitstapsignaal
-        if: steps.uitstap.outputs.triggered == 'true' || steps.uitstap.outcome == 'failure'
+        if: always() && (steps.uitstap.outputs.triggered == 'true' || steps.uitstap.outcome == 'failure')
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}

@@ -115,9 +115,10 @@ def na_de_audit(map_):
             r, x = maat(uu), maat(mix)
             print("  %-16s %s  belegd %.0f%%  regel %+5.1f%%/jaar daling %4.1f%% | mix %+5.1f%%/jaar daling %4.1f%%"
                   % (naam, van, e * 100, r["cagr"], r["dd"], x["cagr"], x["dd"]))
-    print("  => Met 2008 halveert de regel de daling, ook tegen de mix. Zonder zo'n trage crash")
-    print("     (2010-2026) wint de mix: meer rendement bij een gelijke daling. De regel is een")
-    print("     verzekering tegen trage, diepe dalingen, geen beter beleggen.")
+    print("  => Met 2008 verlaagt de regel de diepste daling met een kwart tot ruim de helft, ook")
+    print("     tegen de mix. Zonder zo'n trage crash (2010-2026) wint de mix: meer rendement bij een")
+    print("     ongeveer gelijke daling. De regel is een verzekering tegen trage, diepe dalingen,")
+    print("     geen beter beleggen. In euro's (IWDA 2010-2026) haalt hij criterium 1 niet (x0,65).")
 
 
 if __name__ == "__main__":

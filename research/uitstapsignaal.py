@@ -5,9 +5,12 @@
 
 Besluit Bart 21-09: stabiel groeien, met een in- en uitstaplaag per bezit. De regel (slot
 onder het 10-maandsgemiddelde -> uit, erboven -> in) is op papier een VERZEKERING TEGEN
-TRAGE, DIEPE DALINGEN (1929, 2000-02, 2008), geen beter beleggen. Met 2008 erin halveert hij
-de diepste daling, ook tegen een vaste mix met dezelfde blootstelling. Zonder zo'n daling
-(2010-2026) kost hij 1,4-2,9pp per jaar tegen die mix, bij een gelijke daling. De VS-toets
+TRAGE, DIEPE DALINGEN (1929, 2000-02, 2008), geen beter beleggen. Met 2008 erin verlaagt hij
+de diepste daling met een kwart tot ruim de helft, ook tegen een vaste mix met dezelfde
+blootstelling (2007-2026: x0,44 VS tot x0,74 Europa). Zonder zo'n daling (2010-2026) kost hij
+1,4-2,9pp per jaar tegen die mix, bij een ongeveer gelijke daling. De enige toets in EURO'S,
+op het soort fonds dat we houden (IWDA 2010-2026), haalt criterium 1 niet: rendement 9,0%
+tegen 12,4% per jaar, daling x0,65 (grens x0,60). De VS-toets
 haalde zijn eigen vooraf vastgelegde rendementsgrens niet (-1,8pp, grens -1,5pp). Buiten de VS
 lag 1973-2005 al in Fabers steekproef (EAFE), dus echt nieuw is alleen 2007+, en daarin
 beslist 2008 (audit 21-09, docs/audits/2026-09-21-uitstaplaag.md). Op crypto en losse
@@ -155,7 +158,9 @@ def controleer_volledigheid(ledger, rijen, vandaag):
     """Stilte mag er niet uitzien als 'blijf in'. Ontbreekt het slot van vorige maand op
     dag ONMEETBAAR_NA_DAG nog, dan één melding per ontbrekende maand."""
     vorige = _vorige_maand(vandaag)
-    if vandaag.day < ONMEETBAAR_NA_DAG or vorige in {r[0] for r in rijen}:
+    # Al vastgelegd in een eerdere run telt ook: een lege yfinance-dag daarna is geen gat.
+    bekend = {r[0] for r in rijen} | {m["maand"] for m in ledger.get("maanden", [])}
+    if vandaag.day < ONMEETBAAR_NA_DAG or vorige in bekend:
         return None
     if ledger.get("onmeetbaar_gemeld") == vorige:
         return None
