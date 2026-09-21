@@ -40,6 +40,13 @@ Een kill of een budgetalarm gaat vóór alles: uitvoeren wat het register zegt e
 
 Per poort: meet het criterium uit de bron, noteer de uitkomst. **Nooit oprekken.** Haalt hij het niet, dan geldt de kill of de afgesproken terugval.
 
+## Stap 4b — De motor: beweegt er genoeg? (`docs/MOTOR.md`)
+`python -m utils.motor` toont wat op welke trede staat (idee → papier → schaduw → proeftuin → schalen) en meldt stilstand: een idee dat langer dan een week niet verschoof, een lege trede 0 of 1, of meer dan drie experimenten op de proeftuin.
+
+- Elke week gaat **minstens één idee een trede verder, of het stopt** (met reden in `docs/besluiten.md`).
+- Werk `trede`, `sinds` en `volgende_stap` bij in `config/experimenten.json` zodra er iets verschuift.
+- Een nieuw idee (een tweak of een nieuwe opbrengstbron) komt op trede 0, **zonder potje**.
+
 ## Stap 5 — Tegenspraak (A4, wekelijks; A2 bij elk poortbesluit)
 Schrijf een claimblad (`docs/audits/_sjabloon.md`) met de KPI-stand en de voorgenomen acties. Laat de controle-agent reviewen (`.claude/agents/auditor.md`). Bij A2: geen kapitaalbeweging zonder GO. Noteer de review in `docs/audits/logboek.md`.
 

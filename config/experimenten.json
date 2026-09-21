@@ -36,6 +36,9 @@
       "sleeve": "yield_core",
       "protocol_id": "fluid-fusdc-arbitrum",
       "status": "gepland",
+      "trede": 1,
+      "sinds": "2026-09-19",
+      "volgende_stap": "Wacht op Bart. Advies bouwer (21-09): overslaan — +$13/jaar tegen code-risico op tot $1.619 (65%-cap). Meter voor de poort staat (utils/rendement.py).",
       "mijlpaal": "M3",
       "hypothese": "Fluid fUSDC op Arbitrum levert structureel meer dan Aave Arbitrum (180d gem. 5,46% vs ~2,6%) zonder wezenlijk extra risico.",
       "kpi": "gemeten APR over 14 dagen, flow-gecorrigeerd",
@@ -52,6 +55,9 @@
     "hlp_vault": {
       "sleeve": "house",
       "status": "gepland",
+      "trede": 1,
+      "sinds": "2026-09-19",
+      "volgende_stap": "HLP-APR 3,75% (19-09), maand 6,7%: ver onder de ~8% waarop M5 gebouwd is. Opnieuw wegen als HLP aanhoudend boven ~6% staat.",
       "mijlpaal": "M5",
       "hypothese": "HLP levert over 4 weken geannualiseerd >= benchmark + 3pp bij een drawdown <= 5%.",
       "start_inleg_usd": 500,
@@ -77,6 +83,9 @@
     "basis_traag": {
       "sleeve": "basis",
       "status": "wacht_op_regime",
+      "trede": 1,
+      "sinds": "2026-09-15",
+      "volgende_stap": "Backtest haalt de poort (8,2%), maar het 180d-regime (4,4%) ligt onder de rente. Wacht op de heractivatie-trigger.",
       "verlies_meten_vanaf": null,
       "besluit_2026_09_15": "Backtest-poort gehaald (8,24% netto 2023-2026, elk jaar >= 0), maar huidig regime 180d 4,41% (2x) / 3,31% (1x) < Fluid 5,46%. Spot telt op de unified account niet als onderpand. Niet live; heractiveren op de trigger hieronder.",
       "heractivatie": {
@@ -108,12 +117,56 @@
     "dip_koper": {
       "sleeve": "thematic_exposure",
       "status": "live",
+      "trede": 3,
+      "sinds": "2026-09-20",
+      "volgende_stap": "Live op $255. Meting 20-09: +10,49% in 60 dagen tegen +1,64% voor dezelfde namen vasthouden, maar 12 trades. Eerst de meetgaten dichten; opnieuw wegen bij >= 25 gesloten trades. Evaluatie 25-09.",
       "hypothese": "Index-achtig rendement; geen extra kapitaal (besluit 2026-09-15). Evaluatie 2026-09-25.",
       "alarm": {
         "drawdown_pct": 15.0
       },
       "kill": null,
       "verliesbudget_telt_mee": false
+    },
+    "dip_koper_beursstops": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-09-21",
+      "soort": "tweak",
+      "hypothese": "Stops als reduceOnly-trigger-orders op de beurs beschermen de dip-koper ook als de VM uit staat (sinds het venster van 21-09 elke nacht ~15 uur).",
+      "bron": "gemiste kans uit de waakhond-audit (17-09) en het VM-venster (21-09)",
+      "benchmark": "de huidige software-stop op -25%",
+      "volgende_stap": "Uitzoeken of de xyz-dex trigger-orders ondersteunt en hoe ze te beheren zijn zonder dubbele sluiting (reduceOnly verplicht)."
+    },
+    "pendle_vaste_rente": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-09-21",
+      "soort": "nieuwe_bron",
+      "hypothese": "Pendle PT-tokens (vaste rente tot een einddatum) leveren op USDC structureel meer dan Aave, zonder koersrisico als je tot de einddatum aanhoudt.",
+      "bron": "MASTERPLAN bron C, nooit onderzocht",
+      "benchmark": "Aave v3 Arbitrum (nu 2,92%)",
+      "volgende_stap": "Papier: huidige PT-rentes op Arbitrum voor USDC-achtigen, looptijden, liquiditeit, en het verschil met Aave over dezelfde periode."
+    },
+    "gains_gusdc_house": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-09-19",
+      "soort": "nieuwe_bron",
+      "hypothese": "De Gains gUSDC-vault levert structureel ver boven Aave (180d 8,95%, alles 10,4%) als tegenpartij van handelaren.",
+      "bron": "rentelandschap 19-09",
+      "benchmark": "Aave v3 Arbitrum",
+      "volgende_stap": "Geblokkeerd door onze eigen TVL-vloer ($4,69 mln < $5 mln). Opnieuw bekijken als de TVL erboven komt; dan eerst de epoch-opnames en het tegenpartijrisico op papier."
+    },
+    "morpho_tweede_bestemming": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-09-19",
+      "soort": "nieuwe_bron",
+      "hypothese": "Een Morpho-USDC-vault op Arbitrum is een tweede rentebestemming naast Fluid, zodat de spreidingsregel niet altijd naar één naam wijst.",
+      "bron": "Fluid-audit 19-09, bevinding 12",
+      "benchmark": "Aave v3 Arbitrum",
+      "volgende_stap": "De pool-id's in config/treasury_protocols.json zijn verouderd; zoeken of er een Morpho-USDC-vault boven de TVL-vloer bestaat."
     }
-  }
+  },
+  "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."
 }

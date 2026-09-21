@@ -52,6 +52,11 @@ def test_het_echte_register_voldoet_aan_de_regels():
     with open(pad, encoding="utf-8") as fh:
         register = json.load(fh)
     for naam, e in (register.get("experimenten") or {}).items():
+        # Sinds de motor (docs/MOTOR.md, 21-09): een idee op trede 0 houdt geen geld en heeft
+        # dus GEEN potje; al het andere wel.
+        if e.get("trede") == 0:
+            assert not e.get("sleeve"), "%s is een idee maar heeft een potje" % naam
+            continue
         assert e.get("sleeve"), "%s heeft geen potje" % naam
         if exp.telt_mee_voor_budget(e):
             assert exp.meet_vanaf(e) is not None, (

@@ -9,7 +9,8 @@ lagere kosten en een kern die meegroeit met inleg. Richting voorspellen is weerl
 1. `docs/PLAN_2026-08.md` § **"Plan 2026-09-15"** — doelen H1–H5, KPI's, mijlpalen M1–M7, kaders.
 2. `docs/besluiten.md` — wat al besloten is (niet opnieuw bediscussiëren zonder nieuwe data).
 3. `docs/NAMEN.md` — cryptische codenamen → gewone taal.
-4. `/werkronde` — de vaste volgorde voor autonoom doorwerken.
+4. `docs/MOTOR.md` — de motor: idee → papier → schaduw → proeftuin → schalen. Stand: `python -m utils.motor`.
+5. `/werkronde` — de vaste volgorde voor autonoom doorwerken.
 
 Diepere naslag (letterlijk verplaatst uit deze file op 2026-09-15): `docs/valkuilen.md` ·
 `docs/kasbeheer.md` · `docs/statebestanden.md` · `docs/strategie_historie.md`.
