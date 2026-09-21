@@ -247,6 +247,26 @@
       "bron": "research/uitstapregel_thema.py, 49 Fama-French-industrieën 1927-2026",
       "benchmark": "de industrie vasthouden",
       "volgende_stap": "GESTOPT: 10 van 40 industrieën halen beide criteria over 1927-2026, 27 van 49 over 2007-2026 (grens 2/3). ElcEq en Util allebei niet. Op smalle stukken halveert de regel de daling niet (mediaan x0,70). Geen signaal voor GRID; daar blijft de omvang van het slot het risico-instrument."
+    },
+    "risicopotjes_etf": {
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-09-21",
+      "soort": "nieuwe_bron",
+      "hypothese": "Een bekende risicopremie (momentum, Nasdaq-100, small cap value) in een klein potje levert genoeg extra rendement op voor het extra risico (Bart 21-09: meer risico mag met kleinere delen).",
+      "bron": "research/risicopotjes.py (UCITS in euro's: IS3R, EQQQ, ZPRV tegen IWDA, 2015-03..2026-08)",
+      "benchmark": "kern (IWDA als WEBN-proxy)",
+      "volgende_stap": "GESTOPT op de vooraf vastgelegde criteria (>= kern + 2pp EN daling <= 1,5x kern, beide helften). Nasdaq-100 ruw: +18,0% tegen 10,9%/jaar maar daling 30% tegen 19% (1,6x); met vol-target +12,8% bij daling 18% (gelijk aan de kern), maar in 2021-2026 geen extra rendement. Momentum: +1,9pp heel, -0,9pp 2e helft. Small cap value: minder rendement, meer daling. Venster is uitzonderlijk gunstig voor VS-tech. WEL GEVONDEN: volatility targeting verkleint het risico bij momentum en Nasdaq in beide helften (daling -26 tot -40%, rendement per daling hoger) -> idee crypto_vol_target. Let op: de dip-koper IS in feite een Nasdaq-100-positie (16 jaar gelijk); voor 25-09: doet een EQQQ-positie hetzelfde goedkoper en zonder code?"
+    },
+    "crypto_vol_target": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-09-21",
+      "soort": "tweak",
+      "hypothese": "Volatility targeting (minder beleggen als de koers wild beweegt) verkleint de dalingen van de kern-crypto (BTC/ETH op Hyperliquid) zonder het rendement per eenheid daling te verslechteren. Het MA-uitstapsignaal werkte op crypto niet; dit is een ander mechanisme dat op aandelen wel werkte.",
+      "bron": "research/risicopotjes.py (werkte op momentum en Nasdaq); Moreira & Muir 2017",
+      "benchmark": "BTC/ETH vasthouden",
+      "volgende_stap": "Papier: vooraf vastgelegd, doelvol zonder vooruitkijken (uitdijende mediaan van de eigen vol), BTC en ETH afzonderlijk, beide helften. Automatiseerbaar op HL (reduceOnly bij afbouwen)."
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."
