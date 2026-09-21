@@ -60,6 +60,32 @@ jobs:
             -d disable_web_page_preview=true \
             --data-urlencode "text=${MSG}"
 
+      # --- dagelijks: uitstapsignaal wereldindexfonds (schaduw, trede 2) --------
+      # Legt na een maandslot de stand vast (WEBN boven/onder zijn 10-maandsgemiddelde)
+      # en meldt alleen een omslag. Breekt de scorekaart niet als yfinance hapert.
+      - name: Uitstapsignaal WEBN
+        id: uitstap
+        if: github.event.schedule != '0 8 * * 1'
+        continue-on-error: true
+        run: python research/uitstapsignaal.py meet
+
+      - name: Telegram bij een omslag van het uitstapsignaal
+        if: steps.uitstap.outputs.triggered == 'true'
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MSG: ${{ steps.uitstap.outputs.message }}
+        run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
+            echo "::warning::Telegram-secrets ontbreken — melding overgeslagen"
+            exit 0
+          fi
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT}" \
+            -d parse_mode=HTML \
+            -d disable_web_page_preview=true \
+            --data-urlencode "text=${MSG}"
+
       # --- maandag: herscoring-agenda -----------------------------------------
       - name: Herscoring-agenda
         id: agenda
@@ -147,7 +173,7 @@ jobs:
         run: |
           git config user.name  "scorekaart-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/tracking.json research/metrics_history.json
+          git add research/tracking.json research/metrics_history.json research/uitstap_signaal.json
           if git diff --staged --quiet; then
             echo "Geen wijziging in de meetbestanden."
           else

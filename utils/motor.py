@@ -21,6 +21,11 @@ STIL_NA_DAGEN = 7            # het weekritme: elke week minstens één stap
 # Trede 1 kan terecht wachten (op een marktregime, op Bart); die tellen niet als stilstand
 # zolang de status dat zegt.
 WACHTSTATUSSEN = {"wacht_op_regime", "gepland"}
+# Een vooruitmeting (trede 2) kan alleen verder als er nieuwe data komt, bijvoorbeeld een
+# maandslot. Ze telt niet als stilstand, maar MOET een herzien-datum dragen; daarna meldt
+# de motor haar weer, zodat niets ongemerkt eeuwig in de schaduw blijft staan.
+VOORUITMETING = "meet_vooruit"
+GESTOPT = "gestopt"
 
 
 def _dagen_sinds(tekst, vandaag):
@@ -31,12 +36,17 @@ def _dagen_sinds(tekst, vandaag):
 
 
 def stand(register: dict, vandaag: date | None = None) -> dict:
-    """{'per_trede': {trede: [...]}, 'signalen': [...], 'zonder_trede': [...]}."""
+    """{'per_trede': {trede: [...]}, 'gestopt': [...], 'signalen': [...], 'zonder_trede': [...]}."""
     vandaag = vandaag or date.today()
     per_trede = {t: [] for t in TREDEN}
-    zonder, signalen = [], []
+    zonder, signalen, gestopt = [], [], []
     for naam, e in (register.get("experimenten") or {}).items():
         if not isinstance(e, dict):
+            continue
+        # Een gestopt experiment is een uitkomst, geen voorraad: het staat niet stil en het
+        # vult geen trede (anders lijkt de motor te lopen terwijl er niets meer op papier ligt).
+        if e.get("status") == GESTOPT:
+            gestopt.append(naam)
             continue
         trede = e.get("trede")
         if trede not in TREDEN:
@@ -45,7 +55,14 @@ def stand(register: dict, vandaag: date | None = None) -> dict:
         dagen = _dagen_sinds(e.get("sinds"), vandaag)
         per_trede[trede].append({"naam": naam, "status": e.get("status"), "dagen": dagen,
                                  "soort": e.get("soort"), "volgende_stap": e.get("volgende_stap")})
-        if trede in (0, 1, 2) and e.get("status") not in WACHTSTATUSSEN:
+        if e.get("status") == VOORUITMETING:
+            herzien = _dagen_sinds(e.get("herzien"), vandaag)
+            if herzien is None:
+                signalen.append("%s meet vooruit maar heeft geen 'herzien'-datum" % naam)
+            elif herzien > 0:
+                signalen.append("%s: herzien-datum %s is voorbij — een stap verder of stoppen"
+                                % (naam, e.get("herzien")))
+        elif trede in (0, 1, 2) and e.get("status") not in WACHTSTATUSSEN:
             if dagen is None:
                 signalen.append("%s: geen datum bij 'sinds' — stilstand niet te meten" % naam)
             elif dagen > STIL_NA_DAGEN:
@@ -66,7 +83,7 @@ def stand(register: dict, vandaag: date | None = None) -> dict:
             signalen.append("trede %d (%s) is leeg — de motor loopt droog" % (t, TREDEN[t]))
     for naam in zonder:
         signalen.append("%s heeft geen geldige trede" % naam)
-    return {"per_trede": per_trede, "signalen": signalen, "zonder_trede": zonder}
+    return {"per_trede": per_trede, "gestopt": gestopt, "signalen": signalen, "zonder_trede": zonder}
 
 
 def rapport(register: dict | None = None, vandaag: date | None = None) -> int:
@@ -81,6 +98,9 @@ def rapport(register: dict | None = None, vandaag: date | None = None) -> int:
             dagen = "?" if e["dagen"] is None else "%dd" % e["dagen"]
             print("  - %-26s %-16s %5s  %s" % (e["naam"], e["status"] or "", dagen,
                                                (e["volgende_stap"] or "")[:90]))
+    if s["gestopt"]:
+        print()
+        print("gestopt (%d): %s" % (len(s["gestopt"]), ", ".join(s["gestopt"])))
     print()
     if s["signalen"]:
         print("SIGNALEN")

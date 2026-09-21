@@ -1,0 +1,143 @@
+{
+  "_comment": "Schaduwreeks van het uitstapsignaal (research/uitstapsignaal.py). Alleen toevoegen; teruggerekende maanden zijn gemarkeerd.",
+  "instrument": "WEBN.DE",
+  "venster_maanden": 10,
+  "maanden": [
+    {
+      "maand": "2025-04",
+      "slot": 9.293,
+      "gem10": 9.9009,
+      "stand": "uit",
+      "controle_stand": "uit",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2025-05",
+      "slot": 9.88,
+      "gem10": 9.9347,
+      "stand": "uit",
+      "controle_stand": "uit",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2025-06",
+      "slot": 9.98,
+      "gem10": 9.9864,
+      "stand": "uit",
+      "controle_stand": "uit",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2025-07",
+      "slot": 10.474,
+      "gem10": 10.0713,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2025-08",
+      "slot": 10.434,
+      "gem10": 10.1438,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2025-09",
+      "slot": 10.734,
+      "gem10": 10.183,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2025-10",
+      "slot": 11.236,
+      "gem10": 10.2822,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2025-11",
+      "slot": 11.178,
+      "gem10": 10.3322,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2025-12",
+      "slot": 11.238,
+      "gem10": 10.412,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2026-01",
+      "slot": 11.336,
+      "gem10": 10.5783,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2026-02",
+      "slot": 11.526,
+      "gem10": 10.8016,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2026-03",
+      "slot": 10.914,
+      "gem10": 10.905,
+      "stand": "in",
+      "controle_stand": "uit",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2026-04",
+      "slot": 11.872,
+      "gem10": 11.0942,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2026-05",
+      "slot": 12.574,
+      "gem10": 11.3042,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2026-06",
+      "slot": 12.74,
+      "gem10": 11.5348,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2026-07",
+      "slot": 12.558,
+      "gem10": 11.7172,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    },
+    {
+      "maand": "2026-08",
+      "slot": 12.844,
+      "gem10": 11.878,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": true
+    }
+  ]
+}

@@ -86,3 +86,26 @@ def test_het_echte_register_is_geldig():
     s = motor.stand(reg, VANDAAG)
     assert s["zonder_trede"] == []
     assert not any("potje" in x for x in s["signalen"])
+
+
+def test_vooruitmeting_is_geen_stilstand_tot_de_herzien_datum():
+    """Een schaduwsignaal wacht op maandsloten; pas na de herzien-datum moet het verder."""
+    basis = {"b": {"trede": 0, "status": "idee", "sinds": "2026-09-20"},
+             "c": {"trede": 1, "status": "papier", "sinds": "2026-09-20"}}
+    s = motor.stand(_reg(a={"trede": 2, "status": "meet_vooruit", "sinds": "2026-08-01",
+                            "herzien": "2026-11-03"}, **basis), VANDAAG)
+    assert s["signalen"] == []
+    s = motor.stand(_reg(a={"trede": 2, "status": "meet_vooruit", "sinds": "2026-08-01",
+                            "herzien": "2026-11-03"}, **basis), date(2026, 11, 4))
+    assert any("herzien-datum" in x for x in s["signalen"])
+    s = motor.stand(_reg(a={"trede": 2, "status": "meet_vooruit", "sinds": "2026-09-20"}, **basis), VANDAAG)
+    assert any("geen 'herzien'" in x for x in s["signalen"])
+
+
+def test_gestopt_is_geen_stilstand_en_vult_geen_trede():
+    """Een gestopte papiertoets is klaar. Staat er verder niets op papier, dan loopt de motor droog."""
+    s = motor.stand(_reg(a={"trede": 1, "status": "gestopt", "sinds": "2026-08-01"},
+                         b={"trede": 0, "status": "idee", "sinds": "2026-09-20"}), VANDAAG)
+    assert not any(x.startswith("a ") for x in s["signalen"])
+    assert s["gestopt"] == ["a"] and s["per_trede"][1] == []
+    assert any("trede 1 (papier) is leeg" in x for x in s["signalen"])

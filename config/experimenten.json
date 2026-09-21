@@ -218,14 +218,15 @@
       "volgende_stap": "Ketenanalyse is niet eerlijk terug te toetsen (je kiest de keten met kennis van nu). Daarom vooruit meten, zoals de scorekaart: per kwartaal radar + keten + UCITS-ETF-keuze vastleggen VOORDAT de uitkomst bekend is, en tegen WEBN volgen. Ontwerp maken; geen geld."
     },
     "uitstapregel_crash": {
-      "status": "papier",
-      "trede": 1,
+      "status": "meet_vooruit",
+      "trede": 2,
       "sinds": "2026-09-21",
       "soort": "nieuwe_bron",
-      "hypothese": "Een uitstapregel (Faber, 10-maandsgemiddelde, gepubliceerd 2007) haalt het grootste deel van de crashdiepte weg voor weinig rendement: 'we moeten niet oneindig uitzitten' (Bart, 21-09).",
-      "bron": "research/uitstapregel.py, Amerikaanse markt 1927-2026 (Kenneth French)",
+      "hypothese": "Een uitstapregel (Faber, 10-maandsgemiddelde, gepubliceerd 2007) haalt het grootste deel van de crashdiepte weg voor ~1-3pp rendement per jaar: 'we moeten niet oneindig uitzitten' (Bart, 21-09). Alleen voor het wereldindexfonds (WEBN).",
+      "bron": "research/uitstapregel.py (VS 1927-2026), research/uitstapregel_wereld.py (buiten de VS en Europa 1991-2026), research/uitstapsignaal.py (schaduw, GitHub Actions), research/uitstap_signaal.json",
       "benchmark": "de markt vasthouden",
-      "volgende_stap": "Bart koos 21-09 voor stabiel groeien (besluiten.md): de afweging van ~1-2pp per jaar voor crashes van ~20% in plaats van ~50% is daarmee aanvaard. Eerste toets (VS 1927-2026): daling 43% tegen 84%, buiten de steekproef 2007-2026 18% tegen 50%, rendement -1,8pp. Volgende: dezelfde regel op een tweede dataset (ontwikkelde markten, Kenneth French, 1990-2026) en op het fonds dat we echt houden, in euro's; slaagt dat, dan trede 2: een maandelijks signaal voor WEBN/GRID naar Bart (DeGiro heeft geen API)."
+      "volgende_stap": "Papier geslaagd op drie brede markten (daling ongeveer gehalveerd, rendement/daling beter; kosten 0-2pp per jaar, in euro's 2010-2026 3,4pp door een lange stijging zonder diepe crash). Schaduw loopt sinds 21-09: elke maandslot vastgelegd, Telegram alleen bij een omslag. Stand aug: IN (+8,1%). Herzien 03-11: sep- en okt-slot goed vastgelegd (koers binnen 1% van DeGiro) -> het signaal geldt als advies aan Bart; hij voert uit.",
+      "herzien": "2026-11-03"
     },
     "uitstapregel_crypto": {
       "status": "gestopt",
@@ -236,6 +237,16 @@
       "bron": "Bart 21-09 (stabiel groeien, in- en uitstappen); research/uitstapregel_crypto.py",
       "benchmark": "BTC/ETH vasthouden",
       "volgende_stap": "GESTOPT: niet geslaagd op de vooraf vastgelegde criteria. BTC 2015-2026: daling 60% tegen 76% (grens 60% van 76 = 45%), rendement/daling 1,19 tegen 0,88; alleen 2021-2026 haalt beide. ETH 2018-2026: daling 67% tegen 77%, rendement 15% tegen 31% per jaar, rendement/daling slechter. Crypto zakt sneller dan een maandregel reageert. Niet opnieuw proberen met een ander venster op dezelfde data."
+    },
+    "uitstapregel_thema": {
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-09-21",
+      "soort": "tweak",
+      "hypothese": "Dezelfde uitstapregel werkt ook op een thema (GRID, stroom en net), dus op een smal stuk van de markt.",
+      "bron": "research/uitstapregel_thema.py, 49 Fama-French-industrieën 1927-2026",
+      "benchmark": "de industrie vasthouden",
+      "volgende_stap": "GESTOPT: 10 van 40 industrieën halen beide criteria over 1927-2026, 27 van 49 over 2007-2026 (grens 2/3). ElcEq en Util allebei niet. Op smalle stukken halveert de regel de daling niet (mediaan x0,70). Geen signaal voor GRID; daar blijft de omvang van het slot het risico-instrument."
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."
