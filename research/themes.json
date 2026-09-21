@@ -166,6 +166,20 @@
      "wat": "CEZ (Tsjechië) early works met Rolls-Royce SMR",
      "bron": "CEZ/Rolls-Royce",
      "datum": "2026"
+    },
+    {
+     "bedrag": "2,7 mld dollar",
+     "wat": "DOE-toekenningen voor binnenlandse LEU/HALEU-verrijking over tien jaar, afhankelijk van mijlpalen en begrotingen; o.a. $900 mln elk voor Centrus, General Matter en Orano",
+     "bron": "ANS Nuclear Newswire, 'DOE awards $2.7B for HALEU and LEU enrichment'",
+     "datum": "2026-01-06",
+     "url": "https://www.ans.org/news/2026-01-06/article-7652/doe-awards-27b-for-haleu-and-leu-enrichment/"
+    },
+    {
+     "bedrag": "900 mln dollar (1,07 mld met opties)",
+     "wat": "Centrus HALEU-contract definitief; eerste nieuwe capaciteit in Piketon (Ohio) verwacht in 2029",
+     "bron": "NucNet, 'Centrus finalises $900 million HALEU enrichment contract with US DOE'",
+     "datum": "2026",
+     "url": "https://www.nucnet.org/news/centrus-finalises-usd900-million-haleu-enrichment-contract-with-us-doe-7-5-2026"
     }
    ],
    "verdict": "VOLGEN",
@@ -187,7 +201,31 @@
     "let_op": "Het oordeel 'geen enkel fonds drukt de these uit' is uitsluitend op VS-fondsen gebaseerd. De Europese plank (o.a. Global X Uranium UCITS, VanEck Uranium and Nuclear Technologies) is NIET bekeken; die mandjes wijken af. Openstaand.",
     "gevonden_op": "2026-08-20"
    },
-   "barbell_slot": null
+   "barbell_slot": null,
+   "herziening_2026_09_21": {
+    "vraag": "Europese UCITS-fondsen alsnog bekeken (open punt van 20-08) en de verrijkingsschakel als uitschieterkandidaat.",
+    "benchmark_prijs_bij_analyse": 209.0850067138672,
+    "benchmark_asof": "2026-09-21",
+    "hardheid_geld": "4 - overheidscontract (DOE $2,7 mld over tien jaar, Centrus $900 mln getekend), maar afhankelijk van mijlpalen en jaarlijkse begrotingen; geen 5.",
+    "instrument_ucits": {
+     "VanEck Uranium and Nuclear Technologies UCITS (IE000M7V94E1)": "EUR 1,9 mld, TER 0,55%, opgericht 03-02-2023. Top-10 per 31-07-2026: Cameco 14,12%, Sprott Physical Uranium 7,35%, NexGen 7,11%, Oklo 6,51%, IHI 6,05%, Hitachi 5,75%, Fuji Electric 5,62%, AtkinsRealis 5,59%, Mitsubishi Heavy 5,49%, Samsung C&T 4,78%. Centrus staat niet in de 25 getoonde posities: de verrijkingsschakel is ~0% van het fonds. Mijnbouw, fysiek uranium en brede industrie, niet het tolhuisje.",
+     "Global X Uranium UCITS (IE000NDWFGA5)": "EUR 584 mln, TER 0,65%, opgericht 20-04-2022. Holdings niet op te halen: ? (niet nul)."
+    },
+    "losse_naam": "Centrus Energy (LEU) is de enige beursgenoteerde westerse verrijker: marktwaarde ~$3 mld, -65% t.o.v. 52w-top, -48% in een jaar; omzet vlak (~$0,1-0,2 mld per kwartaal), brutomarge wisselend (-6% tot 41%), PE 82 nu, 41 vooruit (yfinance 21-09-2026). Niet op Hyperliquid; als los aandeel wel koopbaar bij DeGiro (PRIIPs geldt alleen voor fondsen).",
+    "sentiment_tegen_cijfers": "Sentiment negatief, maar de cijfers tonen (nog) niets beters: het DOE-geld wordt pas vanaf 2029 capaciteit. Dit is NIET het patroon 'sentiment slecht, cijfers goed'; het is een wedden op 2029.",
+    "drukte": "Nieuwe uitgifte in 2026 (X-energy IPO, S-1/424B4 bij de SEC) = de menigte was er; de sector staat nu 30-65% onder de toppen (Centrus -65%, BWXT -38%, Cameco -31%) = de menigte vertrekt.",
+    "uitschieterpotentieel": "Hoog: klein ($3 mld), enige speler in een schakel met overheidsgeld. Maar het is een wedden op uitvoering tot 2029.",
+    "verdict": "VOLGEN (ongewijzigd)",
+    "wacht_voorwaarden": [
+     "Het DOE-geld wordt zichtbaar in de gerapporteerde cijfers van Centrus: orderportefeuille of omzet uit de HALEU-opdracht stijgt in een kwartaalrapport",
+     "of: de Russische importban leidt tot aantoonbaar hogere verrijkingsprijzen in de rapportages"
+    ],
+    "these_breuk": [
+     "DOE-mijlpalen gemist of begroting niet verlengd",
+     "Russisch verrijkt uranium blijft via ontheffingen binnenkomen",
+     "Urenco/Orano breiden in de VS sneller uit en nemen de schaarste weg"
+    ]
+   }
   },
   {
    "naam": "Defensie (Europa)",
@@ -361,7 +399,82 @@
     },
     "gevonden_op": "2026-08-20"
    },
-   "barbell_slot": "SEMIS"
+   "barbell_slot": "SEMIS",
+   "herziening_2026_09_21": {
+    "vraag": "Uitschieterpotje (Bart 21-09): het tolhuisje zelf (ASML + TSMC) als bewuste overweging, niet het brede thema.",
+    "benchmark_prijs_bij_analyse": 209.0850067138672,
+    "benchmark_asof": "2026-09-21",
+    "poort_3_voor_de_schakel": "PASS - TSMC 1,78% en ASML < 1,32% (niet in de top-10) van WEBN, samen hooguit ~3%, tegen 25% voor het brede thema (justETF, holdings 23-07-2026). Het brede thema blijft AFVALLER.",
+    "cijfers": {
+     "TSMC": "omzet 2e kw 2026 NT$1.270 mld, +36% j/j; brutomarge 59% -> 68% over vier kwartalen (prijsmacht zichtbaar); PE 33 nu, 20 vooruit; -8% t.o.v. 52w-top, +68% in een jaar (yfinance 21-09-2026)",
+     "ASML": "omzet 2e kw 2026 EUR 9,3 mld, +21% j/j; brutomarge stabiel 52-54%; PE 58 nu, 29 vooruit; -14% t.o.v. 52w-top, +83% in een jaar (yfinance 21-09-2026)"
+    },
+    "sentiment_tegen_cijfers": "Geen negatief sentiment: beide dicht bij de top na een sterk jaar. De cijfers steunen de these (TSMC-marge stijgt), maar er is geen korting.",
+    "uitschieterpotentieel": "Laag: marktwaarde $2.285 mld (TSMC) en $652 mld (ASML). Een kwaliteitstolhuisje, geen kandidaat voor 5-10x.",
+    "instrument": "xyz:TSM en xyz:ASML op Hyperliquid (automatisch uitvoerbaar). Let op: perps kosten funding; de dip-koper betaalde ~4-5% per jaar op zijn notional (jul-sep 2026).",
+    "oordeel": "Kandidaat voor een KWALITEITS-overweging, niet voor het uitschieterdeel."
+   }
+  },
+  {
+   "naam": "Geheugen (HBM/DRAM)",
+   "geanalyseerd_op": "2026-09-21",
+   "benchmark_prijs_bij_analyse": 209.0850067138672,
+   "benchmark_asof": "2026-09-21",
+   "keten": [
+    "chipmachines (o.a. lithografie, depositie)",
+    "DRAM-fabrieken (SK Hynix, Samsung, Micron)",
+    "HBM-stapeling (TSV)",
+    "advanced packaging (TSMC CoWoS)",
+    "AI-versnellers (Nvidia, AMD, eigen chips)",
+    "hyperscalers"
+   ],
+   "tolhuisje_schakel": "geen structureel tolhuisje: HBM is nu krap bij drie leveranciers, maar dat is tijdelijke krapte",
+   "tolhuisje_soort": "technologie (maar uitwisselbaar tussen drie gekwalificeerde leveranciers)",
+   "poorten": {
+    "vastgelegd_geld": "PASS - redelijk: hyperscaler-capex 2026 $725 mld, door de bedrijven zelf afgegeven en herroepbaar (zelfde bron als de AI-kaart)",
+    "tolhuisje": "FAIL - uitwisselbaar product (JEDEC-standaard, drie gekwalificeerde leveranciers) met kapitaalintensieve productie: precies wat CONVICTION_BARBELL_PLAN uitsluit. Eén cyclus geleden: nettoverlies 2023 SK Hynix -KRW 9.112 mld, Micron -$5,8 mld (yfinance jaarcijfers). Slot 1 noemde Micron al 'commodity-geheugen'.",
+    "niet_al_in_kern": "deels - Micron 1,32% van WEBN (top-10, justETF 23-07-2026)"
+   },
+   "scores": {
+    "hardheid_geld": 3,
+    "aard_tolhuisje": 1,
+    "fase_doorbraak": 5,
+    "drukte": 1,
+    "instrumenteerbaarheid": "n.v.t."
+   },
+   "score_toelichting": {
+    "fase_doorbraak": "omzet SK Hynix KRW 22 -> 79 bln per kwartaal (2e kw 2025 -> 2e kw 2026), Micron $9,3 -> 41,5 mld; brutomarge 54% -> 83% resp. 38% -> 85% (yfinance)",
+    "drukte": "koers in een jaar: SK Hynix +581%, Micron +539%, Samsung +280% (yfinance 21-09-2026)"
+   },
+   "sentiment_tegen_cijfers": "SK Hynix staat 36% onder de top terwijl de cijfers nog stijgen, met een verwachte koers-winstverhouding van 4 (Micron 6,6, Samsung 3,9). Dat LIJKT 'sentiment slecht, cijfers goed', maar bij cyclische bedrijven is een lage verwachte PE bij recordmarges het klassieke topsignaal: de markt prijst de terugval van de winst al in. Les: sentiment-tegen-cijfers moet sectorbewust gelezen worden.",
+   "bronnen": [
+    {
+     "bedrag": "KRW -9.112 mld",
+     "wat": "nettoresultaat SK Hynix 2023",
+     "bron": "yfinance income_stmt (jaarrekening)",
+     "datum": "2026-09-21"
+    },
+    {
+     "bedrag": "$-5,8 mld",
+     "wat": "nettoresultaat Micron boekjaar 2023",
+     "bron": "yfinance income_stmt (jaarrekening)",
+     "datum": "2026-09-21"
+    },
+    {
+     "bedrag": "1,32%",
+     "wat": "gewicht Micron in WEBN",
+     "bron": "justETF, holdings Amundi Prime All Country World per 23-07-2026",
+     "datum": "2026-09-21"
+    }
+   ],
+   "verdict": "AFVALLER",
+   "afvalreden": "Poort 2: geen structureel tolhuisje; uitwisselbaar, kapitaalintensief en cyclisch (verlies in 2023, recordmarges in 2026).",
+   "these_breuk": [
+    "n.v.t. (afvaller)"
+   ],
+   "wacht_voorwaarden": [],
+   "opmerking": "AFVALLER betekent niet dat geheugen nu slecht gaat; het gaat uitzonderlijk goed. Het betekent dat er geen blijvende prijsmacht is, en dat instappen na +500% met recordmarges een wedden op timing is.",
+   "barbell_slot": null
   }
  ],
  "_instrument_waarschuwing": "De instrumenten hieronder zijn Amerikaans genoteerd en voor een Europese particulier NIET koopbaar (PRIIPs/KID, geldt bij elke broker). Dat is prima om de keten te meten en om holdings als kandidatenbron te gebruiken -- er komen namen uit, geen fonds. Maar een thema-slot vullen vraagt de UCITS-variant, EN die volgt vaak een andere indexvariant, dus de gemeten overlap draagt NIET over. Hermeten voor aankoop. Zie docs/FONDSKEUZE_METHODE.md, sectie 'Wat je kunt meten is niet wat je kunt kopen'.",
