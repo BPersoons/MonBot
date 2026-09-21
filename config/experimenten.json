@@ -267,6 +267,16 @@
       "bron": "research/risicopotjes.py (werkte op momentum en Nasdaq); Moreira & Muir 2017",
       "benchmark": "BTC/ETH vasthouden",
       "volgende_stap": "Papier: vooraf vastgelegd, doelvol zonder vooruitkijken (uitdijende mediaan van de eigen vol), BTC en ETH afzonderlijk, beide helften. Automatiseerbaar op HL (reduceOnly bij afbouwen)."
+    },
+    "uitschieterpotje": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-09-21",
+      "soort": "nieuwe_bron",
+      "hypothese": "Een klein, begrensd potje met veel kleine inzetten op mogelijke uitschieters (thema's, scorekaartnamen) levert via een paar grote winnaars meer op dan de kern, terwijl het verlies nooit groter wordt dan het potje (Bart 21-09: 'een deel inzetten op grote uitschieters, maar slim').",
+      "bron": "Bart 21-09; scorekaart (research/, 20 namen vooruit gemeten), thema_radar_keten, dip-koper-infrastructuur",
+      "benchmark": "kern (WEBN) over dezelfde periode",
+      "volgende_stap": "Ontwerp: vast budget (omvang: Bart), 8-10 gelijke posities, geen hefboom, winnaars laten lopen (geen winstnemen voor +100%, daarna ruime trailing stop), boven 2x budget het overschot naar de kern. Keuze per naam vooraf vastgelegd en VOORUIT gemeten (niet terug getoetst). Kandidaat-uitvoering: de dip-koper-wallet (xyz-aandelen, automatisch) na de evaluatie van 25-09."
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."
