@@ -1987,7 +1987,9 @@ class TreasuryAgent:
             if not asset or size <= 0:
                 return False
 
-            order = self.exchange_client.create_order(asset, "BUY", size, order_type="market")
+            # reduce_only: bestaat de short niet (meer), dan opent een gewone BUY een long.
+            order = self.exchange_client.create_order(asset, "BUY", size, order_type="market",
+                                                      reduce_only=True)
             if not order:
                 logger.error(f"TreasuryAgent: harvest close — order failed for {asset}")
                 return False

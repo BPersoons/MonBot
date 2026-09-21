@@ -88,9 +88,36 @@ def main(map_):
         ok = ok and c1 and c2
         print("  %-16s %-5s 1 daling <= 60%% %-3s | 2 rendement/daling beter %-3s"
               % (naam, periode, "JA" if c1 else "NEE", "JA" if c2 else "NEE"))
-    print("  => %s" % ("GESLAAGD — naar trede 2: maandsignaal WEBN/GRID in de schaduw" if ok
-                       else "NIET GESLAAGD"))
+    print("  => %s" % ("GESLAAGD op de vooraf vastgelegde criteria" if ok else "NIET GESLAAGD"))
+    na_de_audit(map_)
     return 0
+
+
+def na_de_audit(map_):
+    """Toegevoegd NA de audit van 21-09; verandert het vooraf vastgelegde oordeel niet, maar
+    zegt wat het waard is. Twee vragen die de criteria niet stelden:
+    1. Tegen een VASTE MIX met dezelfde gemiddelde blootstelling (markt x e + kas x (1-e)):
+       100% vasthouden is de verkeerde maatstaf voor een regel die 70-80% belegd is.
+    2. ZONDER 2008 (2010-2026): Faber gebruikte EAFE 1973-2005 al, dus buiten de VS is pas
+       2007+ nieuw, en daarin beslist 2008."""
+    print()
+    print("NA DE AUDIT (informatie): regel tegen een vaste mix met dezelfde blootstelling")
+    for naam, bestand in (("VS", "F-F_Research_Data_Factors.csv"),
+                          ("Developed ex US", "Developed_ex_US_3_Factors.csv"),
+                          ("Europa", "Europe_3_Factors.csv"),
+                          ("Developed", "Developed_3_Factors.csv")):
+        m, u, b = reeks(map_ + "/" + bestand)
+        rf = lees_blok(map_ + "/" + bestand, "Mkt-RF")["RF"].reindex(m.index)
+        for van in ("2007-01", "2010-01"):
+            mm, uu, rr = (plak(x, van, "2026-12") for x in (m, u, rf))
+            e = plak(b.astype(float), van, "2026-12").mean()
+            mix = e * mm + (1 - e) * rr
+            r, x = maat(uu), maat(mix)
+            print("  %-16s %s  belegd %.0f%%  regel %+5.1f%%/jaar daling %4.1f%% | mix %+5.1f%%/jaar daling %4.1f%%"
+                  % (naam, van, e * 100, r["cagr"], r["dd"], x["cagr"], x["dd"]))
+    print("  => Met 2008 halveert de regel de daling, ook tegen de mix. Zonder zo'n trage crash")
+    print("     (2010-2026) wint de mix: meer rendement bij een gelijke daling. De regel is een")
+    print("     verzekering tegen trage, diepe dalingen, geen beter beleggen.")
 
 
 if __name__ == "__main__":

@@ -69,12 +69,14 @@ jobs:
         continue-on-error: true
         run: python research/uitstapsignaal.py meet
 
-      - name: Telegram bij een omslag van het uitstapsignaal
-        if: steps.uitstap.outputs.triggered == 'true'
+      # continue-on-error houdt de scorekaart heel, maar een crash mag niet stil blijven:
+      # stilte ziet eruit als "nog in" (audit 21-09).
+      - name: Telegram bij een omslag of crash van het uitstapsignaal
+        if: steps.uitstap.outputs.triggered == 'true' || steps.uitstap.outcome == 'failure'
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
-          MSG: ${{ steps.uitstap.outputs.message }}
+          MSG: "${{ steps.uitstap.outcome == 'failure' && '<b>Uitstapsignaal WEBN - GECRASHT</b> stand onbekend, zie de Actions-log.' || steps.uitstap.outputs.message }}"
         run: |
           if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
             echo "::warning::Telegram-secrets ontbreken — melding overgeslagen"

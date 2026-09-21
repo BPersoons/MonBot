@@ -67,6 +67,18 @@ def _lees_json(pad, standaard):
         return standaard
 
 
+def _lees_dip_koper(pad=None):
+    """(inhoud, onleesbaar). Bestaat het positiebestand maar is het onleesbaar, dan staat
+    de dip-koper stil (hij weigert een leeg potje aan te nemen) en zou deze meting nul
+    open posities tellen: dat moet een alarm zijn, geen 'niets aan de hand'."""
+    pad = pad or THEMATIC_FILE
+    inhoud = _lees_json(pad, None)
+    geldig = isinstance(inhoud, dict) and isinstance(inhoud.get("positions", {}), dict)
+    if geldig:
+        return inhoud, False
+    return {}, bool(os.path.lexists(pad))
+
+
 def _schrijf_json(pad, data):
     map_ = os.path.dirname(pad)
     if map_:
@@ -258,7 +270,7 @@ def lees_metingen(register, nu=None):
 
     # Stops van de dip-koper bestaan alleen in software. Werkt hij zijn open posities
     # niet meer bij, dan staat het beheer stil — zonder logregel (CLAUDE.md).
-    them = _lees_json(THEMATIC_FILE, {}) or {}
+    them, m["dip_koper_onleesbaar"] = _lees_dip_koper()
     open_pos = [p for p in (them.get("positions") or {}).values()
                 if isinstance(p, dict) and str(p.get("status", "")).upper() == "OPEN"]
     laatst_bij = max((flows._epoch(p.get("last_updated")) or 0.0 for p in open_pos), default=0.0)
@@ -433,6 +445,10 @@ def evalueer(m, state, register, stromen=(), nu=None):
     if m.get("kpi_onmeetbaar"):
         meld("meting_kpi", "alarm", "meting",
              "KPI's onmeetbaar: %s" % ", ".join(map(str, m["kpi_onmeetbaar"])))
+    if m.get("dip_koper_onleesbaar"):
+        meld("dip_koper_onleesbaar", "alarm", "meting",
+             "Positiebestand van de dip-koper is onleesbaar — hij staat stil en beheert "
+             "zijn open posities niet (stops bestaan alleen in software)")
     stil = m.get("dip_koper_stilstand_min")
     max_stil = float(globaal.get("dip_koper_max_stilstand_minuten", 180))
     if stil is not None and stil > max_stil:

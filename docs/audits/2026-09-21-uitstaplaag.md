@@ -73,7 +73,46 @@ geen API) en tijdens de schaduwfase is het signaal een advies.
 ---
 
 ## Audit
-*(in te vullen door de controle-agent)*
+
+### Controle-agent, ronde 1 (21-09): **GO-mits**
+De schaduwmeting mag lopen. Voorwaarde 1 moet vóór 01-10 geregeld zijn, voorwaarden 2 en 3 vóór de poort van 03-11.
+*(De bouwer heeft dit oordeel letterlijk overgenomen: de controle-agent heeft alleen leesrechten.)*
+
+1. **[belangrijk, vóór 01-10] De schaduwmelding geeft een verkoopopdracht** ("verkoop WEBN en parkeer…", `uitstapsignaal.py:113-117`), terwijl het signaal pas na 03-11 advies is. Tot die poort hoort er "SCHADUW — geen actie" te staan.
+2. **[belangrijk, vóór 03-11] Het papieren oordeel is mooier opgeschreven dan het is.**
+   - **(a) De VS-toets is niet geslaagd** op het vooraf vastgelegde criterium: het rendement was 1,8pp lager, de grens was 1,5pp. De maat "rendement per daling" kwam er pas ná die uitslag bij, via het besluit van Bart. Toch staat er "geslaagd op drie brede markten".
+   - **(b) Buiten de steekproef rust het oordeel op één gebeurtenis: 2008.** Over 2010-01..2026-07 halen de markten buiten de VS een daling van ×0,88, Europa ×0,95 en de ontwikkelde markten ×0,80. Dat is 0 van 3, en de regel kost 3,2-4,2pp per jaar.
+   - **(c) Vasthouden is de verkeerde maatstaf; een vaste mix met dezelfde blootstelling is de juiste.** De regel zit 68-83% van de tijd in de markt.
+     - Met 2008 wint de regel: buiten de VS 2007-2026 een daling van 25% tegen 42%.
+     - In 2010-2026 wint de mix op alle vier de markten, met 1,6-2,9pp per jaar meer rendement en een gelijke of kleinere daling.
+   - **(d) In euro's zakt de regel door op criterium 1:** IWDA ×0,65, bij 3,4pp kosten per jaar.
+   - Nodig: het eerlijk opschrijven ("verzekering tegen trage dalingen, 1929/2000/2008; zonder zo'n daling duurder dan een vaste mix"). Op 03-11 beslissen tegen de vaste mix, niet tegen vasthouden.
+3. **[belangrijk, vóór 03-11] Stilte ziet eruit als "blijf in".**
+   - Mist yfinance de laatste maand, dan wordt er niets vastgelegd en niets gemeld.
+   - Een crash van het script wordt verborgen door `continue-on-error`.
+   - Nodig: ontbreekt de vorige maand na enkele werkdagen nog, dan luid melden.
+4. **[klein]** De poorteis "koers binnen 1% van DeGiro" is ruimer dan de marges rond een omslag (+0,1% in 2026-03, −0,1% in 2025-06). De eis moet zijn: dezelfde stand.
+5. **[klein]** Komen er meerdere nieuwe maanden tegelijk binnen, dan blijft alleen de laatste melding over. Een te laat binnengekomen maand komt in de verkeerde volgorde. `Rubbr` heeft een gat; het oordeel verandert daardoor niet.
+6. **[klein]** De grens voor september is €11,96, dat is −6,9%, niet ">8%".
+
+**Zonder bevinding:**
+- Er wordt niet vooruitgekeken.
+- 56→25, 59→33, 10/40 en 27/49 zijn gereproduceerd.
+- Crypto "nee" is terecht.
+- Het signaal staat op IN en klopt. De teruggerekende maanden zijn gemarkeerd, de 7 mutaties zijn gedekt, de toetsen staan op 20/20.
+
+**Pre-mortem:**
+- Een V-herstel na een verkoop: het grootboek laat al april 2025 UIT op €9,29 zien, weer IN op €10,47. Dat is +12,7% gemist, ~€220.
+- Een omslag die rond de lijn heen en weer gaat.
+- Een stille storing.
+- Verkopen vóór de poort.
+
+**Gemiste kans:** een vaste mix van ~75% WEBN en 25% geldmarkt, zonder omslagen.
+
+**Open vragen:**
+- Zat EAFE 1973-2005 in de steekproef van Faber?
+- Komt de vaste mix mee in het besluit van 03-11?
+
 
 > **21-09, bouwer:** de eerste auditpoging brak af op de uitgavenlimiet (reset 14:00). Tot de audit er
 > is, heb ik zelf gecontroleerd:
@@ -86,5 +125,17 @@ geen API) en tijdens de schaduwfase is het signaal een advies.
 > **Deadline van de audit:** de eerste mogelijke melding is de run na het slot van september, op
 > 01-10. Een omslag in september kan alleen als WEBN meer dan 8% zakt.
 
-## Reactie bouwer
-*(per open punt: opgelost in `<hash>` of weerlegd met bewijs)*
+## Reactie bouwer (21-09, ronde 2)
+| # | Reactie |
+|---|---|
+| 1 | **Opgelost.** `ADVIES = False` in `uitstapsignaal.py`. Tot de poort en een besluit van Bart staat in elke omslagmelding "SCHADUW — GEEN ACTIE", zonder koop- of verkoopinstructie. Toets: `test_schaduwmelding_geeft_geen_opdracht`. Die toets controleert ook dat de instructie er wél in staat bij `ADVIES = True`. |
+| 2 | **Nagerekend en overgenomen.** Mijn eigen herberekening (vaste mix met dezelfde blootstelling, 2007 tegen 2010) geeft dezelfde getallen. Aangepast: de docstring van `uitstapsignaal.py`, `config/experimenten.json` ("verzekering tegen trage crashes, geen beter beleggen"), de memory en `uitstapregel_wereld.py`. Dat laatste script heeft een blok `na_de_audit()` gekregen, gemarkeerd als *toegevoegd na de audit*. Het vooraf vastgelegde oordeel blijft ongewijzigd staan. Poort 03-11: Bart beslist tussen de regel (verzekering, kost ~1,5-3pp per jaar in gewone jaren) en een vaste mix van ~75/25, niet tegen 100% vasthouden. |
+| 3 | **Opgelost.** Mist het maandslot van vorige maand op dag 5 nog, dan volgt één melding: `controleer_volledigheid`, ook zonder enige data. Een crash wordt niet meer verborgen: de workflow stuurt nu ook een Telegram-bericht bij `steps.uitstap.outcome == 'failure'`. Toets: `test_ontbrekend_maandslot_na_de_vijfde_meldt_een_keer`. |
+| 4 | **Overgenomen.** De poorteis is nu "dezelfde stand als de DeGiro-koers zou geven", niet "koers binnen 1%". |
+| 5 | **Opgelost.** Alle omslagen in één run worden samen gemeld, en het grootboek wordt na elke toevoeging op maand gesorteerd. Toetsen: `test_twee_omslagen_in_een_run_geven_twee_meldingen` en `test_te_laat_binnengekomen_maand_komt_op_volgorde`. Het gat bij Rubbr: aanvaard, het oordeel verandert niet. |
+| 6 | **Gecorrigeerd:** de grens voor september is €11,96, 6,9% onder het slot van augustus. |
+| Vraag EAFE | **Ja.** Fabers GTAA-toets (2007) gebruikte vijf klassen voor 1973-2005, waaronder MSCI EAFE. Buiten de VS is 1991-2006 dus binnen zijn steekproef; nieuw is alleen 2007+. Zo staat het nu in de docstring en het register. |
+| Vraag mix | **Ja**, zie punt 2. |
+
+**Mutaties ronde 2:** 6 van 6 rood. Eén mutatie bleef eerst groen: de dagdrempel. Mijn toets "te vroeg" keek naar een maand die er al was. Na het aanpassen wordt ook die mutatie rood.
+

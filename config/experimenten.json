@@ -222,10 +222,10 @@
       "trede": 2,
       "sinds": "2026-09-21",
       "soort": "nieuwe_bron",
-      "hypothese": "Een uitstapregel (Faber, 10-maandsgemiddelde, gepubliceerd 2007) haalt het grootste deel van de crashdiepte weg voor ~1-3pp rendement per jaar: 'we moeten niet oneindig uitzitten' (Bart, 21-09). Alleen voor het wereldindexfonds (WEBN).",
+      "hypothese": "Een uitstapregel (Faber, 10-maandsgemiddelde) beschermt het wereldindexfonds (WEBN) tegen trage, diepe crashes: 'we moeten niet oneindig uitzitten' (Bart, 21-09).",
       "bron": "research/uitstapregel.py (VS 1927-2026), research/uitstapregel_wereld.py (buiten de VS en Europa 1991-2026), research/uitstapsignaal.py (schaduw, GitHub Actions), research/uitstap_signaal.json",
       "benchmark": "de markt vasthouden",
-      "volgende_stap": "Papier geslaagd op drie brede markten (daling ongeveer gehalveerd, rendement/daling beter; kosten 0-2pp per jaar, in euro's 2010-2026 3,4pp door een lange stijging zonder diepe crash). Schaduw loopt sinds 21-09: elke maandslot vastgelegd, Telegram alleen bij een omslag. Stand aug: IN (+8,1%). Herzien 03-11: sep- en okt-slot goed vastgelegd (koers binnen 1% van DeGiro) -> het signaal geldt als advies aan Bart; hij voert uit.",
+      "volgende_stap": "Papier (na audit 21-09, eerlijk): een VERZEKERING TEGEN TRAGE CRASHES, geen beter beleggen. Met 2008 erin halveert de regel de diepste daling, ook tegen een vaste mix met dezelfde blootstelling (ex-US 2007-2026: 25% tegen 42%). Zonder zo'n crash (2010-2026) wint de mix: 1,4-2,9pp per jaar meer bij een gelijke daling. De VS-toets haalde zijn eigen vooraf vastgelegde rendementsgrens niet (-1,8pp); buiten de VS is pas 2007+ nieuw (EAFE zat in Fabers steekproef). Schaduw loopt sinds 21-09 (research/uitstapsignaal.py, meldt SCHADUW — GEEN ACTIE). Poort 03-11: (1) sep- en okt-slot vooruit vastgelegd met dezelfde STAND als de DeGiro-koers zou geven; (2) besluit aan Bart: regel (verzekering, kost ~1,5-3pp per jaar in gewone jaren) of een vaste mix van ~75% WEBN en 25% geldmarkt (altijd lagere daling, geen signalen). Pas daarna ADVIES = True.",
       "herzien": "2026-11-03"
     },
     "uitstapregel_crypto": {

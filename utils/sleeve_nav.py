@@ -135,6 +135,11 @@ class SleeveNAV:
         # 'swarm' to 'thematic_exposure' without adding a new venue line
         # (it's already counted once under "hyperliquid").
         thematic_exposure_usd = self._thematic_exposure_value()
+        if thematic_exposure_usd is None:
+            # Zelfde regel als hieronder bij Conviction Core en broker: liever een gat
+            # in de reeks dan een verzonnen daling.
+            logger.warning("Dip-koper niet te waarderen — snapshot uitgesteld")
+            return None
         if thematic_exposure_usd > 0:
             sleeves["thematic_exposure"] = sleeves.get("thematic_exposure", 0.0) + thematic_exposure_usd
             if self._thematic_wallet_is_segregated():
@@ -238,24 +243,28 @@ class SleeveNAV:
             return False
 
     @staticmethod
-    def _thematic_exposure_value() -> float:
+    def _thematic_exposure_value():
         """NAV van de thematic_exposure-sleeve: vrij budget (cash) + huidige
         marktwaarde van open posities, uit thematic_exposure_positions.json (door
-        ThematicExposureLab bijgehouden). Bestand ontbreekt/leeg -> 0.0 (sleeve
-        bestaat dan simpelweg nog niet, geen fout)."""
+        ThematicExposureLab bijgehouden). Bestand ontbreekt -> 0.0 (sleeve bestaat
+        dan nog niet). Bestand bestaat maar is onleesbaar -> None: onmeetbaar is
+        geen nul (een half geschreven bestand zou anders een daling van ~$255 tonen)."""
+        if not os.path.lexists(THEMATIC_EXPOSURE_FILE):
+            return 0.0
         try:
             with open(THEMATIC_EXPOSURE_FILE) as f:
                 data = json.load(f)
-        except Exception:
-            return 0.0
+        except Exception as e:
+            logger.warning(f"thematic_exposure_positions.json onleesbaar: {e}")
+            return None
         try:
             # Dezelfde formule als waarop de sleeve zijn INZET baseert. Stonden
             # die los, dan handelt hij op een ander getal dan hij rapporteert.
             from utils.thematic_exposure_lab import sleeve_nav_usd
             return sleeve_nav_usd(data)
         except Exception as e:
-            logger.warning(f"thematic_exposure_positions.json niet leesbaar: {e}")
-            return 0.0
+            logger.warning(f"thematic_exposure_positions.json niet te waarderen: {e}")
+            return None
 
     _FX_SOURCES = (
         # (url, pad naar USD→EUR rate in de JSON)

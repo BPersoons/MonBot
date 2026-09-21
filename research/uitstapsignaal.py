@@ -4,17 +4,23 @@
     python research/uitstapsignaal.py stand     # huidige stand tonen, niets schrijven
 
 Besluit Bart 21-09: stabiel groeien, met een in- en uitstaplaag per bezit. De regel (slot
-onder het 10-maandsgemiddelde -> uit, erboven -> in) slaagde op papier op brede markten:
-VS 1927-2026, ontwikkeld buiten de VS en Europa 1991-2026 (research/uitstapregel*.py). Hij
-zakte door op crypto en op losse industrieën, dus GEEN signaal voor GRID of de kern-crypto.
+onder het 10-maandsgemiddelde -> uit, erboven -> in) is op papier een VERZEKERING TEGEN
+TRAGE, DIEPE DALINGEN (1929, 2000-02, 2008), geen beter beleggen. Met 2008 erin halveert hij
+de diepste daling, ook tegen een vaste mix met dezelfde blootstelling. Zonder zo'n daling
+(2010-2026) kost hij 1,4-2,9pp per jaar tegen die mix, bij een gelijke daling. De VS-toets
+haalde zijn eigen vooraf vastgelegde rendementsgrens niet (-1,8pp, grens -1,5pp). Buiten de VS
+lag 1973-2005 al in Fabers steekproef (EAFE), dus echt nieuw is alleen 2007+, en daarin
+beslist 2008 (audit 21-09, docs/audits/2026-09-21-uitstaplaag.md). Op crypto en losse
+industrieën zakte hij door: GEEN signaal voor GRID of de kern-crypto.
 
-VOORAF VASTGELEGD (21-09):
+VOORAF VASTGELEGD (21-09, bijgesteld na de audit):
 - Instrument: WEBN.DE in euro's, precies wat we houden. IWDA.AS (MSCI World, euro's) staat
   ernaast als controle; verschillen ze van stand, dan staat dat in de melding.
 - Alleen afgesloten maanden tellen: het slot van de lopende maand is nog geen maandslot.
-- Onmeetbaar is geen 'in': zonder koers wordt er niets vastgelegd en niets gemeld.
-- Een melding alleen als de stand omslaat (in -> uit of uit -> in). DeGiro heeft geen API,
-  dus Bart voert uit. In de schaduwfase is het een advies, geen opdracht.
+- Onmeetbaar is geen 'in': zonder koers wordt er niets vastgelegd, en ontbreekt het slot van
+  vorige maand op de 5e nog, dan volgt één luide melding.
+- Een melding bij elke omslag. Zolang ADVIES False is (tot de poort van 03-11 en een besluit
+  van Bart) staat er SCHADUW — GEEN ACTIE in, zonder koop- of verkoopinstructie.
 - Schaduwmeting: vanaf de eerste vooruit gemeten maand rendement regel tegen vasthouden.
   Teruggerekende maanden (vóór 2026-09) tellen daar niet in mee.
 """
@@ -31,6 +37,10 @@ INSTRUMENT = "WEBN.DE"
 CONTROLE = "IWDA.AS"
 VENSTER = 10
 EERSTE_VOORUIT = "2026-09"
+# Pas True na de poort van 03-11 en een expliciet besluit van Bart (docs/besluiten.md).
+# Tot dan is een omslag informatie over de schaduwmeting, geen opdracht.
+ADVIES = False
+ONMEETBAAR_NA_DAG = 5
 
 
 def maandsloten(dagkoersen, vandaag):
@@ -95,29 +105,63 @@ def _schrijf(d):
         fh.write("\n")
 
 
+def _omslag_tekst(maand, slot, gem, stand, controle_stand):
+    kop = "Uitstapsignaal WEBN: %s" % stand.upper()
+    regels = ["<b>%s</b>" % kop,
+              "Slot %s €%.2f, 10-maandsgemiddelde €%.2f (%+.1f%%)." % (maand, slot, gem, (slot / gem - 1) * 100),
+              "Controle MSCI World (IWDA): %s." % (controle_stand or "onbekend")]
+    if ADVIES:
+        regels.append("Regel: %s. Jij beslist en voert uit bij DeGiro."
+                      % ("verkoop WEBN en parkeer de euro's in een geldmarktfonds" if stand == "uit"
+                         else "koop WEBN terug met het geparkeerde geld"))
+    else:
+        regels.append("SCHADUW — GEEN ACTIE. Dit meet alleen of het signaal werkt; het wordt pas "
+                      "advies na de poort van 03-11 en jouw besluit.")
+    return "\n".join(regels)
+
+
 def verwerk(ledger, rijen, controle_rijen):
-    """Voegt nieuwe maanden toe. Geeft (melding of None) terug."""
+    """Voegt nieuwe maanden toe (ook te laat binnengekomen, op volgorde) en geeft de
+    meldingen van ALLE omslagen in deze run terug, samengevoegd, of None."""
     bekend = {m["maand"] for m in ledger["maanden"]}
     controle = {m: s for m, _, _, s in controle_rijen}
-    melding = None
+    nieuw = []
     for maand, slot, gem, stand in rijen:
         if maand in bekend:
             continue
-        vorige = ledger["maanden"][-1] if ledger["maanden"] else None
         ledger["maanden"].append({
             "maand": maand, "slot": round(slot, 4), "gem10": round(gem, 4), "stand": stand,
             "controle_stand": controle.get(maand),
             "teruggerekend": maand < EERSTE_VOORUIT,
         })
-        if vorige and vorige["stand"] != stand and maand >= EERSTE_VOORUIT:
-            actie = ("verkoop WEBN en parkeer de euro's in een geldmarktfonds"
-                     if stand == "uit" else "koop WEBN terug met het geparkeerde geld")
-            melding = ("<b>Uitstapsignaal WEBN: %s</b>\nSlot %s €%.2f, 10-maandsgemiddelde €%.2f (%+.1f%%).\n"
-                       "Regel: %s.\nControle MSCI World (IWDA): %s.\n"
-                       "Schaduwfase: advies, jij beslist en voert uit bij DeGiro."
-                       % (stand.upper(), maand, slot, gem, (slot / gem - 1) * 100, actie,
-                          controle.get(maand) or "onbekend"))
-    return melding
+        nieuw.append(maand)
+    ledger["maanden"].sort(key=lambda m: m["maand"])
+    meldingen = []
+    for i, m in enumerate(ledger["maanden"]):
+        if m["maand"] not in nieuw or i == 0 or m["maand"] < EERSTE_VOORUIT:
+            continue
+        if ledger["maanden"][i - 1]["stand"] != m["stand"]:
+            meldingen.append(_omslag_tekst(m["maand"], m["slot"], m["gem10"], m["stand"],
+                                           m.get("controle_stand")))
+    return "\n\n".join(meldingen) or None
+
+
+def _vorige_maand(vandaag):
+    j, m = (vandaag.year, vandaag.month - 1) if vandaag.month > 1 else (vandaag.year - 1, 12)
+    return "%04d-%02d" % (j, m)
+
+
+def controleer_volledigheid(ledger, rijen, vandaag):
+    """Stilte mag er niet uitzien als 'blijf in'. Ontbreekt het slot van vorige maand op
+    dag ONMEETBAAR_NA_DAG nog, dan één melding per ontbrekende maand."""
+    vorige = _vorige_maand(vandaag)
+    if vandaag.day < ONMEETBAAR_NA_DAG or vorige in {r[0] for r in rijen}:
+        return None
+    if ledger.get("onmeetbaar_gemeld") == vorige:
+        return None
+    ledger["onmeetbaar_gemeld"] = vorige
+    return ("<b>Uitstapsignaal WEBN: ONMEETBAAR</b>\nHet maandslot van %s ontbreekt op %s nog "
+            "(yfinance). De stand is onbekend — niet 'nog in'." % (vorige, vandaag.isoformat()))
 
 
 def _emit(melding):
@@ -135,8 +179,15 @@ def main(argv):
     rijen = standen(maandsloten(_dagkoersen(INSTRUMENT), vandaag))
     controle_rijen = standen(maandsloten(_dagkoersen(CONTROLE), vandaag))
     if not rijen:
-        print("ONMEETBAAR: geen maandsloten voor %s — niets vastgelegd, geen melding." % INSTRUMENT)
-        _emit(None)
+        print("ONMEETBAAR: geen maandsloten voor %s — niets vastgelegd." % INSTRUMENT)
+        melding = None
+        if opdracht == "meet":
+            ledger = _laad()
+            melding = controleer_volledigheid(ledger, rijen, vandaag)
+            if melding:
+                _schrijf(ledger)
+                print(melding)
+        _emit(melding)
         return 0
     maand, slot, gem, stand = rijen[-1]
     print("%s slot %s: €%.2f, 10-maandsgemiddelde €%.2f (%+.1f%%) -> %s"
@@ -146,7 +197,8 @@ def main(argv):
     if opdracht != "meet":
         return 0
     ledger = _laad()
-    melding = verwerk(ledger, rijen, controle_rijen)
+    melding = "\n\n".join(x for x in (verwerk(ledger, rijen, controle_rijen),
+                                      controleer_volledigheid(ledger, rijen, vandaag)) if x) or None
     _schrijf(ledger)
     s = schaduw(ledger["maanden"])
     print("schaduw over %d vooruit gemeten maand(en): regel %+.1f%%, vasthouden %+.1f%%"

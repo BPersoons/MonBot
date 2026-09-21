@@ -269,3 +269,21 @@ def test_brandoefening_end_to_end(tmp_path):
     assert oef["alles_gevonden"] is True, "gemist: %s" % (set(oef["verwacht"]) - set(oef["gevonden"]))
     assert oef["detectie_min"] == 4.0
     assert all(x.get("oefening") for x in g)
+
+
+def test_dip_koper_onleesbaar_geeft_alarm(register):
+    g, _ = vb.evalueer(_basis(dip_koper_onleesbaar=True), {}, register)
+    assert "dip_koper_onleesbaar:alarm" in _sleutels(g)
+    g, _ = vb.evalueer(_basis(dip_koper_onleesbaar=False), {}, register)
+    assert "dip_koper_onleesbaar:alarm" not in _sleutels(g)
+
+
+def test_lees_dip_koper_onderscheidt_ontbrekend_van_onleesbaar(tmp_path):
+    pad = str(tmp_path / "pos.json")
+    assert vb._lees_dip_koper(pad) == ({}, False)            # nog geen bestand: geen alarm
+    for tekst in ("", '{"positions": {"XYZ', "[]", '{"positions": []}'):
+        open(pad, "w").write(tekst)
+        assert vb._lees_dip_koper(pad) == ({}, True), repr(tekst)
+    open(pad, "w").write('{"positions": {"XYZ-NVDA": {"status": "OPEN"}}}')
+    inhoud, onleesbaar = vb._lees_dip_koper(pad)
+    assert onleesbaar is False and "XYZ-NVDA" in inhoud["positions"]

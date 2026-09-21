@@ -398,6 +398,10 @@ class ThematicExposureLab:
                 data = json.load(f)
             if not isinstance(data, dict) or not isinstance(data.get("positions", {}), dict):
                 raise ValueError("geen object met een positions-dict")
+            # Anders faalt de archivering pas NA een geslaagde aankoop: positie op HL,
+            # niet in het bestand, en de volgende cyclus koopt opnieuw.
+            if not isinstance(data.get("gesloten_rondes", []), list):
+                raise ValueError("gesloten_rondes is geen lijst")
         except Exception as e:
             raise PositiesOnleesbaar("%s onleesbaar: %s" % (POSITIONS_FILE, e)) from e
         data.setdefault("budget_usd", DEFAULT_BUDGET_USD)
@@ -1400,9 +1404,12 @@ class ThematicExposureLab:
                 "groot genoeg is.", reason, ticker, notional, SLEEVE_MIN_TRIM_NOTIONAL_USD)
             return False
 
+        # reduce_only: een verkoop op een positie die HL niet (meer) heeft, OPENT anders
+        # een short (zo ontstonden in juli twee spookshorts). Zeker nodig nu herstel uit
+        # een oudere backup een al gesloten positie als OPEN kan terugzetten.
         order = self.exchange_client.create_order(
             self._hl_symbol(ticker), "SELL", qty_to_sell, order_type="market",
-            leverage=LEVERAGE, margin_mode=MARGIN_MODE,
+            leverage=LEVERAGE, margin_mode=MARGIN_MODE, reduce_only=True,
         )
         if order is None:
             logger.warning(f"ThematicExposureLab: exit-order voor {ticker} mislukt ({reason})")
@@ -1600,7 +1607,9 @@ class ThematicExposureLab:
                     "🚨 *Dip-koper staat stil*",
                     "Het positiebestand is onleesbaar, dus open posities worden NIET beheerd "
                     "(stops bestaan alleen in software).",
-                    "Herstel uit de backup of uit de Hyperliquid-fills."]))
+                    "Herstel uit state_backups/ of uit de Hyperliquid-fills, en vergelijk "
+                    "vóór de herstart elke OPEN-positie met clearinghouseState (dex xyz): "
+                    "een backup kan een al gesloten positie bevatten."]))
             return
         self._onleesbaar_gemeld = False
         self._scan_new_tickers()

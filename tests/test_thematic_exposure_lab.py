@@ -1011,11 +1011,6 @@ class TestMeelopendeWinstbescherming(ThematicExposureLabTestBase):
         self.assertEqual(self._status(), "CLOSED")   # sluit hoe dan ook
         self.exchange.create_order.assert_called_once()
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestPositiebestandVeiligheid(ThematicExposureLabTestBase):
     """21-09: een onleesbaar positiebestand gaf stil een leeg potje van $255 terug. Dan
     vielen de open posities uit het beheer en overschreef de eerstvolgende save de
@@ -1093,3 +1088,34 @@ class TestPositiebestandVeiligheid(ThematicExposureLabTestBase):
         d = self.lab._load_positions()
         self.assertNotIn("gesloten_rondes", d)
         self.assertAlmostEqual(d["positions"]["XYZ-NVDA"]["quantity"], 0.3)
+
+    def test_gesloten_rondes_geen_lijst_is_onleesbaar(self):
+        """Anders faalt de archivering pas NA een geslaagde aankoop (audit 21-09, bev. 3)."""
+        self._schrijf('{"positions": {}, "gesloten_rondes": {"XYZ-NVDA": 1}}')
+        with self.assertRaises(tel.PositiesOnleesbaar):
+            self.lab._load_positions()
+
+    def test_elke_verkoop_is_reduce_only(self):
+        """Een verkoop op een positie die HL niet meer heeft, mag nooit een short openen."""
+        data = self.lab._load_positions()
+        data["positions"]["XYZ-NVDA"] = {"status": "OPEN", "quantity": 0.5, "avg_entry_price": 100.0,
+                                         "cost_basis_usd": 50.0, "peak_value_usd": 60.0}
+        self.lab._save_positions(data)
+        d = self.lab._load_positions()
+        for fractie in (0.5, 1.0):     # deelexit en volledige sluiting
+            self.exchange.create_order.reset_mock()
+            d = self.lab._load_positions()
+            self.lab._close_or_trim(d, "XYZ-NVDA", d["positions"]["XYZ-NVDA"], 130.0, fractie, "toets")
+            args, kwargs = self.exchange.create_order.call_args
+            self.assertEqual(args[1], "SELL")
+            self.assertIs(kwargs.get("reduce_only"), True, "fractie %s zonder reduceOnly" % fractie)
+
+    def test_aankoop_is_niet_reduce_only(self):
+        """Omgekeerd: een openende order met reduceOnly opent niets."""
+        bron = open(tel.__file__, encoding="utf-8").read()
+        koop = bron[bron.index('"BUY", quantity'):][:200]
+        self.assertNotIn("reduce_only", koop)
+
+
+if __name__ == "__main__":
+    unittest.main()

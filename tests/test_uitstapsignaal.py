@@ -80,3 +80,49 @@ def test_schaduw_telt_alleen_vooruit_en_volgt_de_stand():
     assert s["maanden"] == 2
     assert math.isclose(s["vasthouden"], -0.01)
     assert math.isclose(s["regel"], 0.10)   # oktober uit (daling gemist), november in (+10%)
+
+
+def _twee_omslagen():
+    # 2025-01 .. 2026-09 stijgend, 2026-10 diep eronder, 2026-11 weer ver erboven
+    return [100.0 + i for i in range(21)] + [80.0, 200.0]
+
+
+def test_schaduwmelding_geeft_geen_opdracht(monkeypatch):
+    rijen = u.standen(u.maandsloten(_reeks(_twee_omslagen()[:-1]), date(2026, 11, 5)))
+    ledger = {"maanden": []}
+    u.verwerk(ledger, rijen[:-1], [])
+    melding = u.verwerk(ledger, rijen, [])
+    assert "GEEN ACTIE" in melding and "verkoop" not in melding.lower()
+    monkeypatch.setattr(u, "ADVIES", True)
+    ledger = {"maanden": []}
+    u.verwerk(ledger, rijen[:-1], [])
+    assert "verkoop WEBN" in u.verwerk(ledger, rijen, [])
+
+
+def test_twee_omslagen_in_een_run_geven_twee_meldingen():
+    rijen = u.standen(u.maandsloten(_reeks(_twee_omslagen()), date(2026, 12, 5)))
+    ledger = {"maanden": []}
+    u.verwerk(ledger, [r for r in rijen if r[0] < "2026-10"], [])
+    melding = u.verwerk(ledger, rijen, [])
+    assert "UIT" in melding and ": IN" in melding and "2026-10" in melding and "2026-11" in melding
+
+
+def test_te_laat_binnengekomen_maand_komt_op_volgorde():
+    rijen = u.standen(u.maandsloten(_reeks([100.0 + i for i in range(14)]), date(2026, 3, 1)))
+    ledger = {"maanden": []}
+    zonder = [r for r in rijen if r[0] != "2025-11"]
+    u.verwerk(ledger, zonder, [])
+    u.verwerk(ledger, rijen, [])
+    maanden = [m["maand"] for m in ledger["maanden"]]
+    assert maanden == sorted(maanden) and "2025-11" in maanden
+
+
+def test_ontbrekend_maandslot_na_de_vijfde_meldt_een_keer():
+    rijen = u.standen(u.maandsloten(_reeks([100.0 + i for i in range(12)]), date(2026, 1, 1)))  # t/m 2025-12
+    ledger = {"maanden": []}
+    assert u.controleer_volledigheid(ledger, rijen, date(2026, 2, 4)) is None    # jan mist, maar te vroeg
+    assert u.controleer_volledigheid(ledger, rijen, date(2026, 1, 20)) is None   # dec is er
+    melding = u.controleer_volledigheid(ledger, rijen, date(2026, 2, 5))          # jan ontbreekt
+    assert melding and "ONMEETBAAR" in melding and "2026-01" in melding
+    assert u.controleer_volledigheid(ledger, rijen, date(2026, 2, 6)) is None    # maar één keer
+    assert u.controleer_volledigheid(ledger, [], date(2026, 3, 5))               # ook zonder data
