@@ -31,6 +31,12 @@ WORTEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(WORTEL, "research"))
 import track  # noqa: E402
 
+# Vaste kosten uit dezelfde tarieven als de swarm zelf (utils/cost_tracker.py, gemeten
+# tegen de GCP-factuur), voor de machine die deploy.ps1 zet. Stond hier hardcoded op $160.
+sys.path.insert(0, WORTEL)
+from utils.cost_tracker import _BIJKOSTEN_USD_PER_DAG, _COMPUTE_USD_PER_DAG  # noqa: E402
+KOSTEN_PER_JAAR = round((_COMPUTE_USD_PER_DAG["e2-small"] + _BIJKOSTEN_USD_PER_DAG) * 365)
+
 UIT = os.path.join(WORTEL, "docs", "overzicht.html")
 ARTIFACT = os.path.join(WORTEL, "docs", "overzicht_artifact.html")
 POORTDATUM = datetime(2027, 2, 10, tzinfo=timezone.utc)
@@ -211,9 +217,10 @@ def bouw():
     tegels = [
         ("Vermogen", "$%s" % format(round(nav.get("totaal_usd", 0)), ",d").replace(",", "."),
          "compleet gemeten" if nav.get("compleet") else "ONVOLLEDIG — ondergrens", "neutraal"),
-        ("Kostenhorde", "%.1f%%" % (160.0 / max(nav.get("totaal_usd", 0), 1) * 100),
-         "$160/jaar infrastructuur — was 5,2% op $3.081, en dat cijfer daalt "
-         "met elke euro erbij", "letop" if 160.0 / max(nav.get("totaal_usd", 1), 1) < 0.04 else "kritiek"),
+        ("Kostenhorde", "%.1f%%" % (KOSTEN_PER_JAAR / max(nav.get("totaal_usd", 0), 1) * 100),
+         "$%d/jaar infrastructuur — was 5,2%% op $3.081, en dat cijfer daalt "
+         "met elke euro erbij" % KOSTEN_PER_JAAR,
+         "letop" if KOSTEN_PER_JAAR / max(nav.get("totaal_usd", 1), 1) < 0.04 else "kritiek"),
         ("Namen gescoord", "%d / 20" % len(rijen), "poort-eis gehaald", "goed"),
         ("Wachtvoorwaarde geraakt", str(len(geraakt)),
          ", ".join(r["t"] for r in geraakt) if geraakt else "vandaag koop je niets", "neutraal"),
@@ -405,6 +412,7 @@ def bouw():
         ("TEGELS", tegels_html), ("POTJES", potjes_html), ("STAPPEN", stappen_html),
         ("RIJEN", tr), ("BESLISSINGEN", beslis_html), ("THEMAS", themas_html),
         ("DAGEN", str(max(dagen, 0))),
+        ("KOSTEN", str(KOSTEN_PER_JAAR)),
         ("GEMREL", "%+.2f%%" % gem_rel), ("NAANTAL", str(len(gemeten))),
         ("BENCH", _esc("%s (%s, in %s)"
                        % (bench["label"], bench["name"], bench["currency"]))),
@@ -564,7 +572,7 @@ a{color:var(--accent)}
 <div class="nu">
   <h2>Wat nu telt</h2>
   <ol>
-    <li><strong>Inleg.</strong> Eén procentpunt rendement is $54; de vaste kosten zijn $160 per
+    <li><strong>Inleg.</strong> Eén procentpunt rendement is $54; de vaste kosten zijn ${{KOSTEN}} per
     jaar. Elke euro erbij verlaagt de horde en doet meer dan elke analyse die er nog ligt.</li>
     <li><strong>Je kern staat onder doel.</strong> De testpositie is gefinancierd door 20 WEBN
     te verkopen, dus de kern zakte van 43% naar 37%. Dat ging in tegen de eigen regel
@@ -595,7 +603,7 @@ a{color:var(--accent)}
   DeGiro wordt gevuld met verse euro's van de bank. Geen omwisseling, geen extra
   rekening, geen onomkeerbaar netwerk-risico. Wat overbleef was het paspoort, en dat is
   opgelost. <strong>Wat nu telt is inleg:</strong> 1 procentpunt rendement is $54, de
-  vaste kosten zijn $160 per jaar. Elke euro erbij doet meer dan elke analyse.</div>
+  vaste kosten zijn ${{KOSTEN}} per jaar. Elke euro erbij doet meer dan elke analyse.</div>
 </div>
 
 <div class="sectie">
