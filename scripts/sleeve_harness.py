@@ -361,8 +361,13 @@ def _signalen(lab, conf, themes, DATA, eqs):
 def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
              variant: dict = None, vanaf: int = 0, kosten_pct: float = 0.0,
              UUR: dict = None, uren_per_dag: dict = None,
-             instap_dagen: set = None, herbeleggen: bool = False):
+             instap_dagen: set = None, herbeleggen: bool = False,
+             curve: list = None):
     """Speelt de sleeve na over de reeks.
+
+    curve: optioneel een lijst die per dag (dag, kas + open waarde) krijgt, na het beheer
+    van bestaande posities. Voor maximale daling en jaarrendement; verandert niets aan de
+    naspeling zelf.
 
     beperkt=False  → het huidige model: onbeperkt geld en plekken.
     beperkt=True   → de werkelijkheid: één portemonnee, zes plekken.
@@ -471,6 +476,15 @@ def speel_na(all_days, per_dag, DATA, conf, *, beperkt: bool, budget: float,
                     gerealiseerd += p["opbrengst"] - p["inleg"]
                     duur_dicht.append(day - p["dag_in"])
                     del posities[t]
+
+        if curve is not None and beperkt:
+            waarde_open = 0.0
+            for t, p in posities.items():
+                m = DATA[t].get(day)
+                if m is not None:
+                    p["laatste_mark"] = m
+                waarde_open += p["stuks"] * p.get("laatste_mark", p["entry"])
+            curve.append((day, kas + waarde_open))
 
         # ── nieuwe instap ───────────────────────────────────────────────
         if dag["cb"]:

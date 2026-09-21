@@ -119,7 +119,7 @@
       "status": "live",
       "trede": 3,
       "sinds": "2026-09-20",
-      "volgende_stap": "Live op $255. Meting 20-09: +10,49% in 60 dagen tegen +1,64% voor dezelfde namen vasthouden, maar 12 trades. Eerst de meetgaten dichten; opnieuw wegen bij >= 25 gesloten trades. Evaluatie 25-09.",
+      "volgende_stap": "Live op $255. 60 dagen: +10,5% tegen +1,6% voor dezelfde namen vasthouden. MAAR 16 jaar met herbeleggen: +1.672% tegen +1.666% voor QQQ — gelijk aan de Nasdaq-100, met achteraf gekozen namen. Geen aangetoond structureel voordeel boven de index. Evaluatie 25-09: niet opschalen; overwegen of dit potje meer is dan een duurdere tech-tracker.",
       "hypothese": "Index-achtig rendement; geen extra kapitaal (besluit 2026-09-15). Evaluatie 2026-09-25.",
       "alarm": {
         "drawdown_pct": 15.0
@@ -166,6 +166,26 @@
       "bron": "Fluid-audit 19-09, bevinding 12",
       "benchmark": "Aave v3 Arbitrum",
       "volgende_stap": "De pool-id's in config/treasury_protocols.json zijn verouderd; zoeken of er een Morpho-USDC-vault boven de TVL-vloer bestaat."
+    },
+    "dip_koper_marktfilter": {
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-09-21",
+      "soort": "tweak",
+      "hypothese": "De dip-koper verliest in dalende markten (16-jaarsvalidatie). Alleen dips kopen als de brede markt zelf boven haar 200-daags gemiddelde staat, houdt de winst in stijgende markten en vermijdt het grootste deel van de verliezen in dalende.",
+      "bron": "zwakte uit feedback_sleeve_validation + de meting van 20-09 (+10,5% in 60 dagen)",
+      "benchmark": "dezelfde regelset zonder filter, en het wereldindexfonds",
+      "volgende_stap": "GESTOPT 21-09 na de papiertoets met vooraf vastgelegde criteria: rendement +407% vs +403% (ja), maximale daling 25,8% vs 27,5% — maar 6% kleiner, eis was 25% (nee), slechtste jaar 2022 -8,8% vs -12,9% (ja), zonder NVDA doet het filter het slechter: +346% vs +410% (nee). De grote dalingen van de dip-koper komen niet uit dalende markten."
+    },
+    "e2_micro_poging_2": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-09-21",
+      "soort": "kosten",
+      "hypothese": "De e2-micro volstaat als de geheugengroei van de swarm (~90 MiB per dag, gemeten 20-21-09) is opgespoord en verholpen. Levert tot $81/jaar op.",
+      "bron": "terugdraaiing 21-09: voetafdruk 493 MiB; apt was NIET de oorzaak (runs van 10-40 s, de piek kwam later en hield uren aan)",
+      "benchmark": "e2-small ($0,503/dag)",
+      "volgende_stap": "Geparkeerd (besluit Bart 21-09: tijd liever naar nieuwe kansen). Eerst de oorzaak van de geheugengroei vinden; pas daarna een nieuw claimblad met een vooraf gedefinieerde poort zonder dubbeltelling van swapcache."
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."
