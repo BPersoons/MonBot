@@ -60,7 +60,32 @@ In dit venster: ja, ongeveer 9 procentpunt.
    handelslogboek rekent, meet dus alleen overlevers. De geldmaat in §1 heeft hier geen
    last van, maar elke analyse per trade wel.
 2. **De optelling klopt niet.** De som van de posities is $19,57, het veld
-   `realized_pnl_usd` in hetzelfde bestand zegt $27,68. Verschil $8,11, oorzaak onbekend.
+   `realized_pnl_usd` in hetzelfde bestand zegt $27,68. Verschil $8,11.
+
+   **Opgehelderd op 21-09 met de Hyperliquid-fills** (`scripts/dipkoper_resultaat.py`, de
+   bron voor elke evaluatie per naam):
+
+   | | bedrag |
+   |---|---|
+   | gerealiseerd op de eigen wallet sinds 23-07 | +$29,67 |
+   | fees | −$0,16 |
+   | funding | −$1,79 |
+   | **netto** | **+$27,72** |
+
+   - Het positiebestand houdt per ticker één vak bij. Een tweede ronde in dezelfde naam
+     overschrijft de eerste. CRCL (+$4,71), ORCL (+$6,87) en TSLA (+$1,76) verdwenen zo uit
+     de som.
+   - CRWV (−$3,17) sloot op 29-07, vóór het resultaat per positie werd bijgehouden.
+   - Samen verklaart dat de som per positie op $0,07 na.
+   - Het totaalveld boekt tegen de markprijs, niet tegen de fillprijs (−$2), en telt geen
+     fees of funding. Dat het toch bijna gelijk is aan de netto uitkomst, is toeval.
+   - MRVL (−$0,99) en een eerste CRWV-ronde (+$0,07) liepen op 17 en 18-07 nog via de
+     hoofdwallet, vóór de eigen wallet bestond. Het echte verlies op MRVL was dus $0,99, niet
+     "−3,6% van een positie".
+   - **Gevolg voor het besluit:** het gerealiseerde resultaat is +$27,72 op het budget van
+     $255, verdeeld over 9 gesloten rondes (8 winst, 1 verlies). Open posities staan in §1.
+   - **Nog te doen (geldcode, A1):** de dip-koper moet een gesloten ronde bewaren vóór hij
+     dezelfde naam opnieuw opent.
 3. **Er zijn geen stromen geboekt.** `data/flows.json` bestaat niet; kapitaal dat het potje
    in- of uitging staat nergens. Nu is dat nog te overzien (budget $255, geen bijstortingen),
    maar bij elke volgende verandering verdwijnt de vergelijkbaarheid.
