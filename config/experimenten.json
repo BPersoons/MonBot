@@ -138,14 +138,14 @@
       "volgende_stap": "Uitzoeken of de xyz-dex trigger-orders ondersteunt en hoe ze te beheren zijn zonder dubbele sluiting (reduceOnly verplicht)."
     },
     "pendle_vaste_rente": {
-      "status": "idee",
-      "trede": 0,
+      "status": "gestopt",
+      "trede": 1,
       "sinds": "2026-09-21",
       "soort": "nieuwe_bron",
       "hypothese": "Pendle PT-tokens (vaste rente tot een einddatum) leveren op USDC structureel meer dan Aave, zonder koersrisico als je tot de einddatum aanhoudt.",
       "bron": "MASTERPLAN bron C, nooit onderzocht",
       "benchmark": "Aave v3 Arbitrum (nu 2,92%)",
-      "volgende_stap": "Papier: huidige PT-rentes op Arbitrum voor USDC-achtigen, looptijden, liquiditeit, en het verschil met Aave over dezelfde periode."
+      "volgende_stap": "GESTOPT na papier (21-09, Pendle-API): op Arbitrum staan maar 4 actieve markten, alle vier op USDai/sUSDai (USD.AI, stablecoin gedekt door GPU-leningen, < 1 jaar oud, 'points'-markt). Vaste rente 10-12% tot 15-10, daarna alleen februari-markten met $0,1-3 mln liquiditeit. De opslag van 7-9pp boven Aave is een krediet- en depeg-premie, geen gratis rente. Eigen risicomodel (utils/treasury_risk.py): ~0,56 = MEDIUM-HIGH, geen veilig-potje-materiaal. Als proeftuin: $250 x 7pp = ~$17/jaar voor een nieuwe venue plus een nieuwe stablecoin. Mainnet-Pendle (meer markten) kost te veel gas op deze schaal. HEROPENEN als er op Arbitrum een PT op een blue-chip onderliggende komt (aUSDC, sUSDS, syrupUSDC) met > 2pp boven Aave."
     },
     "gains_gusdc_house": {
       "status": "idee",
@@ -158,14 +158,14 @@
       "volgende_stap": "Geblokkeerd door onze eigen TVL-vloer ($4,69 mln < $5 mln). Opnieuw bekijken als de TVL erboven komt; dan eerst de epoch-opnames en het tegenpartijrisico op papier."
     },
     "morpho_tweede_bestemming": {
-      "status": "idee",
-      "trede": 0,
-      "sinds": "2026-09-19",
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-09-21",
       "soort": "nieuwe_bron",
       "hypothese": "Een Morpho-USDC-vault op Arbitrum is een tweede rentebestemming naast Fluid, zodat de spreidingsregel niet altijd naar één naam wijst.",
       "bron": "Fluid-audit 19-09, bevinding 12",
       "benchmark": "Aave v3 Arbitrum",
-      "volgende_stap": "De pool-id's in config/treasury_protocols.json zijn verouderd; zoeken of er een Morpho-USDC-vault boven de TVL-vloer bestaat."
+      "volgende_stap": "GESTOPT na papier (21-09, DeFiLlama): 9 Morpho-USDC-vaults op Arbitrum. Alleen BBQUSDC ligt boven Fluid (30d 5,3%, nu 6,8%), maar heeft $2,45 mln TVL, onder onze eigen vloer van $5 mln (dezelfde die Gains tegenhoudt). De rest: 30d 3,3-4,1%, gelijk aan Fluid (4,2%) en nauwelijks boven Aave (2,6%). Landschap USDC Arbitrum > $1 mln: Gains 22,7% (house, $4,4 mln), Dolomite 4,5% ($1,3 mln), Fluid 4,2% ($62 mln), Compound 2,8%, Aave 2,6%. HEROPENEN als een Morpho-USDC-vault op Arbitrum > $5 mln TVL haalt met 30d > Fluid + 1pp."
     },
     "dip_koper_marktfilter": {
       "status": "gestopt",
