@@ -52,12 +52,17 @@ def test_het_echte_register_voldoet_aan_de_regels():
     with open(pad, encoding="utf-8") as fh:
         register = json.load(fh)
     for naam, e in (register.get("experimenten") or {}).items():
-        # Sinds de motor (docs/MOTOR.md, 21-09): een idee op trede 0 houdt geen geld en heeft
-        # dus GEEN potje; al het andere wel.
+        # Sinds de motor (docs/MOTOR.md, 21-09): een potje is verplicht zodra een experiment
+        # geld KAN houden (proeftuin of schalen, of gepland met een doelpotje). Een idee op
+        # trede 0 mag er juist geen hebben; een papiertoets of een gestopte tweak die nooit
+        # geld hield, heeft er geen nodig.
         if e.get("trede") == 0:
             assert not e.get("sleeve"), "%s is een idee maar heeft een potje" % naam
             continue
-        assert e.get("sleeve"), "%s heeft geen potje" % naam
+        kan_geld_houden = (e.get("trede", 0) >= 3
+                           or e.get("status") in ("live", "gepland", "wacht_op_regime"))
+        if kan_geld_houden:
+            assert e.get("sleeve"), "%s kan geld houden maar heeft geen potje" % naam
         if exp.telt_mee_voor_budget(e):
             assert exp.meet_vanaf(e) is not None, (
                 "%s staat live en telt mee, maar heeft geen verlies_meten_vanaf" % naam)
