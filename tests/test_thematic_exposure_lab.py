@@ -1014,3 +1014,82 @@ class TestMeelopendeWinstbescherming(ThematicExposureLabTestBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPositiebestandVeiligheid(ThematicExposureLabTestBase):
+    """21-09: een onleesbaar positiebestand gaf stil een leeg potje van $255 terug. Dan
+    vielen de open posities uit het beheer en overschreef de eerstvolgende save de
+    historie. En een tweede ronde in dezelfde naam overschreef de eerste."""
+
+    def setUp(self):
+        super().setUp()
+        self.exchange = MagicMock()
+        self.exchange.get_amount_precision.return_value = 0.0001
+        self.exchange.create_order.return_value = {"id": "mock"}
+        self.lab = ThematicExposureLab(exchange_client=self.exchange)
+
+    def _schrijf(self, tekst):
+        with open(tel.POSITIONS_FILE, "w") as f:
+            f.write(tekst)
+
+    def test_geen_bestand_is_een_leeg_potje(self):
+        d = self.lab._load_positions()
+        self.assertEqual(d["positions"], {})
+        self.assertEqual(d["cash_usd"], tel.DEFAULT_BUDGET_USD)
+
+    def test_half_geschreven_leeg_of_map_is_onleesbaar(self):
+        for tekst in ('{"budget_usd": 255.0, "positions": {"XYZ-NVDA": {"sta', "", "[]",
+                      '{"positions": []}'):
+            self._schrijf(tekst)
+            with self.assertRaises(tel.PositiesOnleesbaar, msg=repr(tekst)):
+                self.lab._load_positions()
+        os.remove(tel.POSITIONS_FILE)
+        os.makedirs(tel.POSITIONS_FILE)          # ontbrekende bind mount -> docker maakt een map
+        with self.assertRaises(tel.PositiesOnleesbaar):
+            self.lab._load_positions()
+
+    def test_cyclus_op_onleesbaar_bestand_doet_niets_en_meldt_een_keer(self):
+        kapot = '{"budget_usd": 255.0, "positions": {"XYZ-NVDA": {"sta'
+        self._schrijf(kapot)
+        with patch.object(ThematicExposureLab, "_notify_telegram") as tg, \
+                patch.object(ThematicExposureLab, "_scan_new_tickers") as scan, \
+                patch.object(ThematicExposureLab, "_manage_exits") as exits, \
+                patch.object(ThematicExposureLab, "_sweep_idle_to_xyz") as sweep:
+            self.lab.run_cycle()
+            self.lab.run_cycle()
+        self.assertEqual(tg.call_count, 1)
+        scan.assert_not_called()
+        exits.assert_not_called()
+        sweep.assert_not_called()
+        self.exchange.create_order.assert_not_called()
+        with open(tel.POSITIONS_FILE) as f:
+            self.assertEqual(f.read(), kapot)     # niets overschreven
+
+    def test_dagstatus_meldt_onleesbaar(self):
+        self._schrijf("")
+        self.assertIn("onleesbaar", self.lab.daily_status_text())
+
+    def test_tweede_ronde_bewaart_de_eerste(self):
+        data = self.lab._load_positions()
+        data["positions"]["XYZ-NVDA"] = {"status": "CLOSED", "quantity": 0.0,
+                                         "realized_pnl_usd": 3.66, "entry_cost_basis_usd": 44.44,
+                                         "opened_at": "2026-08-26", "closed_at": "2026-09-08"}
+        self.lab._save_positions(data)
+        self.lab._record_open_or_add(self.lab._load_positions(), "XYZ-NVDA", 1, {"tickers": {}},
+                                     0.2, 200.0, 40.0)
+        d = self.lab._load_positions()
+        self.assertEqual(d["positions"]["XYZ-NVDA"]["status"], "OPEN")
+        self.assertEqual(len(d["gesloten_rondes"]), 1)
+        ronde = d["gesloten_rondes"][0]
+        self.assertEqual(ronde["ticker"], "XYZ-NVDA")
+        self.assertAlmostEqual(ronde["realized_pnl_usd"], 3.66)
+        self.assertEqual(ronde["closed_at"], "2026-09-08")
+
+    def test_bijkopen_in_een_open_positie_archiveert_niets(self):
+        self.lab._record_open_or_add(self.lab._load_positions(), "XYZ-NVDA", 1, {"tickers": {}},
+                                     0.2, 200.0, 40.0)
+        self.lab._record_open_or_add(self.lab._load_positions(), "XYZ-NVDA", 2, {"tickers": {}},
+                                     0.1, 210.0, 21.0)
+        d = self.lab._load_positions()
+        self.assertNotIn("gesloten_rondes", d)
+        self.assertAlmostEqual(d["positions"]["XYZ-NVDA"]["quantity"], 0.3)

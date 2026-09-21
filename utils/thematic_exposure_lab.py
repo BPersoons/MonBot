@@ -321,10 +321,18 @@ def _trail_fraction(peak_gain_pct: float) -> float:
     return SLEEVE_TRAIL_BASE
 
 
+class PositiesOnleesbaar(Exception):
+    """Het positiebestand bestaat maar is niet te lezen (half geschreven, kapotte JSON,
+    een map door een ontbrekende bind mount). Nooit stil terugvallen op een leeg potje:
+    dan verdwijnen de open posities uit het beheer (stops bestaan alleen in software) en
+    overschrijft de eerstvolgende save de hele historie."""
+
+
 class ThematicExposureLab:
     def __init__(self, exchange_client=None):
         self.exchange_client = exchange_client
         self._llm = None
+        self._onleesbaar_gemeld = False  # één keer luid per herstart, niet elke cyclus
         self._self_custody = None      # cache: True/False of de sleeve-key == het account
         self._usdc_token = None        # cache: "USDC:0x..." token-id voor sendAsset
 
@@ -375,21 +383,28 @@ class ThematicExposureLab:
 
     @staticmethod
     def _load_positions() -> dict:
-        try:
-            with open(POSITIONS_FILE) as f:
-                data = json.load(f)
-                data.setdefault("budget_usd", DEFAULT_BUDGET_USD)
-                data.setdefault("cash_usd", data["budget_usd"])
-                data.setdefault("positions", {})
-                data.setdefault("realized_pnl_usd", 0.0)
-                return data
-        except Exception:
+        """Het positiebestand, of een leeg potje als het bestand er NOG NIET is.
+
+        Bestaat het wel maar is het onleesbaar, dan PositiesOnleesbaar — zie daar."""
+        if not os.path.lexists(POSITIONS_FILE):
             return {
                 "budget_usd": DEFAULT_BUDGET_USD,
                 "cash_usd": DEFAULT_BUDGET_USD,
                 "positions": {},
                 "realized_pnl_usd": 0.0,
             }
+        try:
+            with open(POSITIONS_FILE) as f:
+                data = json.load(f)
+            if not isinstance(data, dict) or not isinstance(data.get("positions", {}), dict):
+                raise ValueError("geen object met een positions-dict")
+        except Exception as e:
+            raise PositiesOnleesbaar("%s onleesbaar: %s" % (POSITIONS_FILE, e)) from e
+        data.setdefault("budget_usd", DEFAULT_BUDGET_USD)
+        data.setdefault("cash_usd", data["budget_usd"])
+        data.setdefault("positions", {})
+        data.setdefault("realized_pnl_usd", 0.0)
+        return data
 
     @staticmethod
     def _save_positions(data: dict) -> None:
@@ -1158,6 +1173,11 @@ class ThematicExposureLab:
             existing["tranche_stage"] = stage
             existing["last_updated"] = _now_iso()
         else:
+            # Een eerdere, gesloten ronde in dezelfde naam BEWAREN vóór het vak opnieuw
+            # wordt gevuld. Zonder dit verdwenen CRCL, ORCL en TSLA (+$13) uit elke
+            # evaluatie per naam (gemeten tegen de HL-fills, 21-09).
+            if existing:
+                positions.setdefault("gesloten_rondes", []).append(dict(existing, ticker=ticker))
             positions["positions"][ticker] = {
                 "themes": themes_cfg.get("tickers", {}).get(ticker, {}).get("themes", {}),
                 "tranche_stage": stage,
@@ -1522,7 +1542,11 @@ class ThematicExposureLab:
                 report = json.load(f)
         except Exception:
             report = {}
-        positions = self._load_positions()
+        try:
+            positions = self._load_positions()
+        except PositiesOnleesbaar:
+            return "\n".join(["", "🧠 *Thematic Exposure Sleeve (EXP-008)*",
+                              "  ⚠️ positiebestand onleesbaar — geen beheer"])
         open_positions = {t: p for t, p in positions.get("positions", {}).items() if p.get("status") == "OPEN"}
 
         lines = ["", "🧠 *Thematic Exposure Sleeve (EXP-008)*"]
@@ -1564,6 +1588,21 @@ class ThematicExposureLab:
 
     # ── hoofd-cycle (aangeroepen vanuit main.py, cycle_count % 5 == 1) ──────
     def run_cycle(self) -> None:
+        try:
+            self._load_positions()
+        except PositiesOnleesbaar as e:
+            # Geen beheer, geen aankopen, geen overboekingen op een potje dat we niet
+            # kunnen lezen. Eén keer luid; herstellen is handwerk (backup of HL-fills).
+            logger.error("ThematicExposureLab: cyclus overgeslagen — %s", e)
+            if not self._onleesbaar_gemeld:
+                self._onleesbaar_gemeld = True
+                self._notify_telegram("\n".join([
+                    "🚨 *Dip-koper staat stil*",
+                    "Het positiebestand is onleesbaar, dus open posities worden NIET beheerd "
+                    "(stops bestaan alleen in software).",
+                    "Herstel uit de backup of uit de Hyperliquid-fills."]))
+            return
+        self._onleesbaar_gemeld = False
         self._scan_new_tickers()
         report = self._score_and_report()
         self._manage_exits()
