@@ -186,6 +186,36 @@
       "bron": "terugdraaiing 21-09: voetafdruk 493 MiB; apt was NIET de oorzaak (runs van 10-40 s, de piek kwam later en hield uren aan)",
       "benchmark": "e2-small ($0,503/dag)",
       "volgende_stap": "Geparkeerd (besluit Bart 21-09: tijd liever naar nieuwe kansen). Eerst de oorzaak van de geheugengroei vinden; pas daarna een nieuw claimblad met een vooraf gedefinieerde poort zonder dubbeltelling van swapcache."
+    },
+    "sector_momentum": {
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-09-21",
+      "soort": "nieuwe_bron",
+      "hypothese": "Thema's komen en gaan: houd de sterkste sectoren, wissel periodiek (Bart, 21-09).",
+      "bron": "Bart 21-09; research/sector_momentum.py",
+      "benchmark": "S&P 500",
+      "volgende_stap": "GESTOPT: 9 SPDR-sectoren 1999-2026, 12 varianten 7,2-9,3%/jaar tegen 8,6% S&P 500; alleen beter in 1999-2008. Te grof."
+    },
+    "industrie_momentum": {
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-09-21",
+      "soort": "nieuwe_bron",
+      "hypothese": "Op industrieniveau (49, dichter bij thema's) houdt momentum wél stand.",
+      "bron": "research/industrie_momentum.py, Fama-French 49 industrieën 1964-2026 (geen overlevingsbias)",
+      "benchmark": "Amerikaanse markt (alle aandelen)",
+      "volgende_stap": "GESTOPT op risico, niet op rendement. Variant 1 (top 5, 9/12 mnd, per kwartaal): +14,4 tot +16,7%/jaar tegen +10,8%, beter in 5 van 6 decennia — maar diepste daling 56-62% tegen 50%, en 6 mnd houdt geen stand. Variant 2 (vooraf vastgelegd, trendfilter): daling 30% tegen 50%, maar rendement +11,3% tegen +10,7% en 2014-2026 +6,3% tegen +13,4%. Het extra rendement is een risicopremie (meer rendement voor diepere dalingen), geen gratis voordeel. Bovendien: UCITS-industrie-ETF's bij DeGiro zijn grof (dicht bij 11 sectoren, en die werkten niet). Niet verder variëren op deze data."
+    },
+    "thema_radar_keten": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-09-21",
+      "soort": "nieuwe_bron",
+      "hypothese": "Een thema-radar (welke industrieën hebben momentum) plus een ketenanalyse binnen het thema (welke schakel vangt de waarde: het knelpunt, de 'picks and shovels') kiest UCITS-ETF's die het wereldindexfonds verslaan.",
+      "bron": "Bart 21-09; de industrie-momentumtoets laat zien dat de radar informatie bevat, maar met risico",
+      "benchmark": "WEBN (het fonds dat we bezitten)",
+      "volgende_stap": "Ketenanalyse is niet eerlijk terug te toetsen (je kiest de keten met kennis van nu). Daarom vooruit meten, zoals de scorekaart: per kwartaal radar + keten + UCITS-ETF-keuze vastleggen VOORDAT de uitkomst bekend is, en tegen WEBN volgen. Ontwerp maken; geen geld."
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."
