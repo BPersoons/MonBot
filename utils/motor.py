@@ -16,7 +16,9 @@ from datetime import date
 
 REGISTER_FILE = "config/experimenten.json"
 TREDEN = {0: "idee", 1: "papier", 2: "schaduw", 3: "proeftuin", 4: "schalen"}
-MAX_PROEFTUIN = 3            # docs/MOTOR.md, spelregel 2
+# docs/MOTOR.md spelregel 2 (Bart 22-09): geen vast maximum aantal; het proeftuinkapitaal
+# (register, globaal.proeftuin_kapitaal_usd) begrenst. Standaard als het register het niet noemt:
+PROEFTUIN_KAPITAAL_STANDAARD = 500.0
 STIL_NA_DAGEN = 7            # het weekritme: elke week minstens één stap
 # Trede 1 kan terecht wachten (op een marktregime, op Bart); die tellen niet als stilstand
 # zolang de status dat zegt.
@@ -54,6 +56,7 @@ def stand(register: dict, vandaag: date | None = None) -> dict:
             continue
         dagen = _dagen_sinds(e.get("sinds"), vandaag)
         per_trede[trede].append({"naam": naam, "status": e.get("status"), "dagen": dagen,
+                                 "budget_usd": e.get("budget_usd"),
                                  "soort": e.get("soort"), "volgende_stap": e.get("volgende_stap")})
         if e.get("status") == VOORUITMETING:
             herzien = _dagen_sinds(e.get("herzien"), vandaag)
@@ -75,9 +78,15 @@ def stand(register: dict, vandaag: date | None = None) -> dict:
             signalen.append("%s is een idee maar heeft een potje (%s) — ideeën houden geen geld, "
                             "en een potje met geld geeft een vals H5-signaal" % (naam, e.get("sleeve")))
 
-    if len(per_trede[3]) > MAX_PROEFTUIN:
-        signalen.append("%d experimenten op de proeftuin, maximaal %d — het verliesbudget wordt te dun"
-                        % (len(per_trede[3]), MAX_PROEFTUIN))
+    kapitaal = float((register.get("globaal") or {}).get("proeftuin_kapitaal_usd",
+                                                          PROEFTUIN_KAPITAAL_STANDAARD))
+    zonder_budget = [e["naam"] for e in per_trede[3] if not isinstance(e.get("budget_usd"), (int, float))]
+    ingezet = sum(float(e["budget_usd"]) for e in per_trede[3] if isinstance(e.get("budget_usd"), (int, float)))
+    for naam in zonder_budget:
+        signalen.append("%s staat op de proeftuin zonder budget_usd — het proeftuinkapitaal is niet te tellen" % naam)
+    if ingezet > kapitaal:
+        signalen.append("proeftuin: $%.0f ingezet, kapitaal $%.0f — er staat meer geld in experimenten dan afgesproken"
+                        % (ingezet, kapitaal))
     for t in (0, 1):
         if not per_trede[t]:
             signalen.append("trede %d (%s) is leeg — de motor loopt droog" % (t, TREDEN[t]))

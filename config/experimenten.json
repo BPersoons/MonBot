@@ -15,7 +15,9 @@
     "dip_koper_max_stilstand_minuten": 180,
     "saldo_check_max_uit_uur": 6,
     "max_aandeel_per_rendementsprotocol": 0.65,
-    "detectie_doel_minuten": 10
+    "detectie_doel_minuten": 10,
+    "proeftuin_kapitaal_usd": 500,
+    "proeftuin_max_verlies_per_potje_pct": 50
   },
   "controles": {
     "veilig_integriteit": {
@@ -125,7 +127,8 @@
         "drawdown_pct": 15.0
       },
       "kill": null,
-      "verliesbudget_telt_mee": false
+      "verliesbudget_telt_mee": false,
+      "budget_usd": 255
     },
     "dip_koper_beursstops": {
       "status": "idee",

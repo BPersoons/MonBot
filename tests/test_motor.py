@@ -36,18 +36,28 @@ def test_wachten_op_een_regime_of_op_bart_is_geen_stilstand():
 
 def test_live_experimenten_tellen_niet_als_stilstand():
     """Een proeftuin-experiment staat bewust lang op trede 3 — dat is meten, geen stilstand."""
-    s = motor.stand(_reg(a={"trede": 3, "status": "live", "sinds": "2026-07-19"},
+    s = motor.stand(_reg(a={"trede": 3, "status": "live", "sinds": "2026-07-19", "budget_usd": 100},
                          b={"trede": 0, "status": "idee", "sinds": "2026-09-20"},
                          c={"trede": 1, "status": "papier", "sinds": "2026-09-20"}), VANDAAG)
     assert s["signalen"] == []
 
 
-def test_meer_dan_drie_op_de_proeftuin_geeft_een_signaal():
-    exps = {"e%d" % i: {"trede": 3, "status": "live", "sinds": "2026-09-01"} for i in range(4)}
-    exps.update(i={"trede": 0, "status": "idee", "sinds": "2026-09-20"},
-                p={"trede": 1, "status": "papier", "sinds": "2026-09-20"})
-    s = motor.stand(_reg(**exps), VANDAAG)
-    assert any("4 experimenten op de proeftuin" in x for x in s["signalen"])
+def test_proeftuin_begrensd_door_kapitaal_niet_door_aantal():
+    """Bart 22-09: geen vast maximum; $500 kapitaal begrenst (docs/MOTOR.md spelregel 2)."""
+    basis = {"i": {"trede": 0, "status": "idee", "sinds": "2026-09-20"},
+             "p": {"trede": 1, "status": "papier", "sinds": "2026-09-20"}}
+    vijf = {"e%d" % n: {"trede": 3, "status": "live", "sinds": "2026-09-01", "budget_usd": 100} for n in range(5)}
+    reg = {"globaal": {"proeftuin_kapitaal_usd": 500}, "experimenten": dict(basis, **vijf)}
+    assert motor.stand(reg, VANDAAG)["signalen"] == []                 # 5 x $100 = precies $500
+    reg["experimenten"]["e5"] = {"trede": 3, "status": "live", "sinds": "2026-09-01", "budget_usd": 1}
+    assert any("$501 ingezet, kapitaal $500" in x for x in motor.stand(reg, VANDAAG)["signalen"])
+
+
+def test_proeftuin_zonder_budget_wordt_gemeld():
+    reg = {"experimenten": {"x": {"trede": 3, "status": "live", "sinds": "2026-09-01"},
+                            "i": {"trede": 0, "status": "idee", "sinds": "2026-09-20"},
+                            "p": {"trede": 1, "status": "papier", "sinds": "2026-09-20"}}}
+    assert any("x staat op de proeftuin zonder budget_usd" in x for x in motor.stand(reg, VANDAAG)["signalen"])
 
 
 def test_lege_eerste_treden_betekenen_dat_de_motor_droogloopt():
