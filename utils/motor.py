@@ -11,6 +11,7 @@ trede zonder inhoud, en meer dan drie experimenten tegelijk op de proeftuin-tred
 """
 
 import json
+import math
 import sys
 from datetime import date
 
@@ -80,10 +81,15 @@ def stand(register: dict, vandaag: date | None = None) -> dict:
 
     kapitaal = float((register.get("globaal") or {}).get("proeftuin_kapitaal_usd",
                                                           PROEFTUIN_KAPITAAL_STANDAARD))
-    zonder_budget = [e["naam"] for e in per_trede[3] if not isinstance(e.get("budget_usd"), (int, float))]
-    ingezet = sum(float(e["budget_usd"]) for e in per_trede[3] if isinstance(e.get("budget_usd"), (int, float)))
+    # Alleen een eindig, positief getal telt; bool is in Python een int, en NaN telt anders stil
+    # als 'geen probleem' (ontwerpreview 22-09, bevinding 8).
+    def _budget(x):
+        return (float(x) if isinstance(x, (int, float)) and not isinstance(x, bool)
+                and math.isfinite(x) and x > 0 else None)
+    zonder_budget = [e["naam"] for e in per_trede[3] if _budget(e.get("budget_usd")) is None]
+    ingezet = sum(_budget(e["budget_usd"]) for e in per_trede[3] if _budget(e.get("budget_usd")) is not None)
     for naam in zonder_budget:
-        signalen.append("%s staat op de proeftuin zonder budget_usd — het proeftuinkapitaal is niet te tellen" % naam)
+        signalen.append("%s staat op de proeftuin zonder geldig budget_usd (eindig getal > 0) — het proeftuinkapitaal is niet te tellen" % naam)
     if ingezet > kapitaal:
         signalen.append("proeftuin: $%.0f ingezet, kapitaal $%.0f — er staat meer geld in experimenten dan afgesproken"
                         % (ingezet, kapitaal))

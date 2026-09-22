@@ -1,7 +1,9 @@
 # Proeftuinmotor — een experiment met geld is een regel in het register, geen nieuwe code
 
-*Ontwerp 2026-09-22 · status: **ontwerp, nog niet gebouwd** · vraagt een ontwerpreview (A1) vóór
-de bouw en een code-review (A1) vóór de deploy.*
+*Ontwerp 2026-09-22 · status: **GEPARKEERD** na de ontwerpreview (`docs/audits/2026-09-22-proeftuinmotor-ontwerp.md`, GO-mits
+voor de bouw, STOP voor de migratie). Te vroeg: er is nog geen experiment dat echt geld nodig heeft. Eerst
+**schaduwpotjes** (`research/schaduwpotjes.py`); de geldmotor wordt gebouwd zodra een schaduwpotje promotie
+verdient, als slanke versie 1 met de negen voorwaarden uit de review.*
 
 ## Waarom
 

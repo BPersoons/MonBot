@@ -57,7 +57,7 @@ def test_proeftuin_zonder_budget_wordt_gemeld():
     reg = {"experimenten": {"x": {"trede": 3, "status": "live", "sinds": "2026-09-01"},
                             "i": {"trede": 0, "status": "idee", "sinds": "2026-09-20"},
                             "p": {"trede": 1, "status": "papier", "sinds": "2026-09-20"}}}
-    assert any("x staat op de proeftuin zonder budget_usd" in x for x in motor.stand(reg, VANDAAG)["signalen"])
+    assert any("x staat op de proeftuin zonder geldig budget_usd" in x for x in motor.stand(reg, VANDAAG)["signalen"])
 
 
 def test_lege_eerste_treden_betekenen_dat_de_motor_droogloopt():
@@ -119,3 +119,17 @@ def test_gestopt_is_geen_stilstand_en_vult_geen_trede():
     assert not any(x.startswith("a ") for x in s["signalen"])
     assert s["gestopt"] == ["a"] and s["per_trede"][1] == []
     assert any("trede 1 (papier) is leeg" in x for x in s["signalen"])
+
+
+def test_ongeldig_budget_telt_nooit_als_geldig():
+    """NaN, True, 0 en negatief zijn geen budget (ontwerpreview 22-09, bevinding 8)."""
+    for fout in (float("nan"), True, 0, -5, float("inf"), "100"):
+        reg = {"globaal": {"proeftuin_kapitaal_usd": 500},
+               "experimenten": {"x": {"trede": 3, "status": "live", "sinds": "2026-09-01", "budget_usd": fout},
+                                "y": {"trede": 3, "status": "live", "sinds": "2026-09-01", "budget_usd": 900},
+                                "i": {"trede": 0, "status": "idee", "sinds": "2026-09-20"},
+                                "p": {"trede": 1, "status": "papier", "sinds": "2026-09-20"}}}
+        sig = motor.stand(reg, VANDAAG)["signalen"]
+        assert any("x staat op de proeftuin zonder geldig budget_usd" in x for x in sig), repr(fout)
+        assert any("$900 ingezet" in x for x in sig), repr(fout)
+
