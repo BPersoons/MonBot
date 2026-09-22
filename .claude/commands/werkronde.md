@@ -41,7 +41,7 @@ Een kill of een budgetalarm gaat vóór alles: uitvoeren wat het register zegt e
 Per poort: meet het criterium uit de bron, noteer de uitkomst. **Nooit oprekken.** Haalt hij het niet, dan geldt de kill of de afgesproken terugval.
 
 ## Stap 4b — De motor: beweegt er genoeg? (`docs/MOTOR.md`)
-`python -m utils.motor` toont wat op welke trede staat (idee → papier → schaduw → proeftuin → schalen) en meldt stilstand: een idee dat langer dan een week niet verschoof, een lege trede 0 of 1, of meer dan drie experimenten op de proeftuin.
+`python -m utils.motor` toont wat op welke trede staat (idee → papier → schaduw → proeftuin → schalen) en meldt stilstand: een idee dat langer dan een week niet verschoof, een lege trede 0 of 1, meer geld op de proeftuin dan het proeftuinkapitaal ($500), of een vooruitmeting voorbij haar herzien-datum. `python research/schaduwpotjes.py stand` toont de schaduwpotjes tegen de kern en hun themafonds.
 
 - Elke week gaat **minstens één idee een trede verder, of het stopt** (met reden in `docs/besluiten.md`).
 - Werk `trede`, `sinds` en `volgende_stap` bij in `config/experimenten.json` zodra er iets verschuift.
