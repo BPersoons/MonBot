@@ -77,21 +77,18 @@ herstel je met een **tegenboeking**, nooit door `data/flows.json` te herschrijve
 
 ### 2. NAV opnieuw meten en de snapshot ophalen
 
-```
-gcloud compute ssh agent-trader-swarm-vm --zone=europe-west1-b \
-  --command='sudo docker exec agent_trader_swarm python -m utils.nav'
-```
-Daarna `nav.json` uit de container naar `nav_snapshot.json` in de repo (gitignored).
-Zonder verse snapshot toont de pagina oude vermogenscijfers terwijl de koersen wél live
-zijn — misleidender dan helemaal geen cijfer.
+De generator haalt de verse stand van de VM (NAV per potje, vermogen per dag, KPI's) zelf op
+met `--vm` (stap 3) en bewaart hem in `vm_snapshot.json` (gitignored). Zonder verse stand
+meldt de pagina hoe oud de cijfers zijn.
 
 ### 3. Dashboard bouwen
 
 ```
-python scripts/overzicht.py
+python scripts/overzicht.py --vm
 ```
 
-Controleer de uitvoer: vermogen, aantal namen, en of het nieuwe potje erin staat.
+Controleer de uitvoer: VM-stand, aantal dagen vermogen, aantal namen, en of het nieuwe potje
+erin staat. De vormgeving staat in `scripts/overzicht_sjabloon.html`, de data in het script.
 
 ### 4. Publiceren op de VASTE URL
 
@@ -107,6 +104,6 @@ URL, en dan heeft Bart twee pagina's die uit elkaar lopen.
   dat en leg de herstelregel vast: de volgende storting gaat eerst naar de kern.
 - Staat de status van een thema-slot nog op "nog niet gekocht" terwijl er geld in zit?
   De koppeling positie↔slot gaat op **ISIN**, niet op rol.
-- De handgeschreven planlijsten (`STAPPEN`, `BESLISSINGEN` in `scripts/overzicht.py`)
-  volgen niets vanzelf. Verandert er iets aan het plan, werk ze bij — ze verouderen
+- De handgeschreven lijst `BESLISSINGEN` in `scripts/overzicht.py`
+  volgt niets vanzelf. Verandert er iets aan het plan, werk hem bij — zulke lijsten verouderen
   stil en dat is op deze pagina al twee keer gebeurd.
