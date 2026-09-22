@@ -89,6 +89,14 @@ jobs:
             -d disable_web_page_preview=true \
             --data-urlencode "text=${MSG}"
 
+      # --- dagelijks: schaduwpotjes (uitschieter- en schakelmandjes, geen geld) --
+      # Vooruit gemeten tegen de kern EN het themafonds (docs/MOTOR.md 2b). Geen melding:
+      # een stop in de schaduw is informatie voor de maandelijkse motorronde, geen alarm.
+      - name: Schaduwpotjes bijwerken
+        if: always() && github.event.schedule != '0 8 * * 1'
+        continue-on-error: true
+        run: python research/schaduwpotjes.py bijwerken
+
       # --- maandag: herscoring-agenda -----------------------------------------
       - name: Herscoring-agenda
         id: agenda
@@ -176,7 +184,7 @@ jobs:
         run: |
           git config user.name  "scorekaart-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/tracking.json research/metrics_history.json research/uitstap_signaal.json
+          git add research/tracking.json research/metrics_history.json research/uitstap_signaal.json research/schaduwpotjes.json
           if git diff --staged --quiet; then
             echo "Geen wijziging in de meetbestanden."
           else

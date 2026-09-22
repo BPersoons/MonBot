@@ -279,7 +279,40 @@
       "hypothese": "Een klein, begrensd potje met veel kleine inzetten op mogelijke uitschieters (thema's, scorekaartnamen) levert via een paar grote winnaars meer op dan de kern, terwijl het verlies nooit groter wordt dan het potje (Bart 21-09: 'een deel inzetten op grote uitschieters, maar slim').",
       "bron": "Bart 21-09; scorekaart (research/, 20 namen vooruit gemeten), thema_radar_keten, dip-koper-infrastructuur",
       "benchmark": "kern (WEBN) over dezelfde periode",
-      "volgende_stap": "Kaarten bijgewerkt 21-09 (research/themes.json). Positie = schakelmandje (3-5 namen in het tolhuisje van een thema). Stand: (1) AI-tolhuisje ASML+TSMC: poort 3 PASS voor de schakel (~3% van WEBN), cijfers steunen de these (TSMC-marge 59->68%), maar megacaps: kwaliteitsoverweging, geen uitschieter; op HL met ~4-5%/jaar funding. (2) Geheugen: AFVALLER (poort 2, cyclisch; lage PE bij recordmarges = topsignaal). (3) Nucleair/verrijking: VOLGEN; Centrus ($3 mld, -65%) is de enige koopbare speler (alleen DeGiro), cijfers tonen het DOE-geld nog niet. Volgende: /scorecard op Centrus met vooraf vastgelegde wachtvoorwaarde; 'verken' voor nieuwe tolhuisjes met kleinere spelers (uitschieterpotentieel zit in kleine bedrijven in een knelpunt). Omvang potje: Bart."
+      "volgende_stap": "Na de ontwerpreview (22-09) eerst in de SCHADUW: drie schakelmandjes lopen vanaf 22-09 vooruit tegen kern en themafonds (schaduw_ai_tolhuisje, schaduw_splijtstof, schaduw_net_tolhuisje). Geld en een geldmotor pas als een mandje promotie verdient. Omvang bij promotie: binnen het proeftuinkapitaal van $500."
+    },
+    "schaduw_ai_tolhuisje": {
+      "status": "meet_vooruit",
+      "trede": 2,
+      "sinds": "2026-09-22",
+      "herzien": "2027-03-22",
+      "soort": "nieuwe_bron",
+      "hypothese": "Schakel verslaat thema en kern: TSMC+ASML (AI-tolhuisje) tegen VVSM (halfgeleiderfonds) en WEBN, als HL-perp met funding. Regels: stop -40%, winst laten lopen tot +100%, daarna trailing 30% onder de top, oogst boven 2x naar de kern.",
+      "bron": "research/schaduwpotjes.py / research/schaduwpotjes.json (potje 'ai_tolhuisje'); Bart 21-09 (ketenidee)",
+      "benchmark": "WEBN en het themafonds, in euro's",
+      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md)."
+    },
+    "schaduw_splijtstof": {
+      "status": "meet_vooruit",
+      "trede": 2,
+      "sinds": "2026-09-22",
+      "herzien": "2027-03-22",
+      "soort": "nieuwe_bron",
+      "hypothese": "Schakel verslaat thema en kern: Centrus+Cameco+BWXT (splijtstofknelpunten) tegen NUKL (nucleair UCITS) en WEBN; uitschieterkandidaat. Regels: stop -40%, winst laten lopen tot +100%, daarna trailing 30% onder de top, oogst boven 2x naar de kern.",
+      "bron": "research/schaduwpotjes.py / research/schaduwpotjes.json (potje 'splijtstof_knelpunten'); Bart 21-09 (ketenidee)",
+      "benchmark": "WEBN en het themafonds, in euro's",
+      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md)."
+    },
+    "schaduw_net_tolhuisje": {
+      "status": "meet_vooruit",
+      "trede": 2,
+      "sinds": "2026-09-22",
+      "herzien": "2027-03-22",
+      "soort": "nieuwe_bron",
+      "hypothese": "Schakel verslaat thema en kern: Eaton+Schneider+ABB+Quanta+Prysmian (net-tolhuisje) tegen GRID (Barts echte positie) en WEBN. Regels: stop -40%, winst laten lopen tot +100%, daarna trailing 30% onder de top, oogst boven 2x naar de kern.",
+      "bron": "research/schaduwpotjes.py / research/schaduwpotjes.json (potje 'net_tolhuisje'); Bart 21-09 (ketenidee)",
+      "benchmark": "WEBN en het themafonds, in euro's",
+      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md)."
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."

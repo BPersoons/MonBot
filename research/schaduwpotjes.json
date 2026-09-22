@@ -1,0 +1,81 @@
+{
+  "_comment": "Schaduwpotjes (research/schaduwpotjes.py). Config vastgelegd VOOR de start; daarna schrijft het script alleen state (posities, reeks, gebeurtenissen). Een regel veranderen na de start = een nieuw potje, niet dit potje aanpassen. Elk potje: kern (WEBN) EN themafonds als maatstaf. Evaluatie na 6 maanden.",
+  "potjes": {
+    "ai_tolhuisje": {
+      "these": "De tolhuisjes van de AI-keten (EUV-lithografie, scherpste foundry-node) verslaan het brede halfgeleiderfonds en de kern. Kwaliteitsoverweging, geen uitschieter (themakaart AI-infrastructuur, herziening 21-09).",
+      "bron": "research/themes.json, kaart AI-infrastructuur, herziening_2026_09_21",
+      "instrumenten": {
+        "TSM": "USD",
+        "ASML": "USD"
+      },
+      "thema_fonds": "VVSM.DE",
+      "uitvoering": "Hyperliquid xyz-perps (xyz:TSM, xyz:ASML): taker 0,045% en funding ~5,5% per jaar (gemeten 22-09)",
+      "start": "2026-09-22",
+      "inleg_eur": 100,
+      "regels": {
+        "stop_verlies_pct": 40,
+        "laten_lopen_tot_winst_pct": 100,
+        "trailing_vanaf_top_pct": 30,
+        "oogst_boven_x": 2.0,
+        "kosten_per_order_eur": 0.0,
+        "kosten_pct": 0.045,
+        "funding_pct_per_jaar": 5.5
+      },
+      "evalueer_op": "2027-03-22",
+      "status": "loopt",
+      "gestart_op": null
+    },
+    "splijtstof_knelpunten": {
+      "these": "De knelpunten van de splijtstofketen (verrijking: Centrus; conversie en brandstof: Cameco; fabricage: BWXT) verslaan het Europese nucleaire fonds, dat ~0% in verrijking heeft, en de kern. Uitschieterkandidaat (overheidsgeld DOE $2,7 mrd; sentiment -30 tot -65%).",
+      "bron": "research/themes.json, kaart Nucleair, herziening_2026_09_21; research/cards/LEU.md (VOLGEN)",
+      "instrumenten": {
+        "LEU": "USD",
+        "CCJ": "USD",
+        "BWXT": "USD"
+      },
+      "thema_fonds": "NUKL.DE",
+      "uitvoering": "losse aandelen bij DeGiro: ~EUR 3 per order",
+      "start": "2026-09-22",
+      "inleg_eur": 500,
+      "regels": {
+        "stop_verlies_pct": 40,
+        "laten_lopen_tot_winst_pct": 100,
+        "trailing_vanaf_top_pct": 30,
+        "oogst_boven_x": 2.0,
+        "kosten_per_order_eur": 3.0,
+        "kosten_pct": 0.0,
+        "funding_pct_per_jaar": 0.0
+      },
+      "evalueer_op": "2027-03-22",
+      "status": "loopt",
+      "gestart_op": null
+    },
+    "net_tolhuisje": {
+      "these": "De vijf grootste namen in het tolhuisje van stroom en net (netapparatuur + aanleg), zoals gemeten in de GRID-kaart van augustus, verslaan het fonds dat Bart echt houdt (GRID) en de kern.",
+      "bron": "scripts/keten_overlap.py FONDSEN_NET (GRID UCITS top-10, peildatum 2026-06-30): Eaton 8,51, Schneider 8,29, ABB 8,12, Quanta 8,09, Prysmian 3,87",
+      "instrumenten": {
+        "ETN": "USD",
+        "SU.PA": "EUR",
+        "ABBN.SW": "CHF",
+        "PWR": "USD",
+        "PRY.MI": "EUR"
+      },
+      "thema_fonds": "GRID.DE",
+      "uitvoering": "losse aandelen bij DeGiro: ~EUR 3 per order",
+      "start": "2026-09-22",
+      "inleg_eur": 500,
+      "regels": {
+        "stop_verlies_pct": 40,
+        "laten_lopen_tot_winst_pct": 100,
+        "trailing_vanaf_top_pct": 30,
+        "oogst_boven_x": 2.0,
+        "kosten_per_order_eur": 3.0,
+        "kosten_pct": 0.0,
+        "funding_pct_per_jaar": 0.0
+      },
+      "evalueer_op": "2027-03-22",
+      "status": "loopt",
+      "gestart_op": null
+    }
+  }
+}
