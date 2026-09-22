@@ -1,0 +1,371 @@
+<title>Waar we staan</title>
+<style>
+:root{
+  color-scheme: light;
+  --papier:#f6f6f4; --veld:#fffffe; --inkt:#14181c; --inkt2:#4a5560; --zacht:#6f7982;
+  --lijn:#e4e5e2; --rand:rgba(20,24,28,.10); --raster:rgba(20,24,28,.07);
+  --accent:#1f6b66; --accent-zacht:#e6efee;
+  --goed:#0b8a0b; --letop:#a8760a; --kritiek:#c93434;
+  --s-degiro:#2a78d6; --s-dip:#eb6834; --s-rente:#1baf7a; --s-crypto:#eda100; --s-hlkas:#e87ba4;
+  --l-potje:#1f6b66; --l-kern:#6f7982; --l-thema:#2a78d6;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme: dark;
+  --papier:#101418; --veld:#171d22; --inkt:#eef1f3; --inkt2:#aab4bd; --zacht:#8a949d;
+  --lijn:#252d34; --rand:rgba(238,241,243,.10); --raster:rgba(238,241,243,.07);
+  --accent:#5fb3ad; --accent-zacht:#172a29;
+  --goed:#3fbf3f; --letop:#e0a92a; --kritiek:#e66767;
+  --s-degiro:#3987e5; --s-dip:#d95926; --s-rente:#199e70; --s-crypto:#c98500; --s-hlkas:#d55181;
+  --l-potje:#5fb3ad; --l-kern:#8a949d; --l-thema:#3987e5;
+}}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --papier:#101418; --veld:#171d22; --inkt:#eef1f3; --inkt2:#aab4bd; --zacht:#8a949d;
+  --lijn:#252d34; --rand:rgba(238,241,243,.10); --raster:rgba(238,241,243,.07);
+  --accent:#5fb3ad; --accent-zacht:#172a29;
+  --goed:#3fbf3f; --letop:#e0a92a; --kritiek:#e66767;
+  --s-degiro:#3987e5; --s-dip:#d95926; --s-rente:#199e70; --s-crypto:#c98500; --s-hlkas:#d55181;
+  --l-potje:#5fb3ad; --l-kern:#8a949d; --l-thema:#3987e5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--papier);color:var(--inkt);
+  font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:18px;padding-block:36px 80px;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:74rem;margin:0 auto}
+h1,h2{font-family:Georgia,"Iowan Old Style","Times New Roman",serif;font-weight:normal;text-wrap:balance}
+h1{font-size:2.1rem;line-height:1.15;margin:0;letter-spacing:-.01em}
+h2{font-size:1.35rem;margin:0}
+h3{font-size:.98rem;margin:0;font-weight:650}
+.num{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-variant-numeric:tabular-nums}
+.kop{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px 18px}
+.dek{color:var(--inkt2);margin:.35rem 0 0;max-width:62ch}
+.stempel{font-family:ui-monospace,Consolas,monospace;font-size:.72rem;color:var(--zacht);letter-spacing:.06em;
+  text-transform:uppercase}
+.sectie{margin-top:2.8rem}
+.sectie-kop{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px;margin-bottom:.9rem}
+.sectie-sub{color:var(--inkt2);font-size:.9rem;margin:.25rem 0 0;max-width:66ch}
+.paneel{background:var(--veld);border:1px solid var(--rand);border-radius:4px;padding:18px 20px}
+.pil{display:inline-block;font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;padding:2px 9px;
+  border-radius:20px;border:1px solid currentColor;white-space:nowrap;line-height:1.6}
+.p-goed{color:var(--goed)} .p-letop{color:var(--letop)} .p-kritiek{color:var(--kritiek)}
+.p-accent{color:var(--accent)} .p-zacht{color:var(--zacht)}
+.waarschuwing{margin-top:1rem;border:1px solid var(--letop);color:var(--inkt);border-radius:4px;
+  padding:10px 14px;font-size:.9rem;background:var(--veld)}
+.waarschuwing b{color:var(--letop)}
+/* tegels */
+.tegels{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:1.5rem}
+.tegel{background:var(--veld);border:1px solid var(--rand);border-radius:4px;padding:14px 16px}
+.tegel-kop{font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;color:var(--zacht)}
+.tegel-getal{font-size:1.7rem;margin:.25rem 0 .1rem;letter-spacing:-.02em}
+.tegel-sub{font-size:.8rem;color:var(--inkt2);line-height:1.4}
+.c-goed{color:var(--goed)} .c-kritiek{color:var(--kritiek)} .c-letop{color:var(--letop)}
+/* vermogen */
+.grafiek-rij{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px}
+@media (max-width:760px){.grafiek-rij{grid-template-columns:1fr}}
+.grafiek{position:relative;width:100%}
+.grafiek svg{display:block;width:100%;height:auto;overflow:visible}
+.as{fill:var(--zacht);font:11px ui-monospace,Consolas,monospace}
+.as-lijn{stroke:var(--raster);stroke-width:1}
+.tip{position:absolute;pointer-events:none;background:var(--veld);border:1px solid var(--rand);border-radius:4px;
+  padding:8px 10px;font-size:.78rem;box-shadow:0 4px 16px rgba(0,0,0,.12);min-width:190px;z-index:2}
+.tip-kop{font-weight:650;margin-bottom:4px}
+.tip-rij{display:flex;justify-content:space-between;gap:12px}
+.tip-rij i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:0}
+.legenda{display:flex;flex-direction:column;gap:9px;font-size:.86rem}
+.leg{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:baseline}
+.leg i{width:10px;height:10px;border-radius:2px;display:block;transform:translateY(1px)}
+.leg-naam{color:var(--inkt)} .leg-w{color:var(--inkt)}
+.leg-pct{grid-column:2 / 4;color:var(--zacht);font-size:.74rem;margin-top:-6px}
+.leg-totaal{border-top:1px solid var(--lijn);padding-top:8px;display:flex;justify-content:space-between;font-weight:650}
+.noot{font-size:.78rem;color:var(--zacht);margin:.7rem 0 0;max-width:70ch}
+/* motor */
+.bord{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:980px){.bord{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.bord{grid-template-columns:1fr}}
+.kolom{background:var(--veld);border:1px solid var(--rand);border-radius:4px;padding:12px;display:flex;
+  flex-direction:column;gap:8px;min-width:0}
+.kolom-kop{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:6px;
+  border-bottom:1px solid var(--lijn)}
+.kolom-kop h3{font-size:.86rem}
+.kolom-uitleg{font-size:.72rem;color:var(--zacht);margin:-2px 0 2px}
+.kaart{border:1px solid var(--rand);border-radius:4px;padding:10px 11px;background:var(--papier);min-width:0}
+.kaart-kop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.kaart-naam{font-weight:600;font-size:.86rem;line-height:1.3}
+.kaart-stap{font-size:.78rem;color:var(--inkt2);margin:.4rem 0 .3rem;overflow-wrap:anywhere}
+.kaart-meta{font-size:.7rem;color:var(--zacht)}
+details.meer summary{cursor:pointer;color:var(--accent);font-size:.74rem;list-style:none}
+details.meer summary::-webkit-details-marker{display:none}
+details.meer[open] summary{margin-bottom:.3rem}
+.leeg{font-size:.76rem;color:var(--zacht);font-style:italic}
+details.gestopt{margin-top:12px}
+details.gestopt>summary{cursor:pointer;color:var(--inkt2);font-size:.88rem}
+.gestopt-lijst{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;margin-top:10px}
+.gestopt-item{font-size:.8rem;border-left:2px solid var(--lijn);padding:2px 0 2px 10px;color:var(--inkt2)}
+.gestopt-item b{color:var(--inkt);font-weight:600}
+/* schaduwpotjes + signalen */
+.raster3{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
+.pot-namen{font-size:.76rem;color:var(--zacht);margin:.2rem 0 .5rem}
+.pot-these{font-size:.84rem;color:var(--inkt2);margin:.2rem 0 .6rem}
+.pot-cijfers{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;margin-top:.4rem}
+.pot-cijfers span{display:flex;align-items:center;gap:5px}
+.pot-cijfers i{width:10px;height:3px;display:inline-block;border-radius:2px}
+.mini svg{display:block;width:100%;height:auto}
+.signaal-groot{font-size:1.5rem;margin:.2rem 0}
+.meter{height:8px;background:var(--lijn);border-radius:4px;position:relative;margin:.6rem 0 .3rem}
+.meter-nul{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--inkt2);left:50%}
+.meter-punt{position:absolute;top:-3px;width:14px;height:14px;border-radius:50%;background:var(--accent);
+  border:2px solid var(--veld);transform:translateX(-50%)}
+.meter-as{display:flex;justify-content:space-between;font-size:.68rem;color:var(--zacht)}
+table{width:100%;border-collapse:collapse;font-size:.84rem}
+th{text-align:left;font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:var(--zacht);
+  font-weight:600;padding:0 8px 7px;border-bottom:1px solid var(--lijn)}
+td{padding:7px 8px;border-bottom:1px solid var(--lijn);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.r,th.r{text-align:right}
+.scroll{overflow-x:auto}
+.scroll table{min-width:640px}
+.beslis{display:grid;grid-template-columns:110px 1fr;gap:4px 16px;padding:12px 0;border-bottom:1px solid var(--lijn)}
+.beslis:last-child{border-bottom:none}
+@media (max-width:560px){.beslis{grid-template-columns:1fr}}
+.beslis-wanneer{font-family:ui-monospace,Consolas,monospace;font-size:.8rem;color:var(--accent)}
+.beslis-vraag{font-weight:600}
+.beslis-uitleg{color:var(--inkt2);font-size:.88rem;margin-top:2px;max-width:70ch}
+details.blok{margin-top:12px}
+details.blok>summary{cursor:pointer;font-family:Georgia,"Iowan Old Style",serif;font-size:1.15rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{border:1px solid var(--rand);border-radius:4px;padding:8px 10px;background:var(--veld);font-size:.8rem;min-width:210px;flex:1}
+.chip b{display:block;font-size:.86rem}
+.op{color:var(--goed)} .neer{color:var(--kritiek)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<div class="wrap" id="app">
+  <div class="kop">
+    <div>
+      <h1>Waar we staan</h1>
+      <p class="dek">Het vermogen, wat er loopt in de motor, en wat er van jou nodig is.</p>
+    </div>
+    <div class="stempel" id="stempel"></div>
+  </div>
+  <div id="vers"></div>
+  <div class="tegels" id="tegels"></div>
+
+  <section class="sectie" aria-labelledby="h-vermogen">
+    <div class="sectie-kop"><div><h2 id="h-vermogen">Vermogen over tijd</h2>
+      <p class="sectie-sub">Elke dag gemeten, per potje gestapeld. Stortingen en nieuwe metingen tellen mee in de lijn — de markeringen onderaan laten zien wanneer een potje voor het eerst meetelde.</p></div></div>
+    <div class="paneel"><div class="grafiek-rij">
+      <div class="grafiek" id="vermogen-grafiek"></div>
+      <div class="legenda" id="vermogen-legenda"></div>
+    </div><p class="noot" id="vermogen-noot"></p></div>
+  </section>
+
+  <section class="sectie" aria-labelledby="h-motor">
+    <div class="sectie-kop"><div><h2 id="h-motor">De motor</h2>
+      <p class="sectie-sub">Elk idee klimt dezelfde ladder: van idee, via papier en schaduw (zonder geld), naar de proeftuin (klein geld) en schalen (jouw besluit). Wat een poort niet haalt, stopt — met de reden erbij.</p></div>
+      <div class="stempel" id="motor-kapitaal"></div></div>
+    <div class="bord" id="bord"></div>
+    <details class="gestopt" id="gestopt"></details>
+  </section>
+
+  <section class="sectie" aria-labelledby="h-schaduw">
+    <div class="sectie-kop"><div><h2 id="h-schaduw">Schaduwpotjes</h2>
+      <p class="sectie-sub">Mandjes die zonder geld vooruit meelopen, elk tegen twee maatstaven: je kern (WEBN) en het themafonds. Verslaat de schakel het thema? Na zes maanden weten we het.</p></div></div>
+    <div class="raster3" id="schaduw"></div>
+  </section>
+
+  <section class="sectie" aria-labelledby="h-signalen">
+    <div class="sectie-kop"><div><h2 id="h-signalen">Signalen en doelen</h2></div></div>
+    <div class="raster3" id="signalen"></div>
+  </section>
+
+  <section class="sectie" aria-labelledby="h-beslis">
+    <div class="sectie-kop"><div><h2 id="h-beslis">Wat ik van je nodig heb</h2></div></div>
+    <div class="paneel" id="beslissingen"></div>
+  </section>
+
+  <section class="sectie">
+    <details class="blok" id="namen"></details>
+    <details class="blok" id="themas"></details>
+  </section>
+</div>
+<script>
+const D = /*DATA*/null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const usd = (v, d=0) => v == null ? "?" : "$" + Number(v).toLocaleString("nl-NL", {maximumFractionDigits:d, minimumFractionDigits:d});
+const pct = (v, d=1) => v == null ? "?" : (v > 0 ? "+" : "") + Number(v).toLocaleString("nl-NL", {maximumFractionDigits:d, minimumFractionDigits:d}) + "%";
+const datum = (s) => { if (!s) return "?"; const [y,m,d] = s.slice(0,10).split("-"); return `${d}-${m}-${y}`; };
+const kort = (s) => { const [y,m,d] = s.split("-"); return `${+d} ${["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"][+m-1]}`; };
+const kleur = (g) => `var(--s-${g})`;
+
+function kopEnVersheid(){
+  $("stempel").textContent = "Bijgewerkt " + datum(D.gebouwd) + " " + D.gebouwd.slice(11,16) + " UTC";
+  const oud = (Date.now() - Date.parse(D.vm_ts || D.gebouwd)) / 864e5;
+  let w = "";
+  if (oud > 2) w += `<div class="waarschuwing"><b>Deze stand is ${Math.floor(oud)} dagen oud.</b> De pagina wordt bijgewerkt als de bouwer een werkronde draait; de cijfers hieronder zijn van ${datum(D.vm_ts)}.</div>`;
+  if ((D.fouten || []).length) w += `<div class="waarschuwing"><b>Niet alles kon gemeten worden:</b> ${esc(D.fouten.join(" · "))}</div>`;
+  $("vers").innerHTML = w;
+}
+
+function tegels(){
+  const v = D.vermogen, r = v.reeks, k = D.signalen.kpi || {};
+  const nu = v.totaal_usd ?? (r.length ? r[r.length-1].t : null);
+  // 30 dagen: alleen potjes die aan het begin al gemeten werden. Een potje dat in de periode
+  // pas ging meetellen (DeGiro vanaf 16-09) is een nieuwe meting, geen winst.
+  const vgl = r.length > 30 ? r[r.length-31] : r[0], laatst = r[r.length-1];
+  const gemeten = vgl ? Object.keys(vgl.g).filter(g => vgl.g[g] > 0) : [];
+  const verschil = vgl && laatst ? gemeten.reduce((a,g) => a + (laatst.g[g] - vgl.g[g]), 0) : null;
+  const nieuw = vgl ? Object.keys(laatst.g).filter(g => !(vgl.g[g] > 0) && laatst.g[g] > 0).map(g => v.groepen.find(x=>x.sleutel===g).label.split(" ")[0]) : [];
+  const h1 = k.h1 || {}, h3 = k.h3 || {};
+  const t = [
+    ["Vermogen", usd(nu), v.compleet === false ? "ONVOLLEDIG gemeten — ondergrens" : "alle potjes gemeten, in dollars", ""],
+    ["30 dagen", (verschil >= 0 ? "+" : "−") + usd(Math.abs(verschil)), "koers, rente en stortingen" + (nieuw.length ? "; zonder " + nieuw.join(", ") + " (telt pas sinds kort mee)" : ""), verschil >= 0 ? "c-goed" : "c-kritiek"],
+    ["Opbrengst min kosten", (h1.netto_usd >= 0 ? "+" : "−") + usd(Math.abs(h1.netto_usd ?? 0), 2), `over ${h1.dagen ?? "?"} dagen: rente en gerealiseerde winst $${(h1.opbrengst_usd ?? 0).toFixed(2)} tegen VM $${(h1.kosten_usd ?? 0).toFixed(2)}${h1.voorlopig ? " (voorlopig)" : ""}`, (h1.netto_usd ?? 0) >= 0 ? "c-goed" : "c-kritiek"],
+    ["Verliesbudget experimenten", usd(h3.verlies_usd ?? 0) + " / " + usd(h3.budget_usd ?? 250), `alarm bij ${usd(h3.alarm_usd ?? 125)}`, (h3.verlies_usd ?? 0) >= (h3.alarm_usd ?? 125) ? "c-letop" : "c-goed"],
+  ];
+  $("tegels").innerHTML = t.map(([kop, getal, sub, c]) => `<div class="tegel"><div class="tegel-kop">${esc(kop)}</div><div class="tegel-getal num ${c}">${esc(getal)}</div><div class="tegel-sub">${esc(sub)}</div></div>`).join("");
+}
+
+function vermogenGrafiek(){
+  const v = D.vermogen, r = v.reeks, G = v.groepen.map(g => g.sleutel);
+  const el = $("vermogen-grafiek");
+  if (!r.length){ el.innerHTML = '<p class="leeg">Geen reeks van de VM.</p>'; return; }
+  const W = 760, H = 300, m = {l:52, r:10, t:10, b:44};
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const maxT = Math.max(...r.map(x => G.reduce((s,g) => s + x.g[g], 0)));
+  const top = Math.ceil(maxT / 1000) * 1000;
+  const x = (i) => m.l + (r.length === 1 ? iw/2 : i * iw / (r.length - 1));
+  const y = (w) => m.t + ih - (w / top) * ih;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Vermogen per potje per dag">`;
+  for (let k = 0; k <= top; k += 1000){ s += `<line class="as-lijn" x1="${m.l}" x2="${W-m.r}" y1="${y(k)}" y2="${y(k)}"/><text class="as" x="${m.l-8}" y="${y(k)+4}" text-anchor="end">${k/1000}k</text>`; }
+  // gestapelde vlakken, van onder naar boven
+  const onder = r.map(() => 0);
+  G.forEach(g => {
+    const boven = r.map((p,i) => onder[i] + p.g[g]);
+    const pad = boven.map((w,i) => `${i?"L":"M"}${x(i).toFixed(1)},${y(w).toFixed(1)}`).join("") +
+      onder.map((w,i) => i).reverse().map(i => `L${x(i).toFixed(1)},${y(onder[i]).toFixed(1)}`).join("") + "Z";
+    s += `<path d="${pad}" fill="${kleur(g)}" fill-opacity=".9" stroke="var(--veld)" stroke-width="1.5" stroke-linejoin="round"/>`;
+    boven.forEach((w,i) => onder[i] = w);
+  });
+  // maandlabels
+  let vorige = "";
+  r.forEach((p,i) => { const mnd = p.d.slice(0,7); if (mnd !== vorige){ vorige = mnd; s += `<line class="as-lijn" x1="${x(i)}" x2="${x(i)}" y1="${m.t+ih}" y2="${m.t+ih+5}"/><text class="as" x="${x(i)+3}" y="${m.t+ih+17}">${kort(p.d)}</text>`; } });
+  // markeringen: potje telt voor het eerst mee
+  (v.markeringen || []).forEach(mk => { const i = r.findIndex(p => p.d === mk.d); if (i < 0) return;
+    s += `<line x1="${x(i)}" x2="${x(i)}" y1="${m.t}" y2="${m.t+ih}" stroke="${kleur(mk.groep)}" stroke-width="1" stroke-dasharray="3 3"/>`;
+    s += `<circle cx="${x(i)}" cy="${m.t+ih+30}" r="4" fill="${kleur(mk.groep)}"/>`; });
+  s += `<line id="kruis" x1="0" x2="0" y1="${m.t}" y2="${m.t+ih}" stroke="var(--inkt2)" stroke-width="1" visibility="hidden"/>`;
+  s += `<rect id="vang" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/></svg><div class="tip" id="tip" hidden></div>`;
+  el.innerHTML = s;
+  const svg = el.querySelector("svg"), kruis = el.querySelector("#kruis"), tip = el.querySelector("#tip");
+  const toon = (ev) => {
+    const b = svg.getBoundingClientRect(); const px = (ev.clientX - b.left) * W / b.width;
+    const i = Math.max(0, Math.min(r.length-1, Math.round((px - m.l) / iw * (r.length - 1))));
+    const p = r[i]; kruis.setAttribute("x1", x(i)); kruis.setAttribute("x2", x(i)); kruis.setAttribute("visibility","visible");
+    const regels = G.slice().reverse().filter(g => p.g[g] > 0).map(g => `<div class="tip-rij"><span><i style="background:${kleur(g)}"></i>${esc(v.groepen.find(x=>x.sleutel===g).label)}</span><span class="num">${usd(p.g[g])}</span></div>`).join("");
+    tip.innerHTML = `<div class="tip-kop">${datum(p.d)}</div>${regels}<div class="tip-rij" style="border-top:1px solid var(--lijn);margin-top:4px;padding-top:4px"><b>Totaal</b><b class="num">${usd(p.t)}</b></div>`;
+    tip.hidden = false; const tx = (x(i) / W) * b.width; tip.style.left = Math.min(tx + 12, b.width - 200) + "px"; tip.style.top = "8px";
+  };
+  const weg = () => { tip.hidden = true; kruis.setAttribute("visibility","hidden"); };
+  const vang = el.querySelector("#vang"); vang.addEventListener("pointermove", toon); vang.addEventListener("pointerleave", weg);
+  // legenda met actuele waarde (tevens de tabelweergave van het laatste punt)
+  const laatst = r[r.length-1], tot = G.reduce((a,g) => a + laatst.g[g], 0);
+  $("vermogen-legenda").innerHTML = G.slice().reverse().map(g => `<div class="leg"><i style="background:${kleur(g)}"></i><span class="leg-naam">${esc(v.groepen.find(x=>x.sleutel===g).label)}</span><span class="leg-w num">${usd(laatst.g[g])}</span><span class="leg-pct">${tot ? (laatst.g[g]/tot*100).toFixed(1).replace(".",",") : "?"}% · ${datum(laatst.d)}</span></div>`).join("") +
+    `<div class="leg-totaal"><span>Totaal</span><span class="num">${usd(tot)}</span></div>`;
+  const mk = (v.markeringen || []).map(mk => `${esc(v.groepen.find(x=>x.sleutel===mk.groep).label)} vanaf ${datum(mk.d)}`).join(" · ");
+  $("vermogen-noot").textContent = mk ? "Telt pas mee vanaf (gestippeld): " + mk + ". Een sprong op zo'n dag is een nieuwe meting, geen winst." : "";
+}
+
+const TREDEN = [["0","Idee","een hypothese en een maatstaf"],["1","Papier","toets op historische data"],["2","Schaduw","loopt live mee, zonder geld"],["3","Proeftuin","klein echt geld"],["4","Schalen","jouw besluit"]];
+const STATUS = {live:["loopt","p-goed"], meet_vooruit:["meet","p-accent"], gepland:["wacht","p-letop"], wacht_op_regime:["wacht","p-letop"], idee:["idee","p-zacht"], papier:["papier","p-zacht"]};
+
+function motorBord(){
+  const M = D.motor;
+  $("motor-kapitaal").textContent = `proeftuin ${usd((M.treden["3"]||[]).reduce((a,e)=>a+(e.budget||0),0))} van ${usd(M.proeftuin_kapitaal)}`;
+  $("bord").innerHTML = TREDEN.map(([t, naam, uitleg]) => {
+    const items = M.treden[t] || [];
+    const kaarten = items.length ? items.map(e => {
+      const [lab, cls] = STATUS[e.status] || [e.status || "?", "p-zacht"];
+      const stap = e.volgende || e.hypothese || "";
+      const kortStap = stap.length > 150 ? stap.slice(0, 150).replace(/\s+\S*$/, "") + "…" : stap;
+      const meer = stap.length > 150 ? `<details class="meer"><summary>meer lezen</summary><div class="kaart-stap">${esc(stap)}</div></details>` : "";
+      const meta = [e.sinds ? "sinds " + datum(e.sinds) : "", e.herzien ? "herzien " + datum(e.herzien) : "", e.budget ? usd(e.budget) + " ingezet" : ""].filter(Boolean).join(" · ");
+      return `<div class="kaart"><div class="kaart-kop"><span class="kaart-naam">${esc(e.naam)}</span><span class="pil ${cls}">${esc(lab)}</span></div><div class="kaart-stap">${esc(kortStap)}</div>${meer}<div class="kaart-meta">${esc(meta)}</div></div>`;
+    }).join("") : '<p class="leeg">nog leeg</p>';
+    return `<div class="kolom"><div class="kolom-kop"><h3>${esc(naam)}</h3><span class="num" style="color:var(--zacht);font-size:.78rem">${items.length}</span></div><div class="kolom-uitleg">${esc(uitleg)}</div>${kaarten}</div>`;
+  }).join("");
+  const g = M.gestopt || [];
+  $("gestopt").innerHTML = `<summary>Gestopt: ${g.length} ideeën, en waarom</summary><div class="gestopt-lijst">${g.map(e => `<div class="gestopt-item"><b>${esc(e.naam)}</b> — ${esc((e.volgende || "").replace(/^GESTOPT[^:]*:\s*/i, "").slice(0, 190))}${(e.volgende||"").length > 190 ? "…" : ""}</div>`).join("")}</div>`;
+}
+
+function miniGrafiek(reeks){
+  const W = 320, H = 110, m = {l:30, r:6, t:8, b:18};
+  const serie = [["waarde_eur","potje"],["kern_eur","kern"],["thema_eur","thema"]];
+  const alle = reeks.flatMap(p => serie.map(([k]) => p[k]));
+  const lo = Math.min(...alle), hi = Math.max(...alle), span = (hi - lo) || 1;
+  const x = (i) => m.l + (reeks.length === 1 ? (W-m.l-m.r)/2 : i * (W-m.l-m.r) / (reeks.length-1));
+  const y = (w) => m.t + (H-m.t-m.b) - (w - lo) / span * (H-m.t-m.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Potje tegen kern en themafonds">`;
+  [lo, hi].forEach(w => s += `<line class="as-lijn" x1="${m.l}" x2="${W-m.r}" y1="${y(w)}" y2="${y(w)}"/><text class="as" x="${m.l-4}" y="${y(w)+4}" text-anchor="end">${Math.round(w)}</text>`);
+  serie.forEach(([k, n]) => { const d = reeks.map((p,i) => `${i?"L":"M"}${x(i).toFixed(1)},${y(p[k]).toFixed(1)}`).join("");
+    s += `<path d="${d}" fill="none" stroke="var(--l-${n})" stroke-width="2" stroke-linejoin="round"${n==="kern"?' stroke-dasharray="4 3"':""}/>`;
+    const i = reeks.length-1; s += `<circle cx="${x(i)}" cy="${y(reeks[i][k])}" r="3.5" fill="var(--l-${n})" stroke="var(--veld)" stroke-width="2"/>`; });
+  s += `<text class="as" x="${m.l}" y="${H-3}">${kort(reeks[0].dag)}</text><text class="as" x="${W-m.r}" y="${H-3}" text-anchor="end">${kort(reeks[reeks.length-1].dag)}</text></svg>`;
+  return s;
+}
+
+function schaduwpotjes(){
+  $("schaduw").innerHTML = (D.schaduw || []).map(p => {
+    const r = p.reeks || [], z = r[r.length-1];
+    const inleg = p.inleg || 1;
+    const st = !p.gestart_op ? ["start " + datum(p.start), "p-letop"] : ["loopt", "p-goed"];
+    const cijfers = z ? `<div class="pot-cijfers num"><span><i style="background:var(--l-potje)"></i>potje ${pct((z.waarde_eur/inleg-1)*100)}</span><span><i style="background:var(--l-kern)"></i>kern ${pct((z.kern_eur/inleg-1)*100)}</span><span><i style="background:var(--l-thema)"></i>${esc(p.thema_fonds)} ${pct((z.thema_eur/inleg-1)*100)}</span></div>` : "";
+    const grafiek = r.length >= 2 ? `<div class="mini">${miniGrafiek(r)}</div>` : `<p class="leeg">De eerste meting komt na het eerstvolgende slot. Daarna verschijnt hier de lijn van het potje naast de kern en ${esc(p.thema_fonds)}.</p>`;
+    const gb = (p.gebeurtenissen || []).map(g => `${datum(g.dag)} ${esc(g.naam)}: ${esc(g.wat)}`).join("<br>");
+    return `<div class="paneel"><div class="kaart-kop"><h3 style="text-transform:capitalize">${esc(p.naam)}</h3><span class="pil ${st[1]}">${esc(st[0])}</span></div>
+      <div class="pot-namen num">${esc(p.instrumenten.join(" · "))} &nbsp;tegen&nbsp; ${esc(p.thema_fonds)} en WEBN</div>
+      <div class="pot-these">${esc((p.these || "").slice(0, 190))}${(p.these||"").length>190?"…":""}</div>${grafiek}${cijfers}
+      ${gb ? `<p class="noot">${gb}</p>` : ""}<p class="noot">Evaluatie ${datum(p.evalueer_op)} · ${p.gestart_op ? p.open + " van " + p.posities + " posities open" : "nog niet gestart"}</p></div>`;
+  }).join("");
+}
+
+function signalen(){
+  const S = D.signalen, u = S.uitstap, k = S.kpi || {}, sc = S.scorekaart || {};
+  const blokken = [];
+  if (u){
+    const pos = Math.max(0, Math.min(100, 50 + u.pct * 2.5));
+    blokken.push(`<div class="paneel"><div class="kaart-kop"><h3>Uitstapsignaal WEBN</h3><span class="pil ${u.stand==="in"?"p-goed":"p-kritiek"}">${u.stand==="in"?"IN":"UIT"}</span></div>
+      <div class="signaal-groot num">${pct(u.pct)}</div><div class="tegel-sub">slot ${esc(u.maand)} €${u.slot.toFixed(2).replace(".",",")} tegen het 10-maandsgemiddelde €${u.gem10.toFixed(2).replace(".",",")}</div>
+      <div class="meter" aria-hidden="true"><div class="meter-nul"></div><div class="meter-punt" style="left:${pos}%"></div></div><div class="meter-as"><span>−20% uit</span><span>gemiddelde</span><span>+20%</span></div>
+      <p class="noot">Schaduw tot 3 november: een omslag wordt gemeld, maar is nog geen advies.</p></div>`);
+  }
+  const doelen = [["H1","Opbrengst > kosten (90 dagen)",k.h1],["H2","Beheerde potjes ≥ Aave + 2pp",k.h2],["H3","Verlies binnen $250",k.h3],["H4","Verlies gezien binnen 10 min",k.h4],["H5","Meting zonder gaten",k.h5]];
+  blokken.push(`<div class="paneel"><div class="kaart-kop"><h3>Doelen H1–H5</h3><span class="pil p-zacht">meting 31-12</span></div><table style="margin-top:8px"><tbody>${doelen.map(([c,n,d]) => `<tr><td class="num">${c}</td><td>${esc(n)}</td><td class="r">${d==null?'<span class="pil p-zacht">?</span>':d.doel_gehaald?'<span class="pil p-goed">gehaald</span>':'<span class="pil p-kritiek">nog niet</span>'}</td></tr>`).join("")}</tbody></table></div>`);
+  const d = sc.dichtst;
+  blokken.push(`<div class="paneel"><div class="kaart-kop"><h3>Scorekaart</h3><span class="pil p-zacht">poort feb 2027</span></div>
+    <div class="signaal-groot num">${pct(sc.gem_rel, 2)}</div><div class="tegel-sub">gemiddeld tegen WEBN, over ${sc.n} gescoorde bedrijven (papier, geen geld)</div>
+    <p class="noot">${(sc.geraakt||[]).length ? "<b>Koopprijs geraakt: " + esc(sc.geraakt.join(", ")) + "</b>" : d ? `Dichtst bij een koopprijs: ${esc(d.t)}, nog ${Math.abs(d.afstand).toFixed(0)}% te gaan (onder $${d.wp}).` : ""}</p></div>`);
+  $("signalen").innerHTML = blokken.join("");
+}
+
+function beslissingen(){
+  $("beslissingen").innerHTML = D.beslissingen.map(b => `<div class="beslis"><div class="beslis-wanneer">${b.wanneer === "open" ? "open" : datum(b.wanneer)}</div><div><div class="beslis-vraag">${esc(b.vraag)}</div><div class="beslis-uitleg">${esc(b.uitleg)}</div></div></div>`).join("");
+}
+
+function namenEnThemas(){
+  const N = D.namen || [];
+  const vk = {KOOPBAAR:"p-goed", VOLGEN:"p-accent", AFVALLER:"p-kritiek"};
+  $("namen").innerHTML = `<summary>Scorekaart: ${N.length} bedrijven op papier</summary><div class="paneel scroll" style="margin-top:10px"><table><thead><tr><th>Bedrijf</th><th>Oordeel</th><th class="r">Tegen WEBN</th><th>Waar we op wachten</th><th class="r">Nog</th></tr></thead><tbody>${N.map(r => `<tr><td><b class="num">${esc(r.t)}</b><div class="kaart-meta">${esc(r.naam)} · gescoord ${datum(r.gescoord)}</div></td><td><span class="pil ${vk[r.verdict]||"p-zacht"}">${esc(r.verdict)}</span></td><td class="r num ${r.rel==null?"":r.rel>=0?"op":"neer"}">${pct(r.rel,1)}</td><td style="color:var(--inkt2)">${esc(r.wacht)}</td><td class="r num">${r.afstand==null?"—":r.afstand>=0?"<b>nu</b>":Math.abs(r.afstand).toFixed(0)+"%"}</td></tr>`).join("")}</tbody></table></div>`;
+  const T = D.themas || [];
+  const tk = {"IN DE TRECHTER":"p-goed", VOLGEN:"p-accent", AFVALLER:"p-kritiek"};
+  $("themas").innerHTML = `<summary>Thema's: ${T.length} kaarten</summary><div class="chips">${T.map(t => `<div class="chip"><b>${esc(t.naam)}</b><span class="pil ${tk[t.verdict]||"p-zacht"}">${esc(t.verdict)}</span><div class="kaart-meta" style="margin-top:4px">tolhuisje: ${esc(t.tolhuisje)}</div></div>`).join("")}</div>`;
+}
+
+if (!D){ $("app").innerHTML = '<p class="leeg">Geen data in deze pagina.</p>'; }
+else {
+  [kopEnVersheid, tegels, vermogenGrafiek, motorBord, schaduwpotjes, signalen, beslissingen, namenEnThemas].forEach(f => {
+    try { f(); } catch (e) { console.error(f.name, e); }
+  });
+}
+</script>

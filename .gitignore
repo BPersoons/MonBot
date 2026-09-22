@@ -167,3 +167,6 @@ nav_snapshot.json
 # twee harness-runs onvergelijkbaar (zie scripts/sleeve_harness.py).
 divergence_cache.json
 sleeve_harness_cache_*.json
+
+# Stand van de VM voor de overzichtspagina (bevat saldi)
+vm_snapshot.json
