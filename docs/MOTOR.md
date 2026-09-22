@@ -65,6 +65,13 @@ schaduwfase nodig), maar dat staat dan expliciet in het register.
 6. **Schalen is altijd een besluit van Bart.** De bouwer levert de meting en een advies.
 7. **Geldcode gaat langs de controle-agent** (A1), elke kapitaalbeweging ook (A2), op elke trede.
 
+## Zichtbaar voor Bart
+
+Elk experiment heeft in het register een `kaart` in gewone taal: wat het is, waarom het op deze
+trede staat, de volgende stap en wanneer, en waar het kan een live meter ("hoe dicht zitten we
+bij de drempel"). De overzichtspagina (memory `reference_overzichtspagina`, `scripts/overzicht.py`)
+toont het bord daaruit. Een nieuw experiment zonder kaart is niet af.
+
 ## Het ritme
 
 | wanneer | wat |
