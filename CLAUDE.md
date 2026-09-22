@@ -17,7 +17,7 @@ Diepere naslag (letterlijk verplaatst uit deze file op 2026-09-15): `docs/valkui
 
 ## Kaders (Bart, 2026-09-15)
 
-- Verliesbudget experimenten **$250** (alarm $125). HLP ≤ **1/3 van het veilige potje**; ≥ 2/3 van veilig direct opneembaar. Hefboom ≤ 2x.
+- Verliesbudget experimenten **$250** (alarm $125); proeftuinkapitaal **$500** in totaal, max 50% verlies per potje, geen vast maximum aantal (Bart 22-09, `docs/MOTOR.md`). HLP ≤ **1/3 van het veilige potje**; ≥ 2/3 van veilig direct opneembaar. Hefboom ≤ 2x.
 - **Nooit** geld uit DeGiro of de Ethereum-wallet. Nieuw kapitaal, nieuwe venue of een verruimde drempel: eerst vragen.
 - **Geen experimentgeld vóór de meter er staat** (KPI's + verliesbewaking).
 - Melden aan Bart **alleen** bij mijlpaal, poort, kill, budget ≥ $125 of een onbetrouwbare KPI. Kort: conclusie + aanbeveling.
