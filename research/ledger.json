@@ -1661,6 +1661,87 @@
       },
       "benchmark_urth_price_at_score": 209.69,
       "fx_at_score": 1.1546
+    },
+    {
+      "ticker": "LEU",
+      "name": "Centrus Energy Corp.",
+      "scored_at": "2026-09-22",
+      "price_at_score": 154.85,
+      "price_asof": "2026-09-21 slot",
+      "currency": "USD",
+      "market_cap_usd": 3167000000,
+      "benchmark_price_at_score": 13.118,
+      "benchmark_asof": "2026-09-22 intraday - slot 21-09 ontbreekt bij yfinance; benchmark loopt 1 handelsdag VOOR op de naam (naam: slot 21-09)",
+      "candidate_source": "keten: themakaart Nucleair (research/themes.json, herziening 2026-09-21) - enige beursgenoteerde westerse verrijker (tolhuisje verrijking/HALEU); uitschieterkandidaat",
+      "analyst_coverage": 17,
+      "gates": {
+        "survival": "PASS",
+        "survival_detail": "Kas $1.868,5M (30-06-2026). Burn TTM |op. kasstroom -$55,0M|/4 + capex $108,8M/4 = $41,0M/kw -> 11,4 jaar; op capex laatste kwartaal ($71,6M) 5,5 jaar. Let op: $1,18 mrd converteerbare schuld.",
+        "core_etf_overlap": "PASS",
+        "liquidity": "PASS"
+      },
+      "scores": {
+        "role_in_chain": 3,
+        "margin_and_direction": 2,
+        "competition": null,
+        "scalability": 2,
+        "execution": 4,
+        "valuation": 2
+      },
+      "unanalyzed": [
+        "competition - marktaandeel LEU/HALEU t.o.v. Urenco USA en Orano, en de trend",
+        "afhankelijkheid van Russische levering (TENEX): aandeel in de omzet en looptijd contracten/ontheffingen (10-K)"
+      ],
+      "divergence_screen": "KOOP-KANDIDAAT (rij 2) met kanttekening: koers -15,7% (3 mnd), -66,6% onder de 52w-top; laatste twee kwartalen EPS ruim boven verwachting (1,05 vs 0,27; 1,77 vs 0,81); maar brutomarge j/j lager (28% vs 35%) en grillig.",
+      "key_metrics": {
+        "pe": 65.3,
+        "forward_pe": 41.0,
+        "price_to_sales_ttm": 6.7,
+        "gross_margin_ttm_pct": 23.7,
+        "revenue_ttm_usd": 473900000,
+        "net_income_ttm_usd": 48500000,
+        "capex_ttm_usd": 108800000,
+        "convertible_debt_usd": 1177500000,
+        "price_vs_200dma_pct": -24.8,
+        "price_vs_52w_high_pct": -66.6
+      },
+      "check_2_finding": "yfinance-kas zonder geblokkeerde kas gaf 53% reconciliatieverschil (Q4-25 -> Q1-26); met kas incl. geblokkeerd (SEC XBRL) sluit het op $0,3M. Definitiefout, geen rekenfout.",
+      "check_4_finding": "Kas $1,87 mrd staat tegenover $1,18 mrd converteerbare schuld; netto ~$0,7 mrd.",
+      "verdict": "VOLGEN",
+      "deciding_number": "65x de winst van de laatste vier kwartalen (marktkap $3,17 mrd / nettowinst $48,5M) op een brutomarge van 24% die j/j daalde - de HALEU-kans ligt in 2029+ en is al grotendeels betaald",
+      "wait_conditions": [
+        "koers <= $71 (~30x de winst van de laatste vier kwartalen, $2,37 per aandeel)",
+        "OF twee opeenvolgende kwartalen omzet >= $200M EN brutomarge >= 30% (het DOE-geld wordt zichtbaar)"
+      ],
+      "wait_price_below": 71.0,
+      "wait_price_note": "wachtvoorwaarde 1: ~30x de winst van de laatste vier kwartalen ($2,37 per aandeel)",
+      "wait_fundamental": {
+        "mode": "all",
+        "rules": [
+          {
+            "metric": "revenue_usd",
+            "op": ">=",
+            "value": 200000000.0,
+            "quarters": 2
+          },
+          {
+            "metric": "gross_margin_pct",
+            "op": ">=",
+            "value": 30.0,
+            "quarters": 2
+          }
+        ]
+      },
+      "thesis_break": [
+        "DOE-opdracht ingetrokken of de commerciele HALEU-productie (vanaf 01-07-2026) stopgezet",
+        "brutomarge twee kwartalen op rij onder 15%",
+        "aandelen +10% in 12 maanden (van 20,0M) zonder aantoonbare capaciteitsgroei"
+      ],
+      "note": "Eerste naam uit de ketenroute voor het uitschieterpotje (Bart 21-09). Alleen koopbaar bij DeGiro als los aandeel (PRIIPs geldt niet voor losse aandelen); niet op Hyperliquid.",
+      "source": "kwartaalcijfers via yfinance en SEC XBRL companyfacts (CIK 1065059), 2026-09-22; DOE-bedragen via ANS Nuclear Newswire 06-01-2026 en NucNet 2026",
+      "card": "research/cards/LEU.md",
+      "benchmark_urth_price_at_score": 209.7,
+      "fx_at_score": 1.148
     }
   ],
   "_screened_layer1_20260811": [
