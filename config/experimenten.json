@@ -262,14 +262,14 @@
       "volgende_stap": "GESTOPT op de vooraf vastgelegde criteria (>= kern + 2pp EN daling <= 1,5x kern, beide helften). Nasdaq-100 ruw: +18,0% tegen 10,9%/jaar maar daling 30% tegen 19% (1,6x); met vol-target +12,8% bij daling 18% (gelijk aan de kern), maar in 2021-2026 geen extra rendement. Momentum: +1,9pp heel, -0,9pp 2e helft. Small cap value: minder rendement, meer daling. Venster is uitzonderlijk gunstig voor VS-tech. WEL GEVONDEN: volatility targeting verkleint het risico bij momentum en Nasdaq in beide helften (daling -26 tot -40%, rendement per daling hoger) -> idee crypto_vol_target. Let op: de dip-koper IS in feite een Nasdaq-100-positie (16 jaar gelijk); voor 25-09: doet een EQQQ-positie hetzelfde goedkoper en zonder code?"
     },
     "crypto_vol_target": {
-      "status": "idee",
-      "trede": 0,
-      "sinds": "2026-09-21",
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-09-22",
       "soort": "tweak",
       "hypothese": "Volatility targeting (minder beleggen als de koers wild beweegt) verkleint de dalingen van de kern-crypto (BTC/ETH op Hyperliquid) zonder het rendement per eenheid daling te verslechteren. Het MA-uitstapsignaal werkte op crypto niet; dit is een ander mechanisme dat op aandelen wel werkte.",
-      "bron": "research/risicopotjes.py (werkte op momentum en Nasdaq); Moreira & Muir 2017",
+      "bron": "research/crypto_vol_target.py (criteria vooraf, 22-09)",
       "benchmark": "BTC/ETH vasthouden",
-      "volgende_stap": "Papier: vooraf vastgelegd, doelvol zonder vooruitkijken (uitdijende mediaan van de eigen vol), BTC en ETH afzonderlijk, beide helften. Automatiseerbaar op HL (reduceOnly bij afbouwen)."
+      "volgende_stap": "GESTOPT op de vooraf vastgelegde criteria (daling lager, rendement/daling >= vasthouden, beter dan een vaste mix met dezelfde blootstelling; BTC en ETH, beide helften). Alleen BTC t/m 2020 haalt alle drie. Vanaf 2021: BTC rd 0,20 tegen 0,26 (mix 0,27), ETH 0,25 tegen 0,31 (mix 0,32); diepste daling gelijk (73%/77%). Gemiddeld 93-96% belegd: de crypto-bears van 2022 waren traag, met gewone vol, dus vol-targeting schaalt dan nauwelijks af. Na de MA-uitstapregel het tweede risicomiddel dat op crypto niet werkt: daar is de omvang van het potje het risico-instrument. Niet opnieuw met een ander doel of venster op dezelfde data."
     },
     "uitschieterpotje": {
       "status": "idee",
