@@ -440,8 +440,30 @@ def bouw(vm):
     assert "/*DATA*/null" in html, "sjabloon mist de plek voor de data"
     html = html.replace("/*DATA*/null", js)
     with io.open(UIT, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(html)
+        fh.write(alleen_ascii(html))
     return data
+
+
+def alleen_ascii(html):
+    """Elk niet-ASCII-teken als escape: &#N; in HTML, \\uXXXX in <script>.
+
+    Waarom (22-09): het artifact werd correct als UTF-8 opgeslagen met een charset-meta, maar
+    Bart zag toch 'â€”' en 'âˆ'' — de weergave las de pagina in een andere tekenset. Een
+    pagina van alleen ASCII kan niet verkeerd gelezen worden, wat de server ook meestuurt."""
+    import re
+
+    def js(m):
+        return "".join("\\u%04x" % int.from_bytes(m.group().encode("utf-16-be")[i:i + 2], "big")
+                       for i in range(0, len(m.group().encode("utf-16-be")), 2))
+
+    delen = re.split(r"(<script\b[^>]*>.*?</script>)", html, flags=re.S | re.I)
+    uit = []
+    for deel in delen:
+        if deel[:7].lower() == "<script":
+            uit.append(re.sub(r"[^\x00-\x7f]", js, deel))
+        else:
+            uit.append(re.sub(r"[^\x00-\x7f]", lambda m: "&#%d;" % ord(m.group()), deel))
+    return "".join(uit)
 
 
 def main():
