@@ -52,7 +52,20 @@
       "kill": {
         "dagen_onder_benchmark": 30
       },
-      "verliesbudget_telt_mee": false
+      "verliesbudget_telt_mee": false,
+      "kaart": {
+        "wat": "Een deel van de rentepot naar Fluid in plaats van Aave, voor meer rente.",
+        "waarom_hier": "De meting en de toets zijn klaar. Het wacht op jouw besluit: het extra rendement is klein tegenover het extra risico.",
+        "volgende": "Jouw keuze. Advies: overslaan tot Fluid ruim boven Aave blijft.",
+        "wanneer": "open",
+        "meter": {
+          "bron": "fluid_spread",
+          "label": "Fluid min Aave, 30 dagen",
+          "grens": null,
+          "eenheid": "pp",
+          "richting": "boven"
+        }
+      }
     },
     "hlp_vault": {
       "sleeve": "house",
@@ -80,7 +93,20 @@
         "max_drawdown_pct": 5.0,
         "daarna": "ophogen tot hlp_max_aandeel_van_veilig"
       },
-      "verliesbudget_telt_mee": true
+      "verliesbudget_telt_mee": true,
+      "kaart": {
+        "wat": "Geld in de HLP-vault van Hyperliquid: die verdient aan het handelen van anderen (market-making).",
+        "waarom_hier": "Staat klaar, maar de opbrengst is nu te laag voor het risico.",
+        "volgende": "Starten als HLP een maand lang minstens 3 procentpunt boven de Aave-rente blijft.",
+        "wanneer": "zodra de meter groen is",
+        "meter": {
+          "bron": "hlp_apr",
+          "label": "HLP-rente per jaar (nodig: Aave + 3)",
+          "grens": "aave+3",
+          "eenheid": "%",
+          "richting": "boven"
+        }
+      }
     },
     "basis_traag": {
       "sleeve": "basis",
@@ -93,7 +119,8 @@
       "heractivatie": {
         "venster_dagen": 30,
         "min_funding_apr_boven_fluid_pp": 3.0,
-        "dan": "3 weken shadow, daarna de bestaande poort"
+        "dan": "3 weken shadow, daarna de bestaande poort",
+        "definitie": "Funding-APR OP KAPITAAL over de laatste 30 dagen: gemiddelde uurfunding van BTC, ETH en HYPE x 24 x 365, gedeeld door 1,5 (2x hefboom: spot 1 + marge 0,5 per eenheid notional, zoals scripts/basis_backtest.py), tegen de 30-dagenrente van Fluid (DeFiLlama). Vastgelegd 22-09 omdat de trigger alleen in woorden bestond; ruwe funding is niet vergelijkbaar met een rente op kapitaal. Meter: scripts/overzicht.py meters()['basis_funding']."
       },
       "mijlpaal": "M6",
       "hypothese": "Short perp + long spot op BTC/ETH/HYPE, weken vasthouden, levert >= 6% netto APR op kapitaal, elk kalenderjaar >= 0.",
@@ -114,7 +141,20 @@
         "shadow_tolerantie_pp": 3.0,
         "live_notional_usd": 500
       },
-      "verliesbudget_telt_mee": true
+      "verliesbudget_telt_mee": true,
+      "kaart": {
+        "wat": "Tegelijk crypto kopen en short gaan, en de vergoeding (funding) innen. Geen koersrisico.",
+        "waarom_hier": "Werkte op papier (8,2% per jaar), maar de vergoeding is nu lager dan gewone rente.",
+        "volgende": "Starten als de funding 30 dagen lang 3 procentpunt boven de Fluid-rente ligt; dan eerst 3 weken in de schaduw.",
+        "wanneer": "zodra de meter groen is",
+        "meter": {
+          "bron": "basis_funding",
+          "label": "funding op kapitaal, 30 dagen (nodig: Fluid + 3)",
+          "grens": "fluid+3",
+          "eenheid": "%",
+          "richting": "boven"
+        }
+      }
     },
     "dip_koper": {
       "sleeve": "thematic_exposure",
@@ -128,7 +168,21 @@
       },
       "kill": null,
       "verliesbudget_telt_mee": false,
-      "budget_usd": 255
+      "budget_usd": 255,
+      "kaart": {
+        "wat": "Koopt Amerikaanse techaandelen na een flinke daling, en verkoopt met een stop of een winstladder. Op Hyperliquid, met $255.",
+        "waarom_hier": "Het enige experiment met echt geld: zo zien we hoe de regels in de praktijk uitpakken, inclusief kosten en fouten.",
+        "volgende": "Op 25-09 beslis jij: doorgaan, stoppen of vervangen door een Nasdaq-ETF. Op 16 jaar data doet hij precies hetzelfde als de Nasdaq-100.",
+        "wanneer": "2026-09-25",
+        "uitstap": "Alarm bij 15% daling vanaf de top van het potje; elke positie heeft een stop op -25%.",
+        "meter": {
+          "bron": "dip_daling",
+          "label": "daling vanaf de top van het potje",
+          "grens": 15,
+          "eenheid": "%",
+          "richting": "onder"
+        }
+      }
     },
     "dip_koper_beursstops": {
       "status": "idee",
@@ -138,7 +192,13 @@
       "hypothese": "Stops als reduceOnly-trigger-orders op de beurs beschermen de dip-koper ook als de VM uit staat (sinds het venster van 21-09 elke nacht ~15 uur).",
       "bron": "gemiste kans uit de waakhond-audit (17-09) en het VM-venster (21-09)",
       "benchmark": "de huidige software-stop op -25%",
-      "volgende_stap": "Uitzoeken of de xyz-dex trigger-orders ondersteunt en hoe ze te beheren zijn zonder dubbele sluiting (reduceOnly verplicht)."
+      "volgende_stap": "Uitzoeken of de xyz-dex trigger-orders ondersteunt en hoe ze te beheren zijn zonder dubbele sluiting (reduceOnly verplicht).",
+      "kaart": {
+        "wat": "De stops van de dip-koper bij de beurs zelf neerleggen, zodat ze ook werken als de server uitvalt.",
+        "kosten": "bouwtijd, geen extra geld",
+        "opbrengst": "minder risico bij een storing (6 posities, ~$290)",
+        "start": "alleen als de dip-koper na 25-09 doorgaat"
+      }
     },
     "pendle_vaste_rente": {
       "status": "gestopt",
@@ -148,7 +208,10 @@
       "hypothese": "Pendle PT-tokens (vaste rente tot een einddatum) leveren op USDC structureel meer dan Aave, zonder koersrisico als je tot de einddatum aanhoudt.",
       "bron": "MASTERPLAN bron C, nooit onderzocht",
       "benchmark": "Aave v3 Arbitrum (nu 2,92%)",
-      "volgende_stap": "GESTOPT na papier (21-09, Pendle-API): op Arbitrum staan maar 4 actieve markten, alle vier op USDai/sUSDai (USD.AI, stablecoin gedekt door GPU-leningen, < 1 jaar oud, 'points'-markt). Vaste rente 10-12% tot 15-10, daarna alleen februari-markten met $0,1-3 mln liquiditeit. De opslag van 7-9pp boven Aave is een krediet- en depeg-premie, geen gratis rente. Eigen risicomodel (utils/treasury_risk.py): ~0,56 = MEDIUM-HIGH, geen veilig-potje-materiaal. Als proeftuin: $250 x 7pp = ~$17/jaar voor een nieuwe venue plus een nieuwe stablecoin. Mainnet-Pendle (meer markten) kost te veel gas op deze schaal. HEROPENEN als er op Arbitrum een PT op een blue-chip onderliggende komt (aUSDC, sUSDS, syrupUSDC) met > 2pp boven Aave."
+      "volgende_stap": "GESTOPT na papier (21-09, Pendle-API): op Arbitrum staan maar 4 actieve markten, alle vier op USDai/sUSDai (USD.AI, stablecoin gedekt door GPU-leningen, < 1 jaar oud, 'points'-markt). Vaste rente 10-12% tot 15-10, daarna alleen februari-markten met $0,1-3 mln liquiditeit. De opslag van 7-9pp boven Aave is een krediet- en depeg-premie, geen gratis rente. Eigen risicomodel (utils/treasury_risk.py): ~0,56 = MEDIUM-HIGH, geen veilig-potje-materiaal. Als proeftuin: $250 x 7pp = ~$17/jaar voor een nieuwe venue plus een nieuwe stablecoin. Mainnet-Pendle (meer markten) kost te veel gas op deze schaal. HEROPENEN als er op Arbitrum een PT op een blue-chip onderliggende komt (aUSDC, sUSDS, syrupUSDC) met > 2pp boven Aave.",
+      "kaart": {
+        "kort": "Op Arbitrum alleen riskante stablecoin-markten; te weinig extra voor het risico."
+      }
     },
     "gains_gusdc_house": {
       "status": "idee",
@@ -158,7 +221,20 @@
       "hypothese": "De Gains gUSDC-vault levert structureel ver boven Aave (180d 8,95%, alles 10,4%) als tegenpartij van handelaren.",
       "bron": "rentelandschap 19-09",
       "benchmark": "Aave v3 Arbitrum",
-      "volgende_stap": "Geblokkeerd door onze eigen TVL-vloer ($4,69 mln < $5 mln). Opnieuw bekijken als de TVL erboven komt; dan eerst de epoch-opnames en het tegenpartijrisico op papier."
+      "volgende_stap": "Geblokkeerd door onze eigen TVL-vloer ($4,69 mln < $5 mln). Opnieuw bekijken als de TVL erboven komt; dan eerst de epoch-opnames en het tegenpartijrisico op papier.",
+      "kaart": {
+        "wat": "Rente verdienen als tegenpartij van handelaren in de Gains-vault (180 dagen: ~9% per jaar).",
+        "kosten": "risico: de vault verliest als handelaren winnen",
+        "opbrengst": "~6 procentpunt meer dan Aave op het deel dat erin gaat",
+        "start": "zodra de vault groter is dan $5 mln (onze eigen ondergrens)",
+        "meter": {
+          "bron": "gains_tvl",
+          "label": "grootte van de vault (nodig: $5 mln)",
+          "grens": 5,
+          "eenheid": " mln",
+          "richting": "boven"
+        }
+      }
     },
     "morpho_tweede_bestemming": {
       "status": "gestopt",
@@ -168,7 +244,10 @@
       "hypothese": "Een Morpho-USDC-vault op Arbitrum is een tweede rentebestemming naast Fluid, zodat de spreidingsregel niet altijd naar één naam wijst.",
       "bron": "Fluid-audit 19-09, bevinding 12",
       "benchmark": "Aave v3 Arbitrum",
-      "volgende_stap": "GESTOPT na papier (21-09, DeFiLlama): 9 Morpho-USDC-vaults op Arbitrum. Alleen BBQUSDC ligt boven Fluid (30d 5,3%, nu 6,8%), maar heeft $2,45 mln TVL, onder onze eigen vloer van $5 mln (dezelfde die Gains tegenhoudt). De rest: 30d 3,3-4,1%, gelijk aan Fluid (4,2%) en nauwelijks boven Aave (2,6%). Landschap USDC Arbitrum > $1 mln: Gains 22,7% (house, $4,4 mln), Dolomite 4,5% ($1,3 mln), Fluid 4,2% ($62 mln), Compound 2,8%, Aave 2,6%. HEROPENEN als een Morpho-USDC-vault op Arbitrum > $5 mln TVL haalt met 30d > Fluid + 1pp."
+      "volgende_stap": "GESTOPT na papier (21-09, DeFiLlama): 9 Morpho-USDC-vaults op Arbitrum. Alleen BBQUSDC ligt boven Fluid (30d 5,3%, nu 6,8%), maar heeft $2,45 mln TVL, onder onze eigen vloer van $5 mln (dezelfde die Gains tegenhoudt). De rest: 30d 3,3-4,1%, gelijk aan Fluid (4,2%) en nauwelijks boven Aave (2,6%). Landschap USDC Arbitrum > $1 mln: Gains 22,7% (house, $4,4 mln), Dolomite 4,5% ($1,3 mln), Fluid 4,2% ($62 mln), Compound 2,8%, Aave 2,6%. HEROPENEN als een Morpho-USDC-vault op Arbitrum > $5 mln TVL haalt met 30d > Fluid + 1pp.",
+      "kaart": {
+        "kort": "Geen vault die meer oplevert dan Fluid én groot genoeg is."
+      }
     },
     "dip_koper_marktfilter": {
       "status": "gestopt",
@@ -178,7 +257,10 @@
       "hypothese": "De dip-koper verliest in dalende markten (16-jaarsvalidatie). Alleen dips kopen als de brede markt zelf boven haar 200-daags gemiddelde staat, houdt de winst in stijgende markten en vermijdt het grootste deel van de verliezen in dalende.",
       "bron": "zwakte uit feedback_sleeve_validation + de meting van 20-09 (+10,5% in 60 dagen)",
       "benchmark": "dezelfde regelset zonder filter, en het wereldindexfonds",
-      "volgende_stap": "GESTOPT 21-09 na de papiertoets met vooraf vastgelegde criteria: rendement +407% vs +403% (ja), maximale daling 25,8% vs 27,5% — maar 6% kleiner, eis was 25% (nee), slechtste jaar 2022 -8,8% vs -12,9% (ja), zonder NVDA doet het filter het slechter: +346% vs +410% (nee). De grote dalingen van de dip-koper komen niet uit dalende markten."
+      "volgende_stap": "GESTOPT 21-09 na de papiertoets met vooraf vastgelegde criteria: rendement +407% vs +403% (ja), maximale daling 25,8% vs 27,5% — maar 6% kleiner, eis was 25% (nee), slechtste jaar 2022 -8,8% vs -12,9% (ja), zonder NVDA doet het filter het slechter: +346% vs +410% (nee). De grote dalingen van de dip-koper komen niet uit dalende markten.",
+      "kaart": {
+        "kort": "Maakte de dip-koper op 16 jaar data niet beter."
+      }
     },
     "e2_micro_poging_2": {
       "status": "idee",
@@ -188,7 +270,13 @@
       "hypothese": "De e2-micro volstaat als de geheugengroei van de swarm (~90 MiB per dag, gemeten 20-21-09) is opgespoord en verholpen. Levert tot $81/jaar op.",
       "bron": "terugdraaiing 21-09: voetafdruk 493 MiB; apt was NIET de oorzaak (runs van 10-40 s, de piek kwam later en hield uren aan)",
       "benchmark": "e2-small ($0,503/dag)",
-      "volgende_stap": "Geparkeerd (besluit Bart 21-09: tijd liever naar nieuwe kansen). Eerst de oorzaak van de geheugengroei vinden; pas daarna een nieuw claimblad met een vooraf gedefinieerde poort zonder dubbeltelling van swapcache."
+      "volgende_stap": "Geparkeerd (besluit Bart 21-09: tijd liever naar nieuwe kansen). Eerst de oorzaak van de geheugengroei vinden; pas daarna een nieuw claimblad met een vooraf gedefinieerde poort zonder dubbeltelling van swapcache.",
+      "kaart": {
+        "wat": "Een kleinere, goedkopere server.",
+        "kosten": "uitzoekwerk: de swarm groeit ~90 MB per dag in geheugen",
+        "opbrengst": "tot $81 per jaar",
+        "start": "geparkeerd: tijd gaat liever naar nieuwe kansen (jouw keuze, 21-09)"
+      }
     },
     "sector_momentum": {
       "status": "gestopt",
@@ -198,7 +286,10 @@
       "hypothese": "Thema's komen en gaan: houd de sterkste sectoren, wissel periodiek (Bart, 21-09).",
       "bron": "Bart 21-09; research/sector_momentum.py",
       "benchmark": "S&P 500",
-      "volgende_stap": "GESTOPT: 9 SPDR-sectoren 1999-2026, 12 varianten 7,2-9,3%/jaar tegen 8,6% S&P 500; alleen beter in 1999-2008. Te grof."
+      "volgende_stap": "GESTOPT: 9 SPDR-sectoren 1999-2026, 12 varianten 7,2-9,3%/jaar tegen 8,6% S&P 500; alleen beter in 1999-2008. Te grof.",
+      "kaart": {
+        "kort": "De sterkste sectoren kiezen versloeg de S&P 500 niet."
+      }
     },
     "industrie_momentum": {
       "status": "gestopt",
@@ -208,7 +299,10 @@
       "hypothese": "Op industrieniveau (49, dichter bij thema's) houdt momentum wél stand.",
       "bron": "research/industrie_momentum.py, Fama-French 49 industrieën 1964-2026 (geen overlevingsbias)",
       "benchmark": "Amerikaanse markt (alle aandelen)",
-      "volgende_stap": "GESTOPT op risico, niet op rendement. Variant 1 (top 5, 9/12 mnd, per kwartaal): +14,4 tot +16,7%/jaar tegen +10,8%, beter in 5 van 6 decennia — maar diepste daling 56-62% tegen 50%, en 6 mnd houdt geen stand. Variant 2 (vooraf vastgelegd, trendfilter): daling 30% tegen 50%, maar rendement +11,3% tegen +10,7% en 2014-2026 +6,3% tegen +13,4%. Het extra rendement is een risicopremie (meer rendement voor diepere dalingen), geen gratis voordeel. Bovendien: UCITS-industrie-ETF's bij DeGiro zijn grof (dicht bij 11 sectoren, en die werkten niet). Niet verder variëren op deze data."
+      "volgende_stap": "GESTOPT op risico, niet op rendement. Variant 1 (top 5, 9/12 mnd, per kwartaal): +14,4 tot +16,7%/jaar tegen +10,8%, beter in 5 van 6 decennia — maar diepste daling 56-62% tegen 50%, en 6 mnd houdt geen stand. Variant 2 (vooraf vastgelegd, trendfilter): daling 30% tegen 50%, maar rendement +11,3% tegen +10,7% en 2014-2026 +6,3% tegen +13,4%. Het extra rendement is een risicopremie (meer rendement voor diepere dalingen), geen gratis voordeel. Bovendien: UCITS-industrie-ETF's bij DeGiro zijn grof (dicht bij 11 sectoren, en die werkten niet). Niet verder variëren op deze data.",
+      "kaart": {
+        "kort": "Meer rendement, maar alleen via diepere dalingen: een risicopremie, geen voordeel."
+      }
     },
     "thema_radar_keten": {
       "status": "idee",
@@ -218,7 +312,13 @@
       "hypothese": "Een thema-radar (welke industrieën hebben momentum) plus een ketenanalyse binnen het thema (welke schakel vangt de waarde: het knelpunt, de 'picks and shovels') kiest UCITS-ETF's die het wereldindexfonds verslaan.",
       "bron": "Bart 21-09; de industrie-momentumtoets laat zien dat de radar informatie bevat, maar met risico",
       "benchmark": "WEBN (het fonds dat we bezitten)",
-      "volgende_stap": "Ketenanalyse is niet eerlijk terug te toetsen (je kiest de keten met kennis van nu). Daarom vooruit meten, zoals de scorekaart: per kwartaal radar + keten + UCITS-ETF-keuze vastleggen VOORDAT de uitkomst bekend is, en tegen WEBN volgen. Ontwerp maken; geen geld."
+      "volgende_stap": "Ketenanalyse is niet eerlijk terug te toetsen (je kiest de keten met kennis van nu). Daarom vooruit meten, zoals de scorekaart: per kwartaal radar + keten + UCITS-ETF-keuze vastleggen VOORDAT de uitkomst bekend is, en tegen WEBN volgen. Ontwerp maken; geen geld.",
+      "kaart": {
+        "wat": "Elk kwartaal thema's en knelpunten kiezen, vastleggen en vooruit volgen.",
+        "kosten": "analysetijd, geen geld",
+        "opbrengst": "onbekend; dat is precies wat het meet",
+        "start": "loopt al deels via de schaduwpotjes; volgende ronde eind december"
+      }
     },
     "uitstapregel_crash": {
       "status": "meet_vooruit",
@@ -229,7 +329,21 @@
       "bron": "research/uitstapregel.py (VS 1927-2026), research/uitstapregel_wereld.py (buiten de VS en Europa 1991-2026), research/uitstapsignaal.py (schaduw, GitHub Actions), research/uitstap_signaal.json",
       "benchmark": "de markt vasthouden",
       "volgende_stap": "Papier (na audit 21-09, eerlijk): een VERZEKERING TEGEN TRAGE CRASHES, geen beter beleggen. Met 2008 erin verlaagt de regel de diepste daling met een kwart tot ruim de helft, ook tegen een vaste mix met dezelfde blootstelling (2007-2026: x0,44 VS tot x0,74 Europa; ex-US 25% tegen 42%). Zonder zo'n crash (2010-2026) wint de mix: 1,4-2,9pp per jaar meer bij een ongeveer gelijke daling. De enige toets in euro's (IWDA 2010-2026, ons soort fonds) haalt criterium 1 NIET: 9,0% tegen 12,4% per jaar, daling x0,65 (grens x0,60). De VS-toets haalde zijn eigen rendementsgrens niet (-1,8pp); buiten de VS is pas 2007+ nieuw (EAFE zat in Fabers steekproef). Schaduw loopt sinds 21-09 (research/uitstapsignaal.py, meldt SCHADUW — GEEN ACTIE). Poort 03-11: (1) sep- en okt-slot vooruit vastgelegd met dezelfde STAND als de DeGiro-koers zou geven; (2) besluit aan Bart tussen de regel (verzekering: bij een 2008-achtige crash ~18-33% daling tegen 41-44% voor de mix, maar in gewone jaren ~1,5-3pp per jaar duurder) en een vaste mix van ~75% WEBN / 25% geldmarkt (altijd minder diep dan 100% WEBN, geen signalen, maar in een trage crash dieper dan de regel). Pas daarna ADVIES = True.",
-      "herzien": "2026-11-03"
+      "herzien": "2026-11-03",
+      "kaart": {
+        "wat": "Een maandelijks signaal voor je wereldindexfonds: zakt WEBN onder zijn gemiddelde van 10 maanden, dan uitstappen naar een geldmarktfonds.",
+        "waarom_hier": "Loopt mee zonder geld om te zien of het signaal in de praktijk werkt. Een omslag wordt gemeld, maar is nog geen advies.",
+        "volgende": "Op 3 november kies jij: deze regel (verzekering tegen trage crashes) of een vaste mix van 75% WEBN en 25% geldmarkt.",
+        "wanneer": "2026-11-03",
+        "uitstap": "Het signaal slaat om als WEBN op een maandslot onder zijn gemiddelde zakt.",
+        "meter": {
+          "bron": "uitstap_webn",
+          "label": "WEBN boven zijn 10-maandsgemiddelde",
+          "grens": 0,
+          "eenheid": "%",
+          "richting": "boven"
+        }
+      }
     },
     "uitstapregel_crypto": {
       "status": "gestopt",
@@ -239,7 +353,10 @@
       "hypothese": "Dezelfde uitstapregel (10-maandsgemiddelde, niet afgesteld) maakt de kern-crypto (BTC/ETH op Hyperliquid) stabieler: minder diepe dalingen, meer rendement per eenheid daling.",
       "bron": "Bart 21-09 (stabiel groeien, in- en uitstappen); research/uitstapregel_crypto.py",
       "benchmark": "BTC/ETH vasthouden",
-      "volgende_stap": "GESTOPT: niet geslaagd op de vooraf vastgelegde criteria. BTC 2015-2026: daling 60% tegen 76% (grens 60% van 76 = 45%), rendement/daling 1,19 tegen 0,88; alleen 2021-2026 haalt beide. ETH 2018-2026: daling 67% tegen 77%, rendement 15% tegen 31% per jaar, rendement/daling slechter. Crypto zakt sneller dan een maandregel reageert. Niet opnieuw proberen met een ander venster op dezelfde data."
+      "volgende_stap": "GESTOPT: niet geslaagd op de vooraf vastgelegde criteria. BTC 2015-2026: daling 60% tegen 76% (grens 60% van 76 = 45%), rendement/daling 1,19 tegen 0,88; alleen 2021-2026 haalt beide. ETH 2018-2026: daling 67% tegen 77%, rendement 15% tegen 31% per jaar, rendement/daling slechter. Crypto zakt sneller dan een maandregel reageert. Niet opnieuw proberen met een ander venster op dezelfde data.",
+      "kaart": {
+        "kort": "Crypto zakt te snel voor een regel die eens per maand kijkt."
+      }
     },
     "uitstapregel_thema": {
       "status": "gestopt",
@@ -249,7 +366,10 @@
       "hypothese": "Dezelfde uitstapregel werkt ook op een thema (GRID, stroom en net), dus op een smal stuk van de markt.",
       "bron": "research/uitstapregel_thema.py, 49 Fama-French-industrieën 1927-2026",
       "benchmark": "de industrie vasthouden",
-      "volgende_stap": "GESTOPT: 10 van 40 industrieën halen beide criteria over 1927-2026, 27 van 49 over 2007-2026 (grens 2/3). ElcEq en Util allebei niet. Op smalle stukken halveert de regel de daling niet (mediaan x0,70). Geen signaal voor GRID; daar blijft de omvang van het slot het risico-instrument."
+      "volgende_stap": "GESTOPT: 10 van 40 industrieën halen beide criteria over 1927-2026, 27 van 49 over 2007-2026 (grens 2/3). ElcEq en Util allebei niet. Op smalle stukken halveert de regel de daling niet (mediaan x0,70). Geen signaal voor GRID; daar blijft de omvang van het slot het risico-instrument.",
+      "kaart": {
+        "kort": "Werkt niet op losse industrieën, dus ook niet op GRID."
+      }
     },
     "risicopotjes_etf": {
       "status": "gestopt",
@@ -259,7 +379,10 @@
       "hypothese": "Een bekende risicopremie (momentum, Nasdaq-100, small cap value) in een klein potje levert genoeg extra rendement op voor het extra risico (Bart 21-09: meer risico mag met kleinere delen).",
       "bron": "research/risicopotjes.py (UCITS in euro's: IS3R, EQQQ, ZPRV tegen IWDA, 2015-03..2026-08)",
       "benchmark": "kern (IWDA als WEBN-proxy)",
-      "volgende_stap": "GESTOPT op de vooraf vastgelegde criteria (>= kern + 2pp EN daling <= 1,5x kern, beide helften). Nasdaq-100 ruw: +18,0% tegen 10,9%/jaar maar daling 30% tegen 19% (1,6x); met vol-target +12,8% bij daling 18% (gelijk aan de kern), maar in 2021-2026 geen extra rendement. Momentum: +1,9pp heel, -0,9pp 2e helft. Small cap value: minder rendement, meer daling. Venster is uitzonderlijk gunstig voor VS-tech. WEL GEVONDEN: volatility targeting verkleint het risico bij momentum en Nasdaq in beide helften (daling -26 tot -40%, rendement per daling hoger) -> idee crypto_vol_target. Let op: de dip-koper IS in feite een Nasdaq-100-positie (16 jaar gelijk); voor 25-09: doet een EQQQ-positie hetzelfde goedkoper en zonder code?"
+      "volgende_stap": "GESTOPT op de vooraf vastgelegde criteria (>= kern + 2pp EN daling <= 1,5x kern, beide helften). Nasdaq-100 ruw: +18,0% tegen 10,9%/jaar maar daling 30% tegen 19% (1,6x); met vol-target +12,8% bij daling 18% (gelijk aan de kern), maar in 2021-2026 geen extra rendement. Momentum: +1,9pp heel, -0,9pp 2e helft. Small cap value: minder rendement, meer daling. Venster is uitzonderlijk gunstig voor VS-tech. WEL GEVONDEN: volatility targeting verkleint het risico bij momentum en Nasdaq in beide helften (daling -26 tot -40%, rendement per daling hoger) -> idee crypto_vol_target. Let op: de dip-koper IS in feite een Nasdaq-100-positie (16 jaar gelijk); voor 25-09: doet een EQQQ-positie hetzelfde goedkoper en zonder code?",
+      "kaart": {
+        "kort": "Nasdaq, momentum en small cap value haalden de vooraf gestelde grens niet (2015-2026)."
+      }
     },
     "crypto_vol_target": {
       "status": "gestopt",
@@ -269,7 +392,10 @@
       "hypothese": "Volatility targeting (minder beleggen als de koers wild beweegt) verkleint de dalingen van de kern-crypto (BTC/ETH op Hyperliquid) zonder het rendement per eenheid daling te verslechteren. Het MA-uitstapsignaal werkte op crypto niet; dit is een ander mechanisme dat op aandelen wel werkte.",
       "bron": "research/crypto_vol_target.py (criteria vooraf, 22-09)",
       "benchmark": "BTC/ETH vasthouden",
-      "volgende_stap": "GESTOPT op de vooraf vastgelegde criteria (daling lager, rendement/daling >= vasthouden, beter dan een vaste mix met dezelfde blootstelling; BTC en ETH, beide helften). Alleen BTC t/m 2020 haalt alle drie. Vanaf 2021: BTC rd 0,20 tegen 0,26 (mix 0,27), ETH 0,25 tegen 0,31 (mix 0,32); diepste daling gelijk (73%/77%). Gemiddeld 93-96% belegd: de crypto-bears van 2022 waren traag, met gewone vol, dus vol-targeting schaalt dan nauwelijks af. Na de MA-uitstapregel het tweede risicomiddel dat op crypto niet werkt: daar is de omvang van het potje het risico-instrument. Niet opnieuw met een ander doel of venster op dezelfde data."
+      "volgende_stap": "GESTOPT op de vooraf vastgelegde criteria (daling lager, rendement/daling >= vasthouden, beter dan een vaste mix met dezelfde blootstelling; BTC en ETH, beide helften). Alleen BTC t/m 2020 haalt alle drie. Vanaf 2021: BTC rd 0,20 tegen 0,26 (mix 0,27), ETH 0,25 tegen 0,31 (mix 0,32); diepste daling gelijk (73%/77%). Gemiddeld 93-96% belegd: de crypto-bears van 2022 waren traag, met gewone vol, dus vol-targeting schaalt dan nauwelijks af. Na de MA-uitstapregel het tweede risicomiddel dat op crypto niet werkt: daar is de omvang van het potje het risico-instrument. Niet opnieuw met een ander doel of venster op dezelfde data.",
+      "kaart": {
+        "kort": "Minder beleggen bij onrust hielp bij crypto niet: de bears van 2022 waren traag."
+      }
     },
     "uitschieterpotje": {
       "status": "idee",
@@ -279,7 +405,13 @@
       "hypothese": "Een klein, begrensd potje met veel kleine inzetten op mogelijke uitschieters (thema's, scorekaartnamen) levert via een paar grote winnaars meer op dan de kern, terwijl het verlies nooit groter wordt dan het potje (Bart 21-09: 'een deel inzetten op grote uitschieters, maar slim').",
       "bron": "Bart 21-09; scorekaart (research/, 20 namen vooruit gemeten), thema_radar_keten, dip-koper-infrastructuur",
       "benchmark": "kern (WEBN) over dezelfde periode",
-      "volgende_stap": "Na de ontwerpreview (22-09) eerst in de SCHADUW: drie schakelmandjes lopen vanaf 22-09 vooruit tegen kern en themafonds (schaduw_ai_tolhuisje, schaduw_splijtstof, schaduw_net_tolhuisje). Geld en een geldmotor pas als een mandje promotie verdient. Omvang bij promotie: binnen het proeftuinkapitaal van $500."
+      "volgende_stap": "Na de ontwerpreview (22-09) eerst in de SCHADUW: drie schakelmandjes lopen vanaf 22-09 vooruit tegen kern en themafonds (schaduw_ai_tolhuisje, schaduw_splijtstof, schaduw_net_tolhuisje). Geld en een geldmotor pas als een mandje promotie verdient. Omvang bij promotie: binnen het proeftuinkapitaal van $500.",
+      "kaart": {
+        "wat": "Een klein potje met veel kleine inzetten op mogelijke uitschieters, met vaste regels.",
+        "kosten": "hooguit het potje zelf (binnen de $500 proeftuin)",
+        "opbrengst": "een paar grote winnaars moeten de rest goedmaken",
+        "start": "zodra een schaduwpotje zijn waarde bewijst"
+      }
     },
     "schaduw_ai_tolhuisje": {
       "status": "meet_vooruit",
@@ -290,7 +422,20 @@
       "hypothese": "Schakel verslaat thema en kern: TSMC+ASML (AI-tolhuisje) tegen VVSM (halfgeleiderfonds) en WEBN, als HL-perp met funding. Regels: stop -40%, winst laten lopen tot +100%, daarna trailing 30% onder de top, oogst boven 2x naar de kern.",
       "bron": "research/schaduwpotjes.py / research/schaduwpotjes.json (potje 'ai_tolhuisje'); Bart 21-09 (ketenidee)",
       "benchmark": "WEBN en het themafonds, in euro's",
-      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md)."
+      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md).",
+      "kaart": {
+        "wat": "Mandje TSMC + ASML: de twee bedrijven waar de AI-keten niet omheen kan (chipfabriek en lithografie).",
+        "waarom_hier": "Zonder geld, omdat de koersen openbaar zijn: op papier meet je dit even goed, en echt geld leert hier niets extra.",
+        "volgende": "Na 6 maanden: verslaat het mandje de kern en het halfgeleiderfonds ruim (>10 procentpunt)? Dan echt geld uit de proeftuin.",
+        "wanneer": "2027-03-22",
+        "meter": {
+          "bron": "schaduw:ai_tolhuisje",
+          "label": "voorsprong op het themafonds",
+          "grens": 10,
+          "eenheid": "pp",
+          "richting": "boven"
+        }
+      }
     },
     "schaduw_splijtstof": {
       "status": "meet_vooruit",
@@ -301,7 +446,20 @@
       "hypothese": "Schakel verslaat thema en kern: Centrus+Cameco+BWXT (splijtstofknelpunten) tegen NUKL (nucleair UCITS) en WEBN; uitschieterkandidaat. Regels: stop -40%, winst laten lopen tot +100%, daarna trailing 30% onder de top, oogst boven 2x naar de kern.",
       "bron": "research/schaduwpotjes.py / research/schaduwpotjes.json (potje 'splijtstof_knelpunten'); Bart 21-09 (ketenidee)",
       "benchmark": "WEBN en het themafonds, in euro's",
-      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md)."
+      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md).",
+      "kaart": {
+        "wat": "Mandje Centrus + Cameco + BWXT: de knelpunten in de splijtstofketen (verrijking, conversie, fabricage).",
+        "waarom_hier": "Zonder geld, omdat de koersen openbaar zijn. De enige verrijker (Centrus) staat bovendien nog op 'volgen': te duur.",
+        "volgende": "Na 6 maanden: verslaat het mandje de kern en het nucleaire fonds ruim (>10 procentpunt)? Dan echt geld uit de proeftuin.",
+        "wanneer": "2027-03-22",
+        "meter": {
+          "bron": "schaduw:splijtstof_knelpunten",
+          "label": "voorsprong op het themafonds",
+          "grens": 10,
+          "eenheid": "pp",
+          "richting": "boven"
+        }
+      }
     },
     "schaduw_net_tolhuisje": {
       "status": "meet_vooruit",
@@ -312,7 +470,20 @@
       "hypothese": "Schakel verslaat thema en kern: Eaton+Schneider+ABB+Quanta+Prysmian (net-tolhuisje) tegen GRID (Barts echte positie) en WEBN. Regels: stop -40%, winst laten lopen tot +100%, daarna trailing 30% onder de top, oogst boven 2x naar de kern.",
       "bron": "research/schaduwpotjes.py / research/schaduwpotjes.json (potje 'net_tolhuisje'); Bart 21-09 (ketenidee)",
       "benchmark": "WEBN en het themafonds, in euro's",
-      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md)."
+      "volgende_stap": "Schaduw loopt vanaf het slot van 22-09 (dagelijks in de scorekaart-workflow). Promotie naar echt geld alleen als het potje na 6 maanden zowel de kern als het themafonds verslaat, na kosten, en niet gedragen wordt door een naam; dan pas de geldmotor (docs/PROEFTUIN_MOTOR.md).",
+      "kaart": {
+        "wat": "Mandje Eaton + Schneider + ABB + Quanta + Prysmian: de bedrijven in het knelpunt van het stroomnet.",
+        "waarom_hier": "Zonder geld, en rechtstreeks tegen jouw eigen GRID-fonds: loont het om de schakel te kiezen in plaats van het hele thema?",
+        "volgende": "Na 6 maanden: verslaat het mandje je GRID-fonds en de kern ruim (>10 procentpunt)? Dan overwegen GRID te vervangen.",
+        "wanneer": "2027-03-22",
+        "meter": {
+          "bron": "schaduw:net_tolhuisje",
+          "label": "voorsprong op GRID",
+          "grens": 10,
+          "eenheid": "pp",
+          "richting": "boven"
+        }
+      }
     }
   },
   "_motor": "Treden en ritme: docs/MOTOR.md. trede 0 idee, 1 papier, 2 schaduw, 3 proeftuin (verliesbudget), 4 schalen (besluit Bart). Ideeën op trede 0-2 krijgen GEEN 'sleeve': ze houden geen geld, en een potje met geld maakt van een niet-live experiment een H5-melding (utils/kpi.py)."

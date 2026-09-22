@@ -78,6 +78,24 @@ h3{font-size:.98rem;margin:0;font-weight:650}
 .leg-pct{grid-column:2 / 4;color:var(--zacht);font-size:.74rem;margin-top:-6px}
 .leg-totaal{border-top:1px solid var(--lijn);padding-top:8px;display:flex;justify-content:space-between;font-weight:650}
 .noot{font-size:.78rem;color:var(--zacht);margin:.7rem 0 0;max-width:70ch}
+.schakel{display:inline-flex;border:1px solid var(--rand);border-radius:6px;overflow:hidden;background:var(--veld)}
+.schakel button{font:inherit;font-size:.82rem;border:0;background:transparent;color:var(--inkt2);padding:7px 12px;cursor:pointer}
+.schakel button[aria-selected="true"]{background:var(--accent);color:var(--veld)}
+.rend-rij{display:grid;grid-template-columns:minmax(150px,210px) minmax(0,1fr) 150px;gap:6px 14px;align-items:center;
+  padding:9px 0;border-bottom:1px solid var(--lijn)}
+.rend-rij:last-of-type{border-bottom:none}
+@media (max-width:640px){.rend-rij{grid-template-columns:1fr}}
+.rend-naam{font-weight:600;font-size:.9rem}
+.rend-sub{font-size:.72rem;color:var(--zacht);font-weight:400}
+.rend-baan{position:relative;height:22px;cursor:default}
+.rend-as{position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--inkt2);opacity:.5}
+.rend-balk{position:absolute;top:4px;height:14px;border-radius:0 4px 4px 0}
+.rend-balk.neg{border-radius:4px 0 0 4px}
+.rend-webn{position:absolute;top:0;bottom:0;width:2px;background:var(--inkt);border-radius:1px}
+.rend-cijfer{font-size:.9rem;text-align:right}
+.rend-cijfer small{display:block;font-size:.72rem;color:var(--zacht)}
+.rend-legenda{display:flex;flex-wrap:wrap;gap:14px;font-size:.76rem;color:var(--zacht);margin-top:10px}
+.rend-legenda span{display:inline-flex;align-items:center;gap:6px}
 /* motor */
 .bord{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 @media (max-width:980px){.bord{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -93,6 +111,20 @@ h3{font-size:.98rem;margin:0;font-weight:650}
 .kaart-naam{font-weight:600;font-size:.86rem;line-height:1.3}
 .kaart-stap{font-size:.78rem;color:var(--inkt2);margin:.4rem 0 .3rem;overflow-wrap:anywhere}
 .kaart-meta{font-size:.7rem;color:var(--zacht)}
+.kaart-regel{font-size:.8rem;color:var(--inkt);margin:.35rem 0 0;overflow-wrap:anywhere}
+.kaart-regel b{font-weight:600}
+.zacht-regel{color:var(--inkt2)}
+.meter-blok{margin:.55rem 0 .2rem;padding:8px 9px;border:1px solid var(--rand);border-radius:4px;background:var(--veld)}
+.meter-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--zacht)}
+.meter-balk{height:6px;background:var(--lijn);border-radius:3px;margin:.4rem 0 .35rem;position:relative;overflow:hidden}
+.meter-vul{height:100%;border-radius:3px}
+.m-goed{background:var(--goed)} .m-letop{background:var(--letop)} .m-kritiek{background:var(--kritiek)} .m-neutraal{background:var(--accent)}
+.meter-midden{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--inkt2)}
+.meter-tekst{font-size:.78rem}
+.meter-info{font-size:.7rem;color:var(--zacht);margin-top:2px}
+dl.idee{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:.78rem;margin:.45rem 0 0}
+dl.idee dt{color:var(--zacht)} dl.idee dd{margin:0;color:var(--inkt2)}
+.kaart-meta{margin-top:.45rem}
 details.meer summary{cursor:pointer;color:var(--accent);font-size:.74rem;list-style:none}
 details.meer summary::-webkit-details-marker{display:none}
 details.meer[open] summary{margin-bottom:.3rem}
@@ -152,9 +184,14 @@ a{color:var(--accent)}
   <div class="tegels" id="tegels"></div>
 
   <section class="sectie" aria-labelledby="h-vermogen">
-    <div class="sectie-kop"><div><h2 id="h-vermogen">Vermogen over tijd</h2>
-      <p class="sectie-sub">Elke dag gemeten, per potje gestapeld. Stortingen en nieuwe metingen tellen mee in de lijn — de markeringen onderaan laten zien wanneer een potje voor het eerst meetelde.</p></div></div>
-    <div class="paneel"><div class="grafiek-rij">
+    <div class="sectie-kop"><div><h2 id="h-vermogen">Vermogen</h2>
+      <p class="sectie-sub" id="vermogen-uitleg"></p></div>
+      <div class="schakel" role="tablist" aria-label="Weergave">
+        <button type="button" id="knop-rendement" role="tab" aria-selected="true">Hoe doet elk potje het</button>
+        <button type="button" id="knop-waarde" role="tab" aria-selected="false">Waarde over tijd</button>
+      </div></div>
+    <div class="paneel" id="paneel-rendement"><div id="rendement"></div></div>
+    <div class="paneel" id="paneel-waarde" hidden><div class="grafiek-rij">
       <div class="grafiek" id="vermogen-grafiek"></div>
       <div class="legenda" id="vermogen-legenda"></div>
     </div><p class="noot" id="vermogen-noot"></p></div>
@@ -170,7 +207,7 @@ a{color:var(--accent)}
 
   <section class="sectie" aria-labelledby="h-schaduw">
     <div class="sectie-kop"><div><h2 id="h-schaduw">Schaduwpotjes</h2>
-      <p class="sectie-sub">Mandjes die zonder geld vooruit meelopen, elk tegen twee maatstaven: je kern (WEBN) en het themafonds. Verslaat de schakel het thema? Na zes maanden weten we het.</p></div></div>
+      <p class="sectie-sub">Mandjes die zonder geld vooruit meelopen, elk tegen twee maatstaven: je kern (WEBN) en het themafonds. Wat we leren is niet "koop deze drie mandjes", maar of de <b>methode</b> werkt: het knelpunt in een keten kiezen in plaats van het hele thema. Werkt dat over meerdere thema's, dan past de motor die methode meteen toe op elk nieuw thema, met geld en zonder opnieuw te wachten. Eén potje na zes maanden is een eerste aanwijzing, geen bewijs.</p></div></div>
     <div class="raster3" id="schaduw"></div>
   </section>
 
@@ -220,8 +257,8 @@ function tegels(){
   const h1 = k.h1 || {}, h3 = k.h3 || {};
   const t = [
     ["Vermogen", usd(nu), v.compleet === false ? "ONVOLLEDIG gemeten — ondergrens" : "alle potjes gemeten, in dollars", ""],
-    ["30 dagen", (verschil >= 0 ? "+" : "−") + usd(Math.abs(verschil)), "koers, rente en stortingen" + (nieuw.length ? "; zonder " + nieuw.join(", ") + " (telt pas sinds kort mee)" : ""), verschil >= 0 ? "c-goed" : "c-kritiek"],
-    ["Opbrengst min kosten", (h1.netto_usd >= 0 ? "+" : "−") + usd(Math.abs(h1.netto_usd ?? 0), 2), `over ${h1.dagen ?? "?"} dagen: rente en gerealiseerde winst $${(h1.opbrengst_usd ?? 0).toFixed(2)} tegen VM $${(h1.kosten_usd ?? 0).toFixed(2)}${h1.voorlopig ? " (voorlopig)" : ""}`, (h1.netto_usd ?? 0) >= 0 ? "c-goed" : "c-kritiek"],
+    ["Waardeverandering 30 dagen", (verschil >= 0 ? "+" : "−") + usd(Math.abs(verschil)), "koersen en rente samen, ook niet-verkochte winst" + (nieuw.length ? "; zonder " + nieuw.join(", ") + " (telt pas sinds kort mee)" : "") + ". De VM betaal je apart met je creditcard.", verschil >= 0 ? "c-goed" : "c-kritiek"],
+    ["Vaste opbrengst min kosten", (h1.netto_usd >= 0 ? "+" : "−") + usd(Math.abs(h1.netto_usd ?? 0), 2), `over ${h1.dagen ?? "?"} dagen: alleen wat echt binnen is (rente + verkochte winst $${(h1.opbrengst_usd ?? 0).toFixed(2)}) min de VM ($${(h1.kosten_usd ?? 0).toFixed(2)}). Doel: boven nul.`, (h1.netto_usd ?? 0) >= 0 ? "c-goed" : "c-kritiek"],
     ["Verliesbudget experimenten", usd(h3.verlies_usd ?? 0) + " / " + usd(h3.budget_usd ?? 250), `alarm bij ${usd(h3.alarm_usd ?? 125)}`, (h3.verlies_usd ?? 0) >= (h3.alarm_usd ?? 125) ? "c-letop" : "c-goed"],
   ];
   $("tegels").innerHTML = t.map(([kop, getal, sub, c]) => `<div class="tegel"><div class="tegel-kop">${esc(kop)}</div><div class="tegel-getal num ${c}">${esc(getal)}</div><div class="tegel-sub">${esc(sub)}</div></div>`).join("");
@@ -277,26 +314,129 @@ function vermogenGrafiek(){
   $("vermogen-noot").textContent = mk ? "Telt pas mee vanaf (gestippeld): " + mk + ". Een sprong op zo'n dag is een nieuwe meting, geen winst." : "";
 }
 
-const TREDEN = [["0","Idee","een hypothese en een maatstaf"],["1","Papier","toets op historische data"],["2","Schaduw","loopt live mee, zonder geld"],["3","Proeftuin","klein echt geld"],["4","Schalen","jouw besluit"]];
-const STATUS = {live:["loopt","p-goed"], meet_vooruit:["meet","p-accent"], gepland:["wacht","p-letop"], wacht_op_regime:["wacht","p-letop"], idee:["idee","p-zacht"], papier:["papier","p-zacht"]};
+function rendementWeergave(){
+  const R = D.rendement || {potjes: []}, P = R.potjes;
+  const geld = (v, val) => v == null ? "?" : (val === "EUR" ? "€" : "$") + Number(v).toLocaleString("nl-NL", {maximumFractionDigits:0});
+  const bereik = Math.max(10, ...P.flatMap(p => [Math.abs(p.pct ?? 0), Math.abs(p.webn_pct ?? 0)]));
+  const schaal = Math.ceil(bereik / 10) * 10;
+  const pos = (v) => 50 + (v / schaal) * 50;
+  const rijen = P.map(p => {
+    const pc = p.pct;
+    let balk = '<span class="leeg" style="position:absolute;left:52%;top:2px">onbekend</span>';
+    if (pc != null){
+      const l = pc >= 0 ? 50 : pos(pc), w = Math.abs(pos(pc) - 50);
+      balk = `<div class="rend-balk${pc < 0 ? " neg" : ""}" style="left:${l}%;width:${w}%;background:var(--s-${p.groep})"></div>`;
+    }
+    const tick = p.webn_pct != null ? `<div class="rend-webn" style="left:calc(${pos(p.webn_pct)}% - 1px)" title="WEBN in dezelfde periode: ${pct(p.webn_pct)}"></div>` : "";
+    const winst = (p.waarde != null && p.inleg != null) ? p.waarde - p.inleg : null;
+    const titel = `ingelegd ${geld(p.inleg, p.valuta)}, nu ${geld(p.waarde, p.valuta)}, ${winst == null ? "winst onbekend" : (winst >= 0 ? "winst " : "verlies ") + geld(Math.abs(winst), p.valuta)}`;
+    const vgl = p.webn_pct != null ? `WEBN zelfde periode ${pct(p.webn_pct)}` : "dit ís de kern";
+    return `<div class="rend-rij" title="${esc(titel)}"><div class="rend-naam">${esc(p.naam)}<div class="rend-sub">sinds ${datum(p.sinds)} · ${esc(titel)}</div></div>
+      <div class="rend-baan"><div class="rend-as"></div>${balk}${tick}</div>
+      <div class="rend-cijfer num ${pc == null ? "" : pc >= 0 ? "op" : "neer"}">${pct(pc)}<small>${esc(vgl)}</small></div></div>`;
+  }).join("");
+  const r = R.rente || {};
+  const rente = `<div class="rend-rij"><div class="rend-naam">Rente (kasbeheer)<div class="rend-sub">${usd(r.waarde)} in Aave · per jaar, want hier gaat steeds geld heen en weer</div></div>
+    <div class="tegel-sub">Een vaste rente, geen koers: het tempo telt, niet de stand sinds de start.</div>
+    <div class="rend-cijfer num">${pct(r.jaar_pct)} per jaar<small>tarief Aave nu ${pct(r.aave_pct)}</small></div></div>`;
+  $("rendement").innerHTML = rijen + rente +
+    `<div class="rend-legenda"><span><i style="width:14px;height:10px;background:var(--s-degiro);border-radius:2px;display:inline-block"></i>winst of verlies van het potje sinds zijn start</span><span><i style="width:2px;height:14px;background:var(--inkt);display:inline-block"></i>WEBN in dezelfde periode: ligt het streepje rechts van de balk, dan deed de kern het beter</span><span>schaal ±${schaal}%</span></div>`;
+}
+
+function weergaveSchakel(){
+  const knoppen = {rendement: $("knop-rendement"), waarde: $("knop-waarde")};
+  const uitleg = {
+    rendement: "Per potje: hoeveel het sinds de start heeft opgeleverd, in procent, naast wat je kern (WEBN) in dezelfde periode deed. Zo zie je in één oogopslag wat goed gaat, los van hoe groot een potje is.",
+    waarde: "Elke dag gemeten, per potje gestapeld, in dollars. Een sprong op een gestippelde lijn is een nieuwe meting (een potje dat ging meetellen), geen winst.",
+  };
+  const zet = (w) => {
+    let opgeslagen = w;
+    Object.entries(knoppen).forEach(([k, b]) => b.setAttribute("aria-selected", String(k === w)));
+    $("paneel-rendement").hidden = w !== "rendement"; $("paneel-waarde").hidden = w !== "waarde";
+    $("vermogen-uitleg").textContent = uitleg[w];
+    try { localStorage.setItem("weergave", opgeslagen); } catch (e) {}
+  };
+  knoppen.rendement.addEventListener("click", () => zet("rendement"));
+  knoppen.waarde.addEventListener("click", () => zet("waarde"));
+  let start = "rendement"; try { start = localStorage.getItem("weergave") || "rendement"; } catch (e) {}
+  zet(start in knoppen ? start : "rendement");
+}
+
+const TREDEN = [
+  ["0","Idee","Een idee met een hypothese. Elke week komt er minstens één bij, of gaat er één een trede verder."],
+  ["1","Papier","We toetsen op oude koersen of het had gewerkt: goedkoop bewijs vóór er geld in gaat. Wat hier 'wacht', is op papier klaar en wacht op de markt of op jou."],
+  ["2","Schaduw","Loopt live mee zonder geld: kosteloos meten of het in de praktijk werkt."],
+  ["3","Proeftuin","Klein echt geld (samen hooguit $500): zien hoe het uitpakt met echte kosten en fouten."],
+  ["4","Schalen","Meer geld, alleen na bewijs en met jouw besluit."]];
+
+function statusVan(e){
+  const k = e.kaart || {};
+  if (e.status === "live") return ["loopt", "p-goed"];
+  if (e.status === "meet_vooruit") return ["meet mee", "p-accent"];
+  if (e.status === "gepland" || e.status === "wacht_op_regime") return k.wanneer === "open" ? ["wacht op jou", "p-letop"] : ["wacht op de markt", "p-letop"];
+  if (e.status === "idee") return ["idee", "p-zacht"];
+  return [e.status || "?", "p-zacht"];
+}
+
+const getal = (v, d=1) => Number(v).toLocaleString("nl-NL", {maximumFractionDigits:d, minimumFractionDigits:d});
+
+function meterBlok(mk){
+  if (!mk) return "";
+  const m = (D.meters || {})[mk.bron] || {};
+  const e = (mk.eenheid || "").trim() === "pp" ? " procentpunt" : mk.eenheid || "";
+  const grens = typeof m.grens === "number" ? m.grens : (typeof mk.grens === "number" ? mk.grens : null);
+  if (m.nu == null){
+    return `<div class="meter-blok"><div class="meter-label">${esc(mk.label)}</div><div class="meter-tekst">${esc(m.info || "nog niet gemeten")}</div></div>`;
+  }
+  let staat = "", fill = 50, tekst = `nu <b class="num">${getal(m.nu)}${esc(e)}</b>`;
+  if (grens != null){
+    if (mk.richting === "onder"){
+      fill = Math.min(100, Math.max(0, m.nu / grens * 100));
+      staat = m.nu >= grens ? "kritiek" : m.nu >= grens * 0.66 ? "letop" : "goed";
+      tekst += ` · alarm bij ${getal(grens)}${esc(e)}` + (m.nu < grens ? ` — nog ${getal(grens - m.nu)}${esc(e)} ruimte` : " — GERAAKT");
+    } else {
+      const basis = grens === 0 ? Math.max(Math.abs(m.nu), 10) : grens;
+      fill = grens === 0 ? 50 + Math.max(-50, Math.min(50, m.nu / basis * 50)) : Math.min(100, Math.max(0, m.nu / grens * 100));
+      const gehaald = m.nu >= grens;
+      staat = grens === 0 ? (gehaald ? "goed" : "kritiek") : (gehaald ? "goed" : "letop");
+      tekst += grens === 0
+        ? ` · slaat om bij ${getal(grens)}${esc(e)} — ${gehaald ? "nog " + getal(m.nu - grens) + esc(e) + " erboven" : "ERONDER"}`
+        : ` · nodig ${getal(grens)}${esc(e)} — ${gehaald ? "GEHAALD" : "nog " + getal(grens - m.nu) + esc(e) + " te gaan"}`;
+    }
+  }
+  return `<div class="meter-blok"><div class="meter-label">${esc(mk.label)}</div>
+    <div class="meter-balk"><div class="meter-vul m-${staat || "neutraal"}" style="width:${fill}%"></div>${grens === 0 ? '<div class="meter-midden"></div>' : ""}</div>
+    <div class="meter-tekst">${tekst}</div>${m.info ? `<div class="meter-info">${esc(m.info)}</div>` : ""}</div>`;
+}
 
 function motorBord(){
   const M = D.motor;
-  $("motor-kapitaal").textContent = `proeftuin ${usd((M.treden["3"]||[]).reduce((a,e)=>a+(e.budget||0),0))} van ${usd(M.proeftuin_kapitaal)}`;
+  $("motor-kapitaal").textContent = `proeftuin: ${usd((M.treden["3"]||[]).reduce((a,e)=>a+(e.budget||0),0))} van ${usd(M.proeftuin_kapitaal)} in gebruik`;
+  const vandaag = Date.now();
   $("bord").innerHTML = TREDEN.map(([t, naam, uitleg]) => {
     const items = M.treden[t] || [];
     const kaarten = items.length ? items.map(e => {
-      const [lab, cls] = STATUS[e.status] || [e.status || "?", "p-zacht"];
-      const stap = e.volgende || e.hypothese || "";
-      const kortStap = stap.length > 150 ? stap.slice(0, 150).replace(/\s+\S*$/, "") + "…" : stap;
-      const meer = stap.length > 150 ? `<details class="meer"><summary>meer lezen</summary><div class="kaart-stap">${esc(stap)}</div></details>` : "";
-      const meta = [e.sinds ? "sinds " + datum(e.sinds) : "", e.herzien ? "herzien " + datum(e.herzien) : "", e.budget ? usd(e.budget) + " ingezet" : ""].filter(Boolean).join(" · ");
-      return `<div class="kaart"><div class="kaart-kop"><span class="kaart-naam">${esc(e.naam)}</span><span class="pil ${cls}">${esc(lab)}</span></div><div class="kaart-stap">${esc(kortStap)}</div>${meer}<div class="kaart-meta">${esc(meta)}</div></div>`;
+      const k = e.kaart || {};
+      const [lab, cls] = statusVan(e);
+      const dagen = e.sinds ? Math.max(0, Math.floor((vandaag - Date.parse(e.sinds)) / 864e5)) : null;
+      const regels = [];
+      if (k.wat) regels.push(`<div class="kaart-regel">${esc(k.wat)}</div>`);
+      if (k.waarom_hier) regels.push(`<div class="kaart-regel zacht-regel"><b>Waarom hier:</b> ${esc(k.waarom_hier)}</div>`);
+      regels.push(meterBlok(k.meter));
+      if (k.uitstap) regels.push(`<div class="kaart-regel zacht-regel"><b>Uitstappen:</b> ${esc(k.uitstap)}</div>`);
+      if (k.volgende) regels.push(`<div class="kaart-regel"><b>Volgende stap:</b> ${esc(k.volgende)}</div>`);
+      if (k.kosten || k.opbrengst || k.start) regels.push(`<dl class="idee">${k.kosten ? `<dt>Kosten</dt><dd>${esc(k.kosten)}</dd>` : ""}${k.opbrengst ? `<dt>Opbrengst</dt><dd>${esc(k.opbrengst)}</dd>` : ""}${k.start ? `<dt>Start</dt><dd>${esc(k.start)}</dd>` : ""}</dl>`);
+      if (!k.wat) regels.push(`<div class="kaart-regel">${esc((e.volgende || e.hypothese || "").slice(0, 160))}</div>`);
+      const meta = [dagen != null ? (e.status === "idee" ? "idee sinds " + datum(e.sinds) : dagen + " dagen op deze trede") : "",
+                    k.wanneer && k.wanneer !== "open" && /^\d{4}-/.test(k.wanneer) ? "volgende moment " + datum(k.wanneer) : "",
+                    e.budget ? usd(e.budget) + " ingezet" : ""].filter(Boolean).join(" · ");
+      const achtergrond = e.volgende && k.wat ? `<details class="meer"><summary>achtergrond</summary><div class="kaart-regel zacht-regel">${esc(e.volgende)}</div></details>` : "";
+      return `<div class="kaart"><div class="kaart-kop"><span class="kaart-naam">${esc(e.naam)}</span><span class="pil ${cls}">${esc(lab)}</span></div>${regels.join("")}<div class="kaart-meta">${esc(meta)}</div>${achtergrond}</div>`;
     }).join("") : '<p class="leeg">nog leeg</p>';
     return `<div class="kolom"><div class="kolom-kop"><h3>${esc(naam)}</h3><span class="num" style="color:var(--zacht);font-size:.78rem">${items.length}</span></div><div class="kolom-uitleg">${esc(uitleg)}</div>${kaarten}</div>`;
   }).join("");
   const g = M.gestopt || [];
-  $("gestopt").innerHTML = `<summary>Gestopt: ${g.length} ideeën, en waarom</summary><div class="gestopt-lijst">${g.map(e => `<div class="gestopt-item"><b>${esc(e.naam)}</b> — ${esc((e.volgende || "").replace(/^GESTOPT[^:]*:\s*/i, "").slice(0, 190))}${(e.volgende||"").length > 190 ? "…" : ""}</div>`).join("")}</div>`;
+  $("gestopt").innerHTML = `<summary>Gestopt: ${g.length} ideeën, en waarom</summary><div class="gestopt-lijst">${g.map(e => `<div class="gestopt-item"><b>${esc(e.naam)}</b> — ${esc((e.kaart || {}).kort || (e.volgende || "").replace(/^GESTOPT[^:]*:\s*/i, "").slice(0, 190))}</div>`).join("")}</div>`;
 }
 
 function miniGrafiek(reeks){
@@ -344,7 +484,7 @@ function signalen(){
   blokken.push(`<div class="paneel"><div class="kaart-kop"><h3>Doelen H1–H5</h3><span class="pil p-zacht">meting 31-12</span></div><table style="margin-top:8px"><tbody>${doelen.map(([c,n,d]) => `<tr><td class="num">${c}</td><td>${esc(n)}</td><td class="r">${d==null?'<span class="pil p-zacht">?</span>':d.doel_gehaald?'<span class="pil p-goed">gehaald</span>':'<span class="pil p-kritiek">nog niet</span>'}</td></tr>`).join("")}</tbody></table></div>`);
   const d = sc.dichtst;
   blokken.push(`<div class="paneel"><div class="kaart-kop"><h3>Scorekaart</h3><span class="pil p-zacht">poort feb 2027</span></div>
-    <div class="signaal-groot num">${pct(sc.gem_rel, 2)}</div><div class="tegel-sub">gemiddeld tegen WEBN, over ${sc.n} gescoorde bedrijven (papier, geen geld)</div>
+    <div class="signaal-groot num">${pct(sc.gem_rel, 2)}</div><div class="tegel-sub">Zoveel procentpunt deden de ${sc.n} bedrijven die we op papier beoordeelden het gemiddeld beter (+) of slechter (−) dan WEBN, sinds de beoordeling. Het toetst of onze analyse iets toevoegt; in februari 2027 wordt afgerekend. Raakt een bedrijf zijn koopprijs, dan krijg je een bericht.</div>
     <p class="noot">${(sc.geraakt||[]).length ? "<b>Koopprijs geraakt: " + esc(sc.geraakt.join(", ")) + "</b>" : d ? `Dichtst bij een koopprijs: ${esc(d.t)}, nog ${Math.abs(d.afstand).toFixed(0)}% te gaan (onder $${d.wp}).` : ""}</p></div>`);
   $("signalen").innerHTML = blokken.join("");
 }
@@ -359,12 +499,12 @@ function namenEnThemas(){
   $("namen").innerHTML = `<summary>Scorekaart: ${N.length} bedrijven op papier</summary><div class="paneel scroll" style="margin-top:10px"><table><thead><tr><th>Bedrijf</th><th>Oordeel</th><th class="r">Tegen WEBN</th><th>Waar we op wachten</th><th class="r">Nog</th></tr></thead><tbody>${N.map(r => `<tr><td><b class="num">${esc(r.t)}</b><div class="kaart-meta">${esc(r.naam)} · gescoord ${datum(r.gescoord)}</div></td><td><span class="pil ${vk[r.verdict]||"p-zacht"}">${esc(r.verdict)}</span></td><td class="r num ${r.rel==null?"":r.rel>=0?"op":"neer"}">${pct(r.rel,1)}</td><td style="color:var(--inkt2)">${esc(r.wacht)}</td><td class="r num">${r.afstand==null?"—":r.afstand>=0?"<b>nu</b>":Math.abs(r.afstand).toFixed(0)+"%"}</td></tr>`).join("")}</tbody></table></div>`;
   const T = D.themas || [];
   const tk = {"IN DE TRECHTER":"p-goed", VOLGEN:"p-accent", AFVALLER:"p-kritiek"};
-  $("themas").innerHTML = `<summary>Thema's: ${T.length} kaarten</summary><div class="chips">${T.map(t => `<div class="chip"><b>${esc(t.naam)}</b><span class="pil ${tk[t.verdict]||"p-zacht"}">${esc(t.verdict)}</span><div class="kaart-meta" style="margin-top:4px">tolhuisje: ${esc(t.tolhuisje)}</div></div>`).join("")}</div>`;
+  $("themas").innerHTML = `<summary>Thema's: ${T.length} kaarten</summary><p class="noot">Nieuwe namen binnen deze thema's zoekt de computer elke maandag zelf. Nieuwe thema's niet: dat is oordeelswerk (vastgelegd geld, knelpunten). Eens per maand doet de werkronde een verkenning, en elk nieuw thema krijgt een schaduwpotje.</p><div class="chips">${T.map(t => `<div class="chip"><b>${esc(t.naam)}</b><span class="pil ${tk[t.verdict]||"p-zacht"}">${esc(t.verdict)}</span><div class="kaart-meta" style="margin-top:4px">tolhuisje: ${esc(t.tolhuisje)}</div></div>`).join("")}</div>`;
 }
 
 if (!D){ $("app").innerHTML = '<p class="leeg">Geen data in deze pagina.</p>'; }
 else {
-  [kopEnVersheid, tegels, vermogenGrafiek, motorBord, schaduwpotjes, signalen, beslissingen, namenEnThemas].forEach(f => {
+  [kopEnVersheid, tegels, vermogenGrafiek, rendementWeergave, weergaveSchakel, motorBord, schaduwpotjes, signalen, beslissingen, namenEnThemas].forEach(f => {
     try { f(); } catch (e) { console.error(f.name, e); }
   });
 }
