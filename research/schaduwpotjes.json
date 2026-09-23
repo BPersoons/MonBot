@@ -23,7 +23,31 @@
       },
       "evalueer_op": "2027-03-22",
       "status": "loopt",
-      "gestart_op": null
+      "gestart_op": "2026-09-22",
+      "posities": {
+        "TSM": {
+          "stuks": 0.12871729679210356,
+          "inleg_eur": 50.0,
+          "top_eur": 49.9775,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        },
+        "ASML": {
+          "stuks": 0.033481301672309303,
+          "inleg_eur": 50.0,
+          "top_eur": 49.9775,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        }
+      },
+      "kas_eur": 0.0,
+      "laatste_dag": "2026-09-22",
+      "kern_stuks": 0.0,
+      "maatstaf_start": {
+        "kern": 13.07800006866455,
+        "thema": 97.38999938964844
+      },
+      "gebeurtenissen": []
     },
     "splijtstof_knelpunten": {
       "these": "De knelpunten van de splijtstofketen (verrijking: Centrus; conversie en brandstof: Cameco; fabricage: BWXT) verslaan het Europese nucleaire fonds, dat ~0% in verrijking heeft, en de kern. Uitschieterkandidaat (overheidsgeld DOE $2,7 mrd; sentiment -30 tot -65%).",
@@ -48,7 +72,38 @@
       },
       "evalueer_op": "2027-03-22",
       "status": "loopt",
-      "gestart_op": null
+      "gestart_op": "2026-09-22",
+      "posities": {
+        "LEU": {
+          "stuks": 1.2117360510638122,
+          "inleg_eur": 166.66666666666666,
+          "top_eur": 163.66666666666666,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        },
+        "CCJ": {
+          "stuks": 2.0126282113785474,
+          "inleg_eur": 166.66666666666666,
+          "top_eur": 163.66666666666666,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        },
+        "BWXT": {
+          "stuks": 1.272376302637062,
+          "inleg_eur": 166.66666666666666,
+          "top_eur": 163.66666666666666,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        }
+      },
+      "kas_eur": 0.0,
+      "laatste_dag": "2026-09-22",
+      "kern_stuks": 0.0,
+      "maatstaf_start": {
+        "kern": 13.07800006866455,
+        "thema": 45.43000030517578
+      },
+      "gebeurtenissen": []
     },
     "net_tolhuisje": {
       "these": "De vijf grootste namen in het tolhuisje van stroom en net (netapparatuur + aanleg), zoals gemeten in de GRID-kaart van augustus, verslaan het fonds dat Bart echt houdt (GRID) en de kern.",
@@ -75,7 +130,52 @@
       },
       "evalueer_op": "2027-03-22",
       "status": "loopt",
-      "gestart_op": null
+      "gestart_op": "2026-09-22",
+      "posities": {
+        "ETN": {
+          "stuks": 0.25539501288094413,
+          "inleg_eur": 100.0,
+          "top_eur": 97.0,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        },
+        "SU.PA": {
+          "stuks": 0.3288135593220339,
+          "inleg_eur": 100.0,
+          "top_eur": 97.0,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        },
+        "ABBN.SW": {
+          "stuks": 1.1113313631997723,
+          "inleg_eur": 100.0,
+          "top_eur": 97.0,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        },
+        "PWR": {
+          "stuks": 0.17305465386962673,
+          "inleg_eur": 100.0,
+          "top_eur": 97.0,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        },
+        "PRY.MI": {
+          "stuks": 0.769230778538882,
+          "inleg_eur": 100.0,
+          "top_eur": 97.0,
+          "open": true,
+          "hoogste_winst_pct": 0.0
+        }
+      },
+      "kas_eur": 0.0,
+      "laatste_dag": "2026-09-22",
+      "kern_stuks": 0.0,
+      "maatstaf_start": {
+        "kern": 13.07800006866455,
+        "thema": 54.880001068115234
+      },
+      "gebeurtenissen": []
     }
   }
 }
