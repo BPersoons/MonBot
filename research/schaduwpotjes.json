@@ -28,26 +28,34 @@
         "TSM": {
           "stuks": 0.12871729679210356,
           "inleg_eur": 50.0,
-          "top_eur": 49.9775,
+          "top_eur": 50.82158277419059,
           "open": true,
-          "hoogste_winst_pct": 0.0
+          "hoogste_winst_pct": 1.6431655483811758
         },
         "ASML": {
           "stuks": 0.033481301672309303,
           "inleg_eur": 50.0,
-          "top_eur": 49.9775,
+          "top_eur": 50.050265709203494,
           "open": true,
-          "hoogste_winst_pct": 0.0
+          "hoogste_winst_pct": 0.10053141840697943
         }
       },
-      "kas_eur": 0.0,
-      "laatste_dag": "2026-09-22",
+      "kas_eur": -0.015199867579689517,
+      "laatste_dag": "2026-09-23",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
         "thema": 97.38999938964844
       },
-      "gebeurtenissen": []
+      "gebeurtenissen": [],
+      "reeks": [
+        {
+          "dag": "2026-09-23",
+          "waarde_eur": 100.8566,
+          "kern_eur": 100.5964,
+          "thema_eur": 102.0331
+        }
+      ]
     },
     "splijtstof_knelpunten": {
       "these": "De knelpunten van de splijtstofketen (verrijking: Centrus; conversie en brandstof: Cameco; fabricage: BWXT) verslaan het Europese nucleaire fonds, dat ~0% in verrijking heeft, en de kern. Uitschieterkandidaat (overheidsgeld DOE $2,7 mrd; sentiment -30 tot -65%).",
@@ -77,33 +85,41 @@
         "LEU": {
           "stuks": 1.2117360510638122,
           "inleg_eur": 166.66666666666666,
-          "top_eur": 163.66666666666666,
+          "top_eur": 163.9049603202702,
           "open": true,
           "hoogste_winst_pct": 0.0
         },
         "CCJ": {
           "stuks": 2.0126282113785474,
           "inleg_eur": 166.66666666666666,
-          "top_eur": 163.66666666666666,
+          "top_eur": 163.90496032027022,
           "open": true,
           "hoogste_winst_pct": 0.0
         },
         "BWXT": {
           "stuks": 1.272376302637062,
           "inleg_eur": 166.66666666666666,
-          "top_eur": 163.66666666666666,
+          "top_eur": 163.90496032027025,
           "open": true,
           "hoogste_winst_pct": 0.0
         }
       },
       "kas_eur": 0.0,
-      "laatste_dag": "2026-09-22",
+      "laatste_dag": "2026-09-23",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
         "thema": 45.43000030517578
       },
-      "gebeurtenissen": []
+      "gebeurtenissen": [],
+      "reeks": [
+        {
+          "dag": "2026-09-23",
+          "waarde_eur": 491.7149,
+          "kern_eur": 502.9821,
+          "thema_eur": 507.8142
+        }
+      ]
     },
     "net_tolhuisje": {
       "these": "De vijf grootste namen in het tolhuisje van stroom en net (netapparatuur + aanleg), zoals gemeten in de GRID-kaart van augustus, verslaan het fonds dat Bart echt houdt (GRID) en de kern.",
@@ -135,7 +151,7 @@
         "ETN": {
           "stuks": 0.25539501288094413,
           "inleg_eur": 100.0,
-          "top_eur": 97.0,
+          "top_eur": 97.1412290289178,
           "open": true,
           "hoogste_winst_pct": 0.0
         },
@@ -149,33 +165,41 @@
         "ABBN.SW": {
           "stuks": 1.1113313631997723,
           "inleg_eur": 100.0,
-          "top_eur": 97.0,
+          "top_eur": 97.48811070871757,
           "open": true,
           "hoogste_winst_pct": 0.0
         },
         "PWR": {
           "stuks": 0.17305465386962673,
           "inleg_eur": 100.0,
-          "top_eur": 97.0,
+          "top_eur": 97.14122902891779,
           "open": true,
           "hoogste_winst_pct": 0.0
         },
         "PRY.MI": {
           "stuks": 0.769230778538882,
           "inleg_eur": 100.0,
-          "top_eur": 97.0,
+          "top_eur": 99.46154201258348,
           "open": true,
           "hoogste_winst_pct": 0.0
         }
       },
       "kas_eur": 0.0,
-      "laatste_dag": "2026-09-22",
+      "laatste_dag": "2026-09-23",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
         "thema": 54.880001068115234
       },
-      "gebeurtenissen": []
+      "gebeurtenissen": [],
+      "reeks": [
+        {
+          "dag": "2026-09-23",
+          "waarde_eur": 488.2321,
+          "kern_eur": 502.9821,
+          "thema_eur": 504.5554
+        }
+      ]
     }
   }
 }
