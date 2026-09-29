@@ -28,20 +28,20 @@
         "TSM": {
           "stuks": 0.12871729679210356,
           "inleg_eur": 50.0,
-          "top_eur": 50.974555451948504,
+          "top_eur": 51.23356669791903,
           "open": true,
-          "hoogste_winst_pct": 1.949110903897
+          "hoogste_winst_pct": 2.4671333958380615
         },
         "ASML": {
           "stuks": 0.033481301672309303,
           "inleg_eur": 50.0,
-          "top_eur": 51.32003649345432,
+          "top_eur": 52.126188268944134,
           "open": true,
-          "hoogste_winst_pct": 2.640072986908626
+          "hoogste_winst_pct": 4.252376537888258
         }
       },
-      "kas_eur": -0.04585237039734705,
-      "laatste_dag": "2026-09-25",
+      "kas_eur": -0.09257664319058656,
+      "laatste_dag": "2026-09-28",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -66,6 +66,12 @@
           "waarde_eur": 101.5528,
           "kern_eur": 99.6636,
           "thema_eur": 100.9447
+        },
+        {
+          "dag": "2026-09-28",
+          "waarde_eur": 103.2672,
+          "kern_eur": 100.1529,
+          "thema_eur": 102.7621
         }
       ]
     },
@@ -117,7 +123,7 @@
         }
       },
       "kas_eur": 0.0,
-      "laatste_dag": "2026-09-25",
+      "laatste_dag": "2026-09-28",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -142,6 +148,12 @@
           "waarde_eur": 467.2695,
           "kern_eur": 498.3178,
           "thema_eur": 485.8574
+        },
+        {
+          "dag": "2026-09-28",
+          "waarde_eur": 453.6956,
+          "kern_eur": 500.7646,
+          "thema_eur": 485.6372
         }
       ]
     },
@@ -196,7 +208,7 @@
         "PWR": {
           "stuks": 0.17305465386962673,
           "inleg_eur": 100.0,
-          "top_eur": 97.7523968520485,
+          "top_eur": 98.0045818193071,
           "open": true,
           "hoogste_winst_pct": 0.0
         },
@@ -209,7 +221,7 @@
         }
       },
       "kas_eur": 0.0,
-      "laatste_dag": "2026-09-25",
+      "laatste_dag": "2026-09-28",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -234,6 +246,12 @@
           "waarde_eur": 480.6523,
           "kern_eur": 498.3178,
           "thema_eur": 494.5335
+        },
+        {
+          "dag": "2026-09-28",
+          "waarde_eur": 479.0708,
+          "kern_eur": 500.7646,
+          "thema_eur": 498.8156
         }
       ]
     }
