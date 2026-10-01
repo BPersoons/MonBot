@@ -138,6 +138,14 @@
       "stand": "in",
       "controle_stand": "in",
       "teruggerekend": true
+    },
+    {
+      "maand": "2026-09",
+      "slot": 13.074,
+      "gem10": 12.0676,
+      "stand": "in",
+      "controle_stand": "in",
+      "teruggerekend": false
     }
   ]
 }
