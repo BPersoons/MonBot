@@ -28,9 +28,9 @@
         "TSM": {
           "stuks": 0.12871729679210356,
           "inleg_eur": 50.0,
-          "top_eur": 51.86225783224022,
+          "top_eur": 52.181422636690804,
           "open": true,
-          "hoogste_winst_pct": 3.7245156644804434
+          "hoogste_winst_pct": 4.362845273381599
         },
         "ASML": {
           "stuks": 0.033481301672309303,
@@ -40,8 +40,8 @@
           "hoogste_winst_pct": 8.312688794280065
         }
       },
-      "kas_eur": -0.12448270404992946,
-      "laatste_dag": "2026-09-30",
+      "kas_eur": -0.14040065512935654,
+      "laatste_dag": "2026-10-01",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -84,6 +84,12 @@
           "waarde_eur": 105.8941,
           "kern_eur": 99.9694,
           "thema_eur": 103.83
+        },
+        {
+          "dag": "2026-10-01",
+          "waarde_eur": 105.4969,
+          "kern_eur": 100.1223,
+          "thema_eur": 103.5425
         }
       ]
     },
@@ -135,7 +141,7 @@
         }
       },
       "kas_eur": 0.0,
-      "laatste_dag": "2026-09-30",
+      "laatste_dag": "2026-10-01",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -178,6 +184,12 @@
           "waarde_eur": 456.6647,
           "kern_eur": 499.8471,
           "thema_eur": 475.2366
+        },
+        {
+          "dag": "2026-10-01",
+          "waarde_eur": 454.7238,
+          "kern_eur": 500.6117,
+          "thema_eur": 482.2804
         }
       ]
     },
@@ -232,9 +244,9 @@
         "PWR": {
           "stuks": 0.17305465386962673,
           "inleg_eur": 100.0,
-          "top_eur": 99.45950448602292,
+          "top_eur": 101.23060032877285,
           "open": true,
-          "hoogste_winst_pct": 0.0
+          "hoogste_winst_pct": 1.2306003287728462
         },
         "PRY.MI": {
           "stuks": 0.769230778538882,
@@ -245,7 +257,7 @@
         }
       },
       "kas_eur": 0.0,
-      "laatste_dag": "2026-09-30",
+      "laatste_dag": "2026-10-01",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -288,6 +300,12 @@
           "waarde_eur": 483.7748,
           "kern_eur": 499.8471,
           "thema_eur": 499.7267
+        },
+        {
+          "dag": "2026-10-01",
+          "waarde_eur": 484.7042,
+          "kern_eur": 500.6117,
+          "thema_eur": 498.5423
         }
       ]
     }
