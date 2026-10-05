@@ -37,10 +37,10 @@
     "fluid_rente": {
       "sleeve": "yield_core",
       "protocol_id": "fluid-fusdc-arbitrum",
-      "status": "gepland",
+      "status": "gestopt",
       "trede": 1,
-      "sinds": "2026-09-19",
-      "volgende_stap": "Wacht op Bart. Advies bouwer (21-09): overslaan — +$13/jaar tegen code-risico op tot $1.619 (65%-cap). Meter voor de poort staat (utils/rendement.py).",
+      "sinds": "2026-10-05",
+      "volgende_stap": "GESTOPT (besluit Bart 05-10, op advies bouwer 21-09): +$13/jaar weegt niet op tegen code-risico op tot $1.619 (65%-cap). Meter (utils/rendement.py) blijft staan voor een nieuwe poging als het renteverschil fors groeit.",
       "mijlpaal": "M3",
       "hypothese": "Fluid fUSDC op Arbitrum levert structureel meer dan Aave Arbitrum (180d gem. 5,46% vs ~2,6%) zonder wezenlijk extra risico.",
       "kpi": "gemeten APR over 14 dagen, flow-gecorrigeerd",
