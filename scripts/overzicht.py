@@ -62,15 +62,19 @@ NAMEN = {
 
 # Wat alleen Bart kan beslissen. Met de hand bijgehouden: een beslissing is geen meting.
 BESLISSINGEN = [
-    ("2026-09-25", "Dip-koper: doorgaan, stoppen of vervangen door een Nasdaq-ETF?",
-     "60 dagen: +$27,72 netto gerealiseerd op $255, maar op 16 jaar data gedraagt hij zich als de "
-     "Nasdaq-100. Een ETF doet hetzelfde zonder code en VM. Advies volgt op 25-09."),
+    ("open", "Dip-koper: doorgaan, stoppen of vervangen door een Nasdaq-ETF? (achterstallig sinds 25-09)",
+     "60 dagen: +10,5% tegen +1,6% voor dezelfde namen vasthouden, maar op 16 jaar data doet hij precies "
+     "wat de Nasdaq-100 doet. Hij kost niets extra (de server draait toch voor kasbeheer). Advies: doorgaan "
+     "op $255 zonder opschalen, herzien op 22-12."),
+    ("open", "Kleinere server (e2-micro), tweede poging?",
+     "Bespaart $81 per jaar, meer dan de helft van het tekort. Er is geen geheugenlek (gemeten 05-10), maar "
+     "of de kleine server het onder druk houdt is onbewezen; een nieuwe poging vraagt eerst wat voorwerk."),
+    ("2026-11-03", "LDOS kopen bij de broker?",
+     "Zakte onder de wachtprijs ($117 < $120) en is volgens de regels koopbaar, maar de verwachtingen "
+     "dalen en de kwartaalcijfers van 3 november meten precies het twijfelpunt. Advies: wachten tot dan."),
     ("2026-11-03", "Uitstapsignaal WEBN: de regel, of een vaste mix?",
      "De regel is een verzekering tegen trage crashes (2008: daling 25% i.p.v. 42%), maar kost in "
      "gewone jaren 1,5-3 procentpunt per jaar tegen een vaste mix van ~75% WEBN / 25% geldmarkt."),
-    ("open", "Fluid als tweede rentebestemming?",
-     "Fluid geeft 4,2% tegen Aave 2,6% (30 dagen), goed voor +$13-26 per jaar, tegen extra protocolrisico op "
-     "tot $1.619. Advies: overslaan tot het verschil groter is."),
 ]
 
 VM_SCRIPT = r'''

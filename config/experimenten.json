@@ -64,7 +64,8 @@
           "grens": null,
           "eenheid": "pp",
           "richting": "boven"
-        }
+        },
+        "kort": "Gestopt 05-10 (jouw keuze): +$13 per jaar is het extra protocolrisico niet waard."
       }
     },
     "hlp_vault": {
@@ -172,8 +173,8 @@
       "kaart": {
         "wat": "Koopt Amerikaanse techaandelen na een flinke daling, en verkoopt met een stop of een winstladder. Op Hyperliquid, met $255.",
         "waarom_hier": "Het enige experiment met echt geld: zo zien we hoe de regels in de praktijk uitpakken, inclusief kosten en fouten.",
-        "volgende": "Op 25-09 beslis jij: doorgaan, stoppen of vervangen door een Nasdaq-ETF. Op 16 jaar data doet hij precies hetzelfde als de Nasdaq-100.",
-        "wanneer": "2026-09-25",
+        "volgende": "Achterstallig sinds 25-09, jouw keuze: doorgaan zonder opschalen, stoppen, of vervangen door een Nasdaq-ETF. Advies: doorgaan op $255 en herzien op 22-12.",
+        "wanneer": "open",
         "uitstap": "Alarm bij 15% daling vanaf de top van het potje; elke positie heeft een stop op -25%.",
         "meter": {
           "bron": "dip_daling",
@@ -194,10 +195,8 @@
       "benchmark": "de huidige software-stop op -25%",
       "volgende_stap": "GESTOPT (werkronde 05-10): de aanleiding (VM elke nacht ~15 uur uit) is weg sinds het VM-venster op 21-09 stopte; de VM draait 24/7 en de waakhond meldt uitval binnen minuten. Op het spel staat ~$290 met een software-stop op -25%. Trigger-orders op de xyz-dex zijn nieuwe geld-code (A1, dubbele-sluitingsrisico) voor een restrisico dat alleen speelt als uitval en crash samenvallen. Heropenen als de dip-koper boven ~$1.000 groeit, OF vóór elke e2-micro-poging of elk VM-venster (meer kans op uitval raakt precies de software-stops).",
       "kaart": {
-        "wat": "De stops van de dip-koper bij de beurs zelf neerleggen, zodat ze ook werken als de server uitvalt.",
-        "kosten": "bouwtijd, geen extra geld",
-        "opbrengst": "minder risico bij een storing (6 posities, ~$290)",
-        "start": "alleen als de dip-koper na 25-09 doorgaat"
+        "wat": "De stops van de dip-koper bij de beurs zelf neerleggen.",
+        "kort": "Gestopt 05-10: de server draait weer dag en nacht en de waakhond meldt uitval binnen minuten; voor ~$290 is nieuwe ordercode het risico niet waard. Komt terug als het potje groeit of als de server kleiner wordt."
       }
     },
     "pendle_vaste_rente": {
@@ -273,9 +272,9 @@
       "volgende_stap": "Papier 05-10 (na A4-audit): GEEN lek. Op de e2-small blijft de container 14 dagen vlak (dagpiek mem+swap 310-343 MiB, swap ~30 MiB). Het verschil op de e2-micro (400-491) was swap van 150-210 MiB onder druk plus dubbel getelde swapcache, geen groei. Of een e2-micro onder 450 blijft, is daarmee ONBEWEZEN: een e2-small zonder druk zegt niets over gedrag onder druk. docker-exec-sessies (KPI/NAV) duwen de maat tijdelijk met ~125 MiB op. Besparing $81/jaar. Wacht op Bart (geparkeerd 21-09). Bij ja: eerst de exec-piek wegnemen, dan een nieuw claimblad met de poort vooraf op anon+swap-swapcache plus PSI, exec-sessies apart gelogd, A2 vooraf, en de dip-koper-beursstops eerst heropenen (uitval raakt software-stops).",
       "kaart": {
         "wat": "Een kleinere, goedkopere server.",
-        "kosten": "uitzoekwerk: de swarm groeit ~90 MB per dag in geheugen",
+        "kosten": "uitzoekwerk en een nieuwe meetperiode; er is geen geheugenlek (gemeten 05-10), maar of de kleine server het onder druk houdt is onbewezen",
         "opbrengst": "tot $81 per jaar",
-        "start": "geparkeerd: tijd gaat liever naar nieuwe kansen (jouw keuze, 21-09)"
+        "start": "open: jij parkeerde dit op 21-09; $81/jaar is meer dan de helft van het jaarlijkse tekort"
       }
     },
     "sector_momentum": {
@@ -317,7 +316,7 @@
         "wat": "Elk kwartaal thema's en knelpunten kiezen, vastleggen en vooruit volgen.",
         "kosten": "analysetijd, geen geld",
         "opbrengst": "onbekend; dat is precies wat het meet",
-        "start": "loopt al deels via de schaduwpotjes; volgende ronde eind december"
+        "start": "de ketenkeuze loopt al via de schaduwpotjes; radar en ETF-keuze vanaf de kwartaalronde van 22-12"
       },
       "herzien": "2026-12-22"
     },
@@ -411,7 +410,7 @@
         "wat": "Een klein potje met veel kleine inzetten op mogelijke uitschieters, met vaste regels.",
         "kosten": "hooguit het potje zelf (binnen de $500 proeftuin)",
         "opbrengst": "een paar grote winnaars moeten de rest goedmaken",
-        "start": "zodra een schaduwpotje zijn waarde bewijst"
+        "start": "eerst een eigen schaduwontwerp met veel kleine posities; de drie huidige mandjes zijn kwaliteitsnamen, geen uitschieters"
       }
     },
     "schaduw_ai_tolhuisje": {
