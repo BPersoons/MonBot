@@ -267,11 +267,12 @@ def _broker():
     # Dit bestand wordt met de HAND bijgehouden en is niet tegen de broker te
     # verifiëren — er is geen API. De enige verdediging tegen stille veroudering is
     # de datum zichtbaar maken, op elke plek waar het getal wordt getoond.
+    # De koers is live (hierboven); alleen aantallen en kas zijn handwerk. Zeg dat
+    # precies, anders leest een oude datum als 'het hele potje is verouderd'.
     bij = d.get("laatst_bijgewerkt")
-    from datetime import date as _date
-    stempel = ("bijgewerkt %s" % bij) if bij else "⚠️ nooit bijgewerkt"
-    if bij and bij != _date.today().isoformat():
-        stempel = "⚠️ %s — handmatig bijgehouden, controleer of dit nog klopt" % stempel
+    stempel = (("koers live · aantallen en kas per %s (handmatig, verandert alleen "
+                "bij een order of storting)" % bij) if bij
+               else "⚠️ aantallen nooit bevestigd")
     for p_ in potjes:
         p_["detail"] = (p_["detail"] + " · " + stempel).strip(" ·")
     return potjes

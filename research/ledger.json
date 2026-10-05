@@ -886,7 +886,28 @@
         ]
       },
       "benchmark_urth_price_at_score": 209.69,
-      "fx_at_score": 1.1546
+      "fx_at_score": 1.1546,
+      "tussentijdse_toetsen": [
+        {
+          "datum": "2026-10-05",
+          "aanleiding": "wachtprijs geraakt: $116,94 < $120",
+          "nieuwe_cijfers": false,
+          "volgende_cijfers": "2026-11-03 (Q3)",
+          "these_breuk": {
+            "op_marge_onder_10_5": "? - geen nieuw kwartaal",
+            "book_to_bill_onder_1": "? - geen nieuw kwartaal",
+            "fy_guidance_verlaagd": "nee - FY-EPS-consensus 12,40 (60d geleden 12,34)",
+            "netto_schuld_boven_3x": "nee - $5,83 mrd, ongewijzigd",
+            "groot_contract_verloren": "open punt - DHA stapt af van Leidos als integrator van het EPD (bekend juni 2026, BofA-downgrade 17-06); ontbrak in de kaart van 11-08"
+          },
+          "nieuw": [
+            "schattingen dalen: Q4-EPS 3,13 -> 2,98 en 2027-EPS 13,13 -> 12,75 over 60 dagen",
+            "daling sectorbreed sinds 10-08: LDOS -15,7%, BAH -12,9%, PSN -10,8%, CACI -4,4%, SAIC -0,7%, S&P 500 -0,2%",
+            "waardering nu forward PE 9,2, EV/EBITDA 8,7"
+          ],
+          "uitkomst": "Volgens de regel KOOPBAAR (prijsvoorwaarde gehaald, geen these-breuk aangetoond). Advies: wachten op Q3 van 3 november, omdat dat kwartaal het beslissende getal (operationele marge) meet, de schattingen dalen en het zorgsegment niet geanalyseerd is. Bij twijfel niet kopen."
+        }
+      ]
     },
     {
       "ticker": "TTD",

@@ -117,3 +117,24 @@ Poorten slagen, geen `?`, geen dimensie op `1`, waardering 4. **Naar de vier cri
 - [Barchart — defensie-uitgaven tegenover overheidsbezuinigingen](https://www.barchart.com/story/news/1695411/leidos-defense-spending-momentum-meets-the-reality-of-government-efficiency-cuts)
 - [Daily Political — FY2026-guidance tegenover consensus](https://www.dailypolitical.com/2026/08/04/leidos-nyseldos-releases-fy-2026-earnings-guidance.html)
 - Kwartaalcijfers, kasstroom en balans via yfinance (peildatum 2026-08-10)
+
+## Tussentijdse toets 2026-10-05 — wachtprijs geraakt
+
+*Koers $116,94 (onder de wachtprijs van $120). Geen nieuwe kwartaalcijfers: Q3 komt op **2026-11-03**. Dit is daarom geen herscoring, alleen een check of er sinds 11-08 een these-breuk bijkwam.*
+
+| These-breuk | Stand |
+|---|---|
+| Operationele marge < 10,5% | `?`, geen nieuw kwartaal (laatste: 11,7%) |
+| Book-to-bill twee kwartalen < 1,0 | `?`, geen nieuw kwartaal |
+| FY-guidance verlaagd | nee: de FY-EPS-consensus staat op 12,40 (60 dagen geleden 12,34) |
+| Netto schuld/EBITDA > 3,0× | nee: netto schuld $5,83 mrd, ongewijzigd |
+| Groot contract verloren | **open punt.** De Defense Health Agency stapt af van Leidos als integrator van het elektronisch patiëntendossier. Dat was al **in juni** bekend (BofA-downgrade op 17-06, koersdoel $200 → $125) en **ontbrak in deze kaart**. Het is een gat in de analyse van 11-08, geen nieuw nieuws |
+
+**Wat er wel nieuw is:**
+- De analisten verlagen hun verwachtingen. De winst per aandeel voor het volgende kwartaal ging in 60 dagen van 3,13 naar 2,98, die voor 2027 van 13,13 naar 12,75.
+- De daling raakt de hele sector. Sinds 10-08: LDOS −15,7%, BAH −12,9%, PSN −10,8%, CACI −4,4%, SAIC −0,7%, S&P 500 −0,2%. Het Pentagon kijkt ook kritisch naar consultancycontracten.
+- De waardering is lager: forward PE 9,2, EV/EBITDA 8,7.
+
+**Uitkomst:** volgens de regel is LDOS nu **KOOPBAAR**. Aan de prijsvoorwaarde is voldaan en er is geen these-breuk aangetoond. **Advies: wachten tot de Q3-cijfers van 3 november.** Dat kwartaal meet precies het beslissende getal (de operationele marge), de verwachtingen dalen, en het zorgsegment is niet geanalyseerd. Een gemiste winnaar kost een kans, een gekochte verliezer kost geld. Na 03-11 volgt `/scorecard LDOS rescore`.
+
+Bronnen: yfinance (koers, schattingen en sectorgenoten op 2026-10-05) · [BofA-downgrade, juni 2026](https://www.investing.com/news/analyst-ratings/bofa-cuts-leidos-stock-rating-on-healthcare-portfolio-pressure-93CH-4746958) · [Quiver: begrotingsrisico en het zorgsegment](https://www.quiverquant.com/news/Leidos+Falls+as+Investors+Weigh+Budget+Exposure+and+Health+Segment+Overhang)
