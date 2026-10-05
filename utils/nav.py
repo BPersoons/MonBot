@@ -269,10 +269,20 @@ def _broker():
     # de datum zichtbaar maken, op elke plek waar het getal wordt getoond.
     # De koers is live (hierboven); alleen aantallen en kas zijn handwerk. Zeg dat
     # precies, anders leest een oude datum als 'het hele potje is verouderd'.
+    # Na 45 dagen zonder bevestiging weer een waarschuwing: een vergeten order of
+    # storting blijft anders onzichtbaar (A4-audit 05-10).
     bij = d.get("laatst_bijgewerkt")
-    stempel = (("koers live · aantallen en kas per %s (handmatig, verandert alleen "
-                "bij een order of storting)" % bij) if bij
-               else "⚠️ aantallen nooit bevestigd")
+    if not bij:
+        stempel = "⚠️ aantallen nooit bevestigd"
+    else:
+        stempel = ("koers live · aantallen en kas per %s (handmatig, verandert alleen "
+                   "bij een order of storting)" % bij)
+        try:
+            from datetime import date as _date
+            if (_date.today() - _date.fromisoformat(bij[:10])).days > 45:
+                stempel = "⚠️ " + stempel + " — ouder dan 45 dagen, bevestig de aantallen"
+        except ValueError:
+            stempel = "⚠️ " + stempel + " — datum onleesbaar"
     for p_ in potjes:
         p_["detail"] = (p_["detail"] + " · " + stempel).strip(" ·")
     return potjes

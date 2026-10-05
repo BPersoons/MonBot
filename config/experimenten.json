@@ -185,14 +185,14 @@
       }
     },
     "dip_koper_beursstops": {
-      "status": "idee",
+      "status": "gestopt",
       "trede": 0,
-      "sinds": "2026-09-21",
+      "sinds": "2026-10-05",
       "soort": "tweak",
       "hypothese": "Stops als reduceOnly-trigger-orders op de beurs beschermen de dip-koper ook als de VM uit staat (sinds het venster van 21-09 elke nacht ~15 uur).",
       "bron": "gemiste kans uit de waakhond-audit (17-09) en het VM-venster (21-09)",
       "benchmark": "de huidige software-stop op -25%",
-      "volgende_stap": "Uitzoeken of de xyz-dex trigger-orders ondersteunt en hoe ze te beheren zijn zonder dubbele sluiting (reduceOnly verplicht).",
+      "volgende_stap": "GESTOPT (werkronde 05-10): de aanleiding (VM elke nacht ~15 uur uit) is weg sinds het VM-venster op 21-09 stopte; de VM draait 24/7 en de waakhond meldt uitval binnen minuten. Op het spel staat ~$290 met een software-stop op -25%. Trigger-orders op de xyz-dex zijn nieuwe geld-code (A1, dubbele-sluitingsrisico) voor een restrisico dat alleen speelt als uitval en crash samenvallen. Heropenen als de dip-koper boven ~$1.000 groeit, OF vóór elke e2-micro-poging of elk VM-venster (meer kans op uitval raakt precies de software-stops).",
       "kaart": {
         "wat": "De stops van de dip-koper bij de beurs zelf neerleggen, zodat ze ook werken als de server uitvalt.",
         "kosten": "bouwtijd, geen extra geld",
@@ -214,14 +214,14 @@
       }
     },
     "gains_gusdc_house": {
-      "status": "idee",
+      "status": "wacht_op_regime",
       "trede": 0,
-      "sinds": "2026-09-19",
+      "sinds": "2026-10-05",
       "soort": "nieuwe_bron",
       "hypothese": "De Gains gUSDC-vault levert structureel ver boven Aave (180d 8,95%, alles 10,4%) als tegenpartij van handelaren.",
       "bron": "rentelandschap 19-09",
       "benchmark": "Aave v3 Arbitrum",
-      "volgende_stap": "Geblokkeerd door onze eigen TVL-vloer ($4,69 mln < $5 mln). Opnieuw bekijken als de TVL erboven komt; dan eerst de epoch-opnames en het tegenpartijrisico op papier.",
+      "volgende_stap": "Wacht op de meter (05-10: TVL $4,82 mln < $5 mln). Let op: 30-dagenrente 38% = handelaren verliezen fors aan de vault; dat is volatiel, geen structurele rente. Zodra TVL > $5 mln: epoch-opnames en tegenpartijrisico op papier.",
       "kaart": {
         "wat": "Rente verdienen als tegenpartij van handelaren in de Gains-vault (180 dagen: ~9% per jaar).",
         "kosten": "risico: de vault verliest als handelaren winnen",
@@ -263,14 +263,14 @@
       }
     },
     "e2_micro_poging_2": {
-      "status": "idee",
-      "trede": 0,
-      "sinds": "2026-09-21",
+      "status": "wacht_op_bart",
+      "trede": 1,
+      "sinds": "2026-10-05",
       "soort": "kosten",
       "hypothese": "De e2-micro volstaat als de geheugengroei van de swarm (~90 MiB per dag, gemeten 20-21-09) is opgespoord en verholpen. Levert tot $81/jaar op.",
       "bron": "terugdraaiing 21-09: voetafdruk 493 MiB; apt was NIET de oorzaak (runs van 10-40 s, de piek kwam later en hield uren aan)",
       "benchmark": "e2-small ($0,503/dag)",
-      "volgende_stap": "Geparkeerd (besluit Bart 21-09: tijd liever naar nieuwe kansen). Eerst de oorzaak van de geheugengroei vinden; pas daarna een nieuw claimblad met een vooraf gedefinieerde poort zonder dubbeltelling van swapcache.",
+      "volgende_stap": "Papier 05-10 (na A4-audit): GEEN lek. Op de e2-small blijft de container 14 dagen vlak (dagpiek mem+swap 310-343 MiB, swap ~30 MiB). Het verschil op de e2-micro (400-491) was swap van 150-210 MiB onder druk plus dubbel getelde swapcache, geen groei. Of een e2-micro onder 450 blijft, is daarmee ONBEWEZEN: een e2-small zonder druk zegt niets over gedrag onder druk. docker-exec-sessies (KPI/NAV) duwen de maat tijdelijk met ~125 MiB op. Besparing $81/jaar. Wacht op Bart (geparkeerd 21-09). Bij ja: eerst de exec-piek wegnemen, dan een nieuw claimblad met de poort vooraf op anon+swap-swapcache plus PSI, exec-sessies apart gelogd, A2 vooraf, en de dip-koper-beursstops eerst heropenen (uitval raakt software-stops).",
       "kaart": {
         "wat": "Een kleinere, goedkopere server.",
         "kosten": "uitzoekwerk: de swarm groeit ~90 MB per dag in geheugen",
@@ -305,20 +305,21 @@
       }
     },
     "thema_radar_keten": {
-      "status": "idee",
-      "trede": 0,
-      "sinds": "2026-09-21",
+      "status": "meet_vooruit",
+      "trede": 2,
+      "sinds": "2026-10-05",
       "soort": "nieuwe_bron",
       "hypothese": "Een thema-radar (welke industrieën hebben momentum) plus een ketenanalyse binnen het thema (welke schakel vangt de waarde: het knelpunt, de 'picks and shovels') kiest UCITS-ETF's die het wereldindexfonds verslaan.",
       "bron": "Bart 21-09; de industrie-momentumtoets laat zien dat de radar informatie bevat, maar met risico",
       "benchmark": "WEBN (het fonds dat we bezitten)",
-      "volgende_stap": "Ketenanalyse is niet eerlijk terug te toetsen (je kiest de keten met kennis van nu). Daarom vooruit meten, zoals de scorekaart: per kwartaal radar + keten + UCITS-ETF-keuze vastleggen VOORDAT de uitkomst bekend is, en tegen WEBN volgen. Ontwerp maken; geen geld.",
+      "volgende_stap": "Trede 1 (papier) bewust overgeslagen: ketenanalyse is niet eerlijk terug te toetsen, want je kiest de keten met kennis van nu. Vooruit meten is de enige eerlijke toets. LET OP: de drie schaduwpotjes van 22-09 dekken alleen de KETENKEUZE binnen een al gekozen thema, met losse aandelen. De radar (welk thema) en de UCITS-ETF-keuze worden nog NIET gemeten. Op 22-12 de volgende kwartaalronde: radar + keten + UCITS-ETF vastleggen als nieuwe schaduwpotjes, nooit de bestaande aanpassen.",
       "kaart": {
         "wat": "Elk kwartaal thema's en knelpunten kiezen, vastleggen en vooruit volgen.",
         "kosten": "analysetijd, geen geld",
         "opbrengst": "onbekend; dat is precies wat het meet",
         "start": "loopt al deels via de schaduwpotjes; volgende ronde eind december"
-      }
+      },
+      "herzien": "2026-12-22"
     },
     "uitstapregel_crash": {
       "status": "meet_vooruit",
@@ -400,12 +401,12 @@
     "uitschieterpotje": {
       "status": "idee",
       "trede": 0,
-      "sinds": "2026-09-21",
+      "sinds": "2026-10-05",
       "soort": "nieuwe_bron",
       "hypothese": "Een klein, begrensd potje met veel kleine inzetten op mogelijke uitschieters (thema's, scorekaartnamen) levert via een paar grote winnaars meer op dan de kern, terwijl het verlies nooit groter wordt dan het potje (Bart 21-09: 'een deel inzetten op grote uitschieters, maar slim').",
       "bron": "Bart 21-09; scorekaart (research/, 20 namen vooruit gemeten), thema_radar_keten, dip-koper-infrastructuur",
       "benchmark": "kern (WEBN) over dezelfde periode",
-      "volgende_stap": "Na de ontwerpreview (22-09) eerst in de SCHADUW: drie schakelmandjes lopen vanaf 22-09 vooruit tegen kern en themafonds (schaduw_ai_tolhuisje, schaduw_splijtstof, schaduw_net_tolhuisje). Geld en een geldmotor pas als een mandje promotie verdient. Omvang bij promotie: binnen het proeftuinkapitaal van $500.",
+      "volgende_stap": "Terug naar trede 0 (A4-audit 05-10): de drie schaduwpotjes zijn 2-5 grote kwaliteitsnamen, geen 'veel kleine inzetten op uitschieters', en toetsen deze hypothese dus niet. Volgende stap: een eigen schaduwontwerp (bijv. 15-20 kleine posities uit scorekaart en thema's, vaste regels voor stop en laten lopen), vastgelegd vóór de start. Geen geld.",
       "kaart": {
         "wat": "Een klein potje met veel kleine inzetten op mogelijke uitschieters, met vaste regels.",
         "kosten": "hooguit het potje zelf (binnen de $500 proeftuin)",
