@@ -162,7 +162,7 @@
       "status": "live",
       "trede": 3,
       "sinds": "2026-09-20",
-      "volgende_stap": "Live op $255. 60 dagen: +10,5% tegen +1,6% voor dezelfde namen vasthouden. MAAR 16 jaar met herbeleggen: +1.672% tegen +1.666% voor QQQ — gelijk aan de Nasdaq-100, met achteraf gekozen namen. Geen aangetoond structureel voordeel boven de index. Evaluatie 25-09: niet opschalen; overwegen of dit potje meer is dan een duurdere tech-tracker.",
+      "volgende_stap": "Besluit Bart 05-10: doorgaan op $255 zonder opschalen; herzien op 22-12. Grond: 60 dagen +10,5% tegen +1,6% voor dezelfde namen vasthouden, maar 16 jaar met herbeleggen = de Nasdaq-100 (+1.672% vs +1.666%); geen aangetoond structureel voordeel. Kost niets extra (VM draait toch voor kasbeheer). Op 22-12: resultaat per naam uit HL-fills (scripts/dipkoper_resultaat.py) tegen QQQ over dezelfde periode.",
       "hypothese": "Index-achtig rendement; geen extra kapitaal (besluit 2026-09-15). Evaluatie 2026-09-25.",
       "alarm": {
         "drawdown_pct": 15.0
@@ -173,8 +173,8 @@
       "kaart": {
         "wat": "Koopt Amerikaanse techaandelen na een flinke daling, en verkoopt met een stop of een winstladder. Op Hyperliquid, met $255.",
         "waarom_hier": "Het enige experiment met echt geld: zo zien we hoe de regels in de praktijk uitpakken, inclusief kosten en fouten.",
-        "volgende": "Achterstallig sinds 25-09, jouw keuze: doorgaan zonder opschalen, stoppen, of vervangen door een Nasdaq-ETF. Advies: doorgaan op $255 en herzien op 22-12.",
-        "wanneer": "open",
+        "volgende": "Doorgaan op $255 zonder opschalen (jouw keuze, 05-10). Op 22-12 opnieuw bekijken tegen de Nasdaq-100 over dezelfde periode.",
+        "wanneer": "2026-12-22",
         "uitstap": "Alarm bij 15% daling vanaf de top van het potje; elke positie heeft een stop op -25%.",
         "meter": {
           "bron": "dip_daling",
@@ -183,20 +183,23 @@
           "eenheid": "%",
           "richting": "onder"
         }
-      }
+      },
+      "herzien": "2026-12-22"
     },
     "dip_koper_beursstops": {
-      "status": "gestopt",
-      "trede": 0,
+      "status": "bouw",
+      "trede": 1,
       "sinds": "2026-10-05",
       "soort": "tweak",
       "hypothese": "Stops als reduceOnly-trigger-orders op de beurs beschermen de dip-koper ook als de VM uit staat (sinds het venster van 21-09 elke nacht ~15 uur).",
       "bron": "gemiste kans uit de waakhond-audit (17-09) en het VM-venster (21-09)",
       "benchmark": "de huidige software-stop op -25%",
-      "volgende_stap": "GESTOPT (werkronde 05-10): de aanleiding (VM elke nacht ~15 uur uit) is weg sinds het VM-venster op 21-09 stopte; de VM draait 24/7 en de waakhond meldt uitval binnen minuten. Op het spel staat ~$290 met een software-stop op -25%. Trigger-orders op de xyz-dex zijn nieuwe geld-code (A1, dubbele-sluitingsrisico) voor een restrisico dat alleen speelt als uitval en crash samenvallen. Heropenen als de dip-koper boven ~$1.000 groeit, OF vóór elke e2-micro-poging of elk VM-venster (meer kans op uitval raakt precies de software-stops).",
+      "volgende_stap": "HEROPEND 05-10 (dezelfde dag): voorwaarde voor de e2-micro-poging (akkoord Bart), zoals de heropen-trigger zegt. Ontwerp: per open positie één reduceOnly stop-market-trigger op HL, iets ONDER de software-stop (-25%), zodat de software normaal eerst sluit; grootte volgt de positie; bij sluiten annuleren; vuurt de beursstop terwijl de VM uit was, dan reconciliatie uit de HL-fills (positie op HL 0 en OPEN in ons boek -> CLOSED met de echte fillprijs). Eerst op papier: ondersteunt de xyz-dex trigger-orders via de client? A1 vóór deploy.",
       "kaart": {
-        "wat": "De stops van de dip-koper bij de beurs zelf neerleggen.",
-        "kort": "Gestopt 05-10: de server draait weer dag en nacht en de waakhond meldt uitval binnen minuten; voor ~$290 is nieuwe ordercode het risico niet waard. Komt terug als het potje groeit of als de server kleiner wordt."
+        "wat": "De stops van de dip-koper bij de beurs zelf neerleggen, zodat ze ook werken als de server uitvalt.",
+        "kosten": "bouwtijd, geen extra geld",
+        "opbrengst": "bescherming bij uitval; voorwaarde voor de kleinere server",
+        "start": "in aanbouw (05-10), vóór de verkleining"
       }
     },
     "pendle_vaste_rente": {
@@ -262,19 +265,19 @@
       }
     },
     "e2_micro_poging_2": {
-      "status": "wacht_op_bart",
+      "status": "gepland_bouw",
       "trede": 1,
       "sinds": "2026-10-05",
       "soort": "kosten",
       "hypothese": "De e2-micro volstaat als de geheugengroei van de swarm (~90 MiB per dag, gemeten 20-21-09) is opgespoord en verholpen. Levert tot $81/jaar op.",
       "bron": "terugdraaiing 21-09: voetafdruk 493 MiB; apt was NIET de oorzaak (runs van 10-40 s, de piek kwam later en hield uren aan)",
       "benchmark": "e2-small ($0,503/dag)",
-      "volgende_stap": "Papier 05-10 (na A4-audit): GEEN lek. Op de e2-small blijft de container 14 dagen vlak (dagpiek mem+swap 310-343 MiB, swap ~30 MiB). Het verschil op de e2-micro (400-491) was swap van 150-210 MiB onder druk plus dubbel getelde swapcache, geen groei. Of een e2-micro onder 450 blijft, is daarmee ONBEWEZEN: een e2-small zonder druk zegt niets over gedrag onder druk. docker-exec-sessies (KPI/NAV) duwen de maat tijdelijk met ~125 MiB op. Besparing $81/jaar. Wacht op Bart (geparkeerd 21-09). Bij ja: eerst de exec-piek wegnemen, dan een nieuw claimblad met de poort vooraf op anon+swap-swapcache plus PSI, exec-sessies apart gelogd, A2 vooraf, en de dip-koper-beursstops eerst heropenen (uitval raakt software-stops).",
+      "volgende_stap": "Akkoord Bart 05-10. Volgorde: (1) meter: mem_sample.sh logt sinds 05-10 14:24 ctr_werkelijk = anon + swap - swapcached en ctr_procs (exec-sessies zichtbaar) — KLAAR, eerste meting 228 MiB; (2) beursstops dip-koper bouwen (reduceOnly-trigger onder de software-stop, reconciliatie bij een fill), A1, deploy, één live trigger geverifieerd; (3) claimblad met de poort VOORAF: ctr_werkelijk < 400 MiB elke meting zonder exec (ctr_procs = basislijn), PSI-stall < 1%, 0 OOM, dashboard 200, 7 dagen nazorg; A2; (4) verkleinen in een weekend (beurzen dicht), snapshot vooraf. Raakt een criterium: terug, geen herziening.",
       "kaart": {
         "wat": "Een kleinere, goedkopere server.",
         "kosten": "uitzoekwerk en een nieuwe meetperiode; er is geen geheugenlek (gemeten 05-10), maar of de kleine server het onder druk houdt is onbewezen",
         "opbrengst": "tot $81 per jaar",
-        "start": "open: jij parkeerde dit op 21-09; $81/jaar is meer dan de helft van het jaarlijkse tekort"
+        "start": "akkoord (05-10): eerst beursstops voor de dip-koper en een betere meter, daarna verkleinen in een weekend"
       }
     },
     "sector_momentum": {

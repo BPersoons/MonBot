@@ -14,7 +14,14 @@
 # Regelformaat (de eerste vier velden zijn ongewijzigd, zodat oude analyses blijven werken):
 #   ts|MemUsage|MemPerc|CPUPerc|vm=used/totalMB|swap_used=..MB|swap_cached=..MB|
 #   swap_parked=..MB|swap_free=..MB|ctr_mem=..MB|ctr_swap=..MB|ctr_peak=..MB|
-#   pswpin=..|pswpout=..|psi_some_total=..|psi_full_total=..
+#   pswpin=..|pswpout=..|psi_some_total=..|psi_full_total=..|
+#   ctr_anon=..MB|ctr_swapcached=..MB|ctr_werkelijk=..MB|ctr_procs=..
+#
+# ctr_werkelijk = anon + swap - swapcached (A4-audit 2026-10-05): de echte voetafdruk van
+# de container. memory.current telt bestandscache mee (vrij te geven) en swapcache-pagina's
+# staan zowel in RAM als in swap. Dit is de maat voor de e2-micro-poort.
+# ctr_procs = aantal processen in de cgroup; ligt het boven de basislijn, dan liep er een
+# `docker exec`-sessie (die telt mee in het geheugen van de container).
 set -u
 
 S=$(sudo docker stats --no-stream --format "{{.MemUsage}}|{{.MemPerc}}|{{.CPUPerc}}" agent_trader_swarm 2>/dev/null)
@@ -38,10 +45,18 @@ lees() { [ -r "$1" ] && echo $(( $(cat "$1") / 1048576 )) || echo "-"; }
 ctr_mem=$(lees "$CG/memory.current")
 ctr_swap=$(lees "$CG/memory.swap.current")
 ctr_peak=$(lees "$CG/memory.peak")
+read -r ctr_anon ctr_swapcached < <(awk '/^anon /{a=$2} /^swapcached /{s=$2} END {print int(a/1048576), int(s/1048576)}' "$CG/memory.stat" 2>/dev/null)
+ctr_anon=${ctr_anon:--}; ctr_swapcached=${ctr_swapcached:--}
+if [ "$ctr_anon" != "-" ] && [ "$ctr_swap" != "-" ]; then
+  ctr_werkelijk=$(( ctr_anon + ctr_swap - ctr_swapcached ))
+else
+  ctr_werkelijk="-"
+fi
+ctr_procs=$(wc -l < "$CG/cgroup.procs" 2>/dev/null || echo "-")
 
 read -r pswpin pswpout < <(awk '/^pswpin/{i=$2} /^pswpout/{o=$2} END {print i, o}' /proc/vmstat)
 # De cumulatieve stall-teller, niet avg60: een gemiddelde over 60 seconden dat je elke
 # 15 minuten afleest, mist per definitie bijna elk voorval.
 read -r psi_some psi_full < <(awk -F'total=' '/^some/{s=$2} /^full/{f=$2} END {print s, f}' /proc/pressure/memory)
 
-echo "$(date -u +%FT%TZ)|${S}|vm=${V}|swap_used=${swap_used}MB|swap_cached=${swap_cached_mb}MB|swap_parked=${swap_parked}MB|swap_free=${swap_free_mb}MB|ctr_mem=${ctr_mem}MB|ctr_swap=${ctr_swap}MB|ctr_peak=${ctr_peak}MB|pswpin=${pswpin}|pswpout=${pswpout}|psi_some_total=${psi_some}|psi_full_total=${psi_full}" >> ~/mem_history.log
+echo "$(date -u +%FT%TZ)|${S}|vm=${V}|swap_used=${swap_used}MB|swap_cached=${swap_cached_mb}MB|swap_parked=${swap_parked}MB|swap_free=${swap_free_mb}MB|ctr_mem=${ctr_mem}MB|ctr_swap=${ctr_swap}MB|ctr_peak=${ctr_peak}MB|pswpin=${pswpin}|pswpout=${pswpout}|psi_some_total=${psi_some}|psi_full_total=${psi_full}|ctr_anon=${ctr_anon}MB|ctr_swapcached=${ctr_swapcached}MB|ctr_werkelijk=${ctr_werkelijk}MB|ctr_procs=${ctr_procs}" >> ~/mem_history.log
