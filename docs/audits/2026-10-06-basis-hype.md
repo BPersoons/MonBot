@@ -25,15 +25,16 @@
 ## Regels van het potje
 | Regel | Waarde | Waar |
 |---|---|---|
-| Hefboom op de short | doel 2x, bijsturen buiten [1,4x, 3x] | `LEV_*` |
-| Volgorde openen | eerst spot kopen, dan short ter grootte van de gekochte spot | `plan`, `_voer_uit` |
-| Koers omhoog (hefboom > 3x) | eerst short kleiner (reduceOnly), dan spot verkopen, dan USDC naar perp | `plan` |
-| Koers omlaag (< 1,4x) | USDC naar spot, spot kopen, short groter | `plan` |
+| Hefboom op de short (na r1) | doel 1,5x, bijsturen buiten [1,0x, 2,0x], HL-instelling 2x — binnen het kader van 2x. Boven 2x wordt altijd bijgestuurd, ook als dat onder het HL-minimum zou vallen (dan $11 terug) | `LEV_*` |
+| Volgorde openen (na r1) | eerst de marge naar perp, dan spot kopen, dan de short ter grootte van de gekochte spot. Alleen als het register `live` zegt, er inleg geboekt is en de funding niet negatief is | `plan`, `_voer_uit` |
+| Koers omhoog (hefboom > 2x) | eerst short kleiner (reduceOnly), dan spot verkopen, dan USDC naar perp | `plan` |
+| Koers omlaag (< 1,0x) | USDC naar spot, spot kopen, short groter | `plan` |
 | Hedge scheef > 3% en > $11 | short volgt spot (groter, of kleiner met reduceOnly) | `plan` |
-| Afbouwen | schakelaar `basis_hype_afbouwen`, of verlies ≥ 50% van de inleg (proeftuinregel), of funding over 7 dagen negatief: short sluiten (reduceOnly), spot verkopen | `plan` |
-| Uit | `subsystem_basis_hype_enabled=false`: hij doet niets, de benen blijven gehedged staan | `run_cycle` |
+| Afbouwen | schakelaar `basis_hype_afbouwen`, of verlies ≥ 50% van de inleg (proeftuinregel), of funding over 7 dagen negatief: short sluiten (reduceOnly), spot verkopen. **Blijvend** (na r1): vlag `afgebouwd` in de state, heropenen alleen met de hand | `plan` |
+| Uit | `subsystem_basis_hype_enabled=false`: hij meet nog wel, maar handelt niet; de benen blijven gehedged staan | `run_cycle` |
 | Fouten | elke fout wordt geteld; na 3 op rij één Telegram-melding; de volgende cyclus plant opnieuw vanuit de werkelijke stand | `run_cycle` |
-| Unified account | geweigerd, want daar zou accountValue 0 zijn en de hefboom oneindig lijken | `toestand` |
+| Accountmodus | alleen exact "default"; unified of `None` wordt geweigerd | `toestand` |
+| Ouderdom | staan de benen open en is de meting ouder dan 1 uur, dan is de waarde onmeetbaar (sleeve_nav stelt de snapshot uit; de verliesbewaking geeft een alarm als het potje live staat) | `lees_state` |
 
 ## Beweringen
 | # | Bewering | Bewijs |
@@ -90,5 +91,29 @@
 ## Audit
 *(in te vullen door de controle-agent)*
 
+**r1 (2026-10-06): STOP.** De punten:
+1. Het perp-symbool `"HYPE"` bestaat niet.
+2. De spotprijs werd via `zip` op positie gekoppeld en kwam zo van de verkeerde munt.
+3. Na een funding-stop opende en sloot hij om en om.
+4. De hedge herstelde zich niet zonder marge.
+5. Er was geen grens op de ouderdom van de meting.
+6. Hij handelde los van het register en zonder geboekte inleg.
+7. De hefboom van 3x rekte het kader van 2x op, en het liquidatiegetal klopte niet.
+8. Kleine punten: modus `None`, 99,5% spotkoop, de hold op de master, overzicht-groep, `signing_client=None`.
+
 ## Reactie bouwer
-*(per open punt: opgelost in `<hash>` of weerlegd met bewijs)*
+1. Nu `PERP_SYMBOL = "HYPE/USDC:USDC"`. Toets `test_perp_symbool_bestaat_via_de_echte_lookup` draait de echte `_lookup_symbol` op een vastgelegde markets-dict van HL (`tests/fixtures/hl_markets_hype.json`) en toont dat `"HYPE"` None geeft. Mutant terug naar `"HYPE"` → rood.
+2. `spotprijs()` koppelt op `ctx["coin"] == "@107"`. Toets met echte HL-ctx (`tests/fixtures/hl_spot_ctx.json`, omgekeerde volgorde plus een vreemde regel) toont ook dat de zip-koppeling een andere prijs geeft. Mutant → 2 rood.
+3. Afbouwen zet de vlag `afgebouwd` als eerste stap. Daarna opent hij nooit meer, ook niet bij positieve funding. Openen weigert bovendien bij negatieve funding. Toets `test_afbouwen_is_blijvend_over_drie_cycli` (4 cycli, 1 melding) plus twee plan-toetsen. Mutanten → rood.
+4. Bij openen gaat de marge eerst (`verdeel_kas` vóór `spot_koop`). Bij een scheve hedge zonder marge wordt eerst de spot teruggebracht naar het doel en de kas naar perp gezet, en pas dan de short geplaatst. Toetsen `test_cyclus_opent_gehedged_marge_eerst`, `test_scheve_hedge_zonder_marge_…` en `…_zonder_kas_verkoopt_eerst_spot`. Mutanten → rood.
+5. `lees_state()` geeft onmeetbaar bij open benen en een meting ouder dan 1 uur. `run_cycle` meet ook als het subsysteem uit staat, dus "uit" maakt de meting niet oud. Toetsen met en zonder open benen. Mutant → rood.
+6. Openen alleen met `register_live()` en inleg > 0. Toetsen `test_niet_openen_zonder_live_register` en `…_zonder_geboekte_inleg`. Mutanten → rood. De flow wordt geboekt met de tijd van de overboeking.
+7. Teruggebracht binnen het kader: doel 1,5x, band [1,0x; 2,0x], HL-instelling 2x. Boven 2x stuurt hij altijd bij (`test_net_boven_2x_stuurt_bij`). Liquidatiegetal gecorrigeerd: vanaf 2x ~+43% binnen één cyclus. Kosten: de opbrengst op kapitaal is 0,6 × funding in plaats van 0,67 ×, dus ~10% minder.
+8. Kleine punten:
+   - modus `None` wordt geweigerd (toets);
+   - spotkoop met 97%;
+   - het overzicht heeft een eigen groep "HYPE-basis";
+   - de hold van $26,61 is onverklaard en raakt de overboeking niet (er is ~$118 vrij);
+   - `signing_client=None` na "does not exist" kan op deze wallet pas na de storting niet meer optreden. Niet aangepast.
+
+Toetsen: 41 in `test_basis_hype.py`, 73 over de drie bestanden.

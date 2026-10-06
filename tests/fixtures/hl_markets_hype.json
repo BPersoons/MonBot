@@ -1,0 +1,42 @@
+{
+"PURR/USDC": {
+"symbol": "PURR/USDC",
+"type": "spot"
+},
+"HYPE/USDC": {
+"symbol": "HYPE/USDC",
+"type": "spot"
+},
+"BTC/USDC": {
+"symbol": "BTC/USDC",
+"type": "spot"
+},
+"HYPE/USDT": {
+"symbol": "HYPE/USDT",
+"type": "spot"
+},
+"HYPE/USDH": {
+"symbol": "HYPE/USDH",
+"type": "spot"
+},
+"BTC/USDH": {
+"symbol": "BTC/USDH",
+"type": "spot"
+},
+"HYPE/USDE": {
+"symbol": "HYPE/USDE",
+"type": "spot"
+},
+"BTC/USDC:USDC": {
+"symbol": "BTC/USDC:USDC",
+"type": "swap"
+},
+"HYPE/USDC:USDC": {
+"symbol": "HYPE/USDC:USDC",
+"type": "swap"
+},
+"HYPER/USDC:USDC": {
+"symbol": "HYPER/USDC:USDC",
+"type": "swap"
+}
+}

@@ -42,7 +42,8 @@ GROEPEN = [
     ("dip", "Dip-koper (Hyperliquid)", ("thematic_exposure", "thematic_dip", "lab")),
     ("rente", "Rente (kasbeheer)", ("yield_core", "house")),
     ("crypto", "Crypto vasthouden", ("conviction_core",)),
-    ("hlkas", "Kas op Hyperliquid", ("swarm", "basis")),
+    ("hlkas", "Kas op Hyperliquid", ("swarm",)),
+    ("basis", "HYPE-basis (proefpotje)", ("basis",)),
 ]
 
 # Gewone namen voor het register (docs/NAMEN.md: gebruik in gesprek de gewone naam).

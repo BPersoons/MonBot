@@ -1,0 +1,235 @@
+{
+"universe": [
+{
+"tokens": [
+115,
+0
+],
+"name": "@100",
+"index": 100,
+"isCanonical": false
+},
+{
+"tokens": [
+142,
+0
+],
+"name": "@101",
+"index": 101,
+"isCanonical": false
+},
+{
+"tokens": [
+144,
+0
+],
+"name": "@102",
+"index": 102,
+"isCanonical": false
+},
+{
+"tokens": [
+143,
+0
+],
+"name": "@103",
+"index": 103,
+"isCanonical": false
+},
+{
+"tokens": [
+147,
+0
+],
+"name": "@104",
+"index": 104,
+"isCanonical": false
+},
+{
+"tokens": [
+148,
+0
+],
+"name": "@105",
+"index": 105,
+"isCanonical": false
+},
+{
+"tokens": [
+149,
+0
+],
+"name": "@106",
+"index": 106,
+"isCanonical": false
+},
+{
+"tokens": [
+150,
+0
+],
+"name": "@107",
+"index": 107,
+"isCanonical": false
+},
+{
+"tokens": [
+139,
+0
+],
+"name": "@108",
+"index": 108,
+"isCanonical": false
+},
+{
+"tokens": [
+98,
+0
+],
+"name": "@109",
+"index": 109,
+"isCanonical": false
+},
+{
+"tokens": [
+151,
+0
+],
+"name": "@110",
+"index": 110,
+"isCanonical": false
+},
+{
+"tokens": [
+152,
+0
+],
+"name": "@111",
+"index": 111,
+"isCanonical": false
+}
+],
+"ctx": [
+{
+"prevDayPx": "0.003661",
+"dayNtlVlm": "0.01493688",
+"markPx": "0.003661",
+"midPx": "0.003666",
+"circulatingSupply": "9962364.1041048001",
+"coin": "@100",
+"totalSupply": "9984875.9675730001",
+"dayBaseVlm": "4.08"
+},
+{
+"prevDayPx": "0.30622",
+"dayNtlVlm": "899.444441",
+"markPx": "0.30713",
+"midPx": "0.306675",
+"circulatingSupply": "716397.44594456",
+"coin": "@101",
+"totalSupply": "1199175.5867837099",
+"dayBaseVlm": "2928.32"
+},
+{
+"prevDayPx": "0.003308",
+"dayNtlVlm": "0.0",
+"markPx": "0.003334",
+"midPx": "0.007817",
+"circulatingSupply": "825460.24541159",
+"coin": "@102",
+"totalSupply": "1198317.6573515099",
+"dayBaseVlm": "0.0"
+},
+{
+"prevDayPx": "0.00004952",
+"dayNtlVlm": "0.04823248",
+"markPx": "0.00004952",
+"midPx": "0.00004959",
+"circulatingSupply": "924122163.5982700586",
+"coin": "@103",
+"totalSupply": "924422379.2549799681",
+"dayBaseVlm": "974.0"
+},
+{
+"prevDayPx": "0.032328",
+"dayNtlVlm": "0.0",
+"markPx": "0.033713",
+"midPx": "0.033662",
+"circulatingSupply": "822022.65553735",
+"coin": "@104",
+"totalSupply": "1198543.70450301",
+"dayBaseVlm": "0.0"
+},
+{
+"prevDayPx": "0.082251",
+"dayNtlVlm": "487.24649457",
+"markPx": "0.08176",
+"midPx": "0.081882",
+"circulatingSupply": "722196.08034644",
+"coin": "@105",
+"totalSupply": "1198184.57034644",
+"dayBaseVlm": "5851.61"
+},
+{
+"prevDayPx": "0.003715",
+"dayNtlVlm": "0.0",
+"markPx": "0.003715",
+"midPx": "0.008481",
+"circulatingSupply": "917818.3375240701",
+"coin": "@106",
+"totalSupply": "1198928.4696256099",
+"dayBaseVlm": "0.0"
+},
+{
+"prevDayPx": "92.598",
+"dayNtlVlm": "65894056.2052299976",
+"markPx": "92.814",
+"midPx": "92.8145",
+"circulatingSupply": "298463837.1208339334",
+"coin": "@107",
+"totalSupply": "998882447.2706712484",
+"dayBaseVlm": "704990.6499999999"
+},
+{
+"prevDayPx": "0.021001",
+"dayNtlVlm": "0.0",
+"markPx": "0.021",
+"midPx": "0.02995",
+"circulatingSupply": "534038.40356",
+"coin": "@108",
+"totalSupply": "1199396.62152112",
+"dayBaseVlm": "0.0"
+},
+{
+"prevDayPx": "0.00051608",
+"dayNtlVlm": "0.0",
+"markPx": "0.0004848",
+"midPx": "0.0003174",
+"circulatingSupply": "99923160.408069998",
+"coin": "@109",
+"totalSupply": "99923302.0229399949",
+"dayBaseVlm": "0.0"
+},
+{
+"prevDayPx": "0.013",
+"dayNtlVlm": "0.0",
+"markPx": "0.013",
+"midPx": "0.0185",
+"circulatingSupply": "902234.7762216399",
+"coin": "@110",
+"totalSupply": "1197702.02358355",
+"dayBaseVlm": "0.0"
+},
+{
+"prevDayPx": "0.032733",
+"dayNtlVlm": "0.82061631",
+"markPx": "0.032733",
+"midPx": "0.032782",
+"circulatingSupply": "961779.49766616",
+"coin": "@111",
+"totalSupply": "1198665.7238896",
+"dayBaseVlm": "25.07"
+}
+],
+"ctx_positie_107": 107
+}
