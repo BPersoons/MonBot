@@ -265,6 +265,22 @@
         "kort": "Maakte de dip-koper op 16 jaar data niet beter."
       }
     },
+    "basis_xyz_goud": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-10-06",
+      "soort": "nieuwe_bron",
+      "hypothese": "Funding op grondstof- en aandelenperps van de xyz-dex is structureel positief (retail-long, 24/7): over de laatste ~21 dagen GOLD 8,4% per jaar (97% van de uren positief), SILVER 8,8% (97%), NVDA 5,3% (93%), tegen BTC/ETH ~4,4% (180d). Short xyz:GOLD + long goudtoken (XAUT/PAXG) int die funding zonder koersrisico.",
+      "bron": "meting 06-10 via HL fundingHistory (dex xyz), 15 grootste markten op open interest; GOLD OI $280 mln",
+      "benchmark": "Aave v3 Arbitrum USDC (30d 3,02%) en basis_traag",
+      "volgende_stap": "Papier: (1) volledige fundinghistorie sinds de notering (pagineren, niet 500 uur), per maand, met de slechtste maand; (2) netto op kapitaal: spot + marge bij hefboom <= 2x, handels- en brugkosten, rebalancering; (3) hedge-token: liquiditeit en peg van XAUT/PAXG, waar (Arbitrum of HyperEVM), afwijking token vs perp-orakel; (4) zelfde voor SILVER en een aandelenperp zonder goede hedge (dan afvallen). Nieuwe venue/token: akkoord Bart voor geld.",
+      "kaart": {
+        "wat": "Goud kopen als token en tegelijk goud short op Hyperliquid: geen koersrisico, wel de vergoeding (funding) die longs betalen.",
+        "kosten": "uitzoekwerk; daarna een nieuw token en marge op Hyperliquid",
+        "opbrengst": "onbekend; gemeten funding 8% per jaar, op kapitaal na marge en kosten naar schatting de helft tot twee derde daarvan",
+        "start": "eerst op papier over de hele historie"
+      }
+    },
     "felix_usdc_hyperevm": {
       "status": "idee",
       "trede": 0,
