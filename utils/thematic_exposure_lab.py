@@ -121,6 +121,18 @@ SLEEVE_CIRCUIT_BREAKER_DD_PCT = 15.0   # XYZ100 >dit% onder 60d-high -> pauzeer 
 SLEEVE_MAX_DRAWDOWN_STOP_PCT = 25.0    # sluit positie bij -dit% verlies (falling-knife cap)
 SLEEVE_MIN_TRIM_NOTIONAL_USD = 10.0    # HL weigert orders <$10; daaronder tranche BEWAREN, niet verbranden
 
+# ── beursstops (2026-10-05) ────────────────────────────────────────────────
+# De downside-stop hierboven bestaat alleen in software: ligt de server plat, dan
+# kijkt niemand. Daarom ligt per open positie óók een reduceOnly stop-market bij HL
+# zelf, iets ONDER de software-stop. Normaal sluit de software eerst (-25%) en vuurt
+# de beursstop nooit; valt de server uit, dan begrenst de beurs het verlies (~-30%).
+# Voorwaarde voor een kleinere server (e2-micro, poging 2): die valt sneller om.
+# Let op: bij een koersgat (opening na nieuws) vult ook een beursstop pas ná het gat.
+BEURSSTOP_PCT = 30.0          # onder de gemiddelde aankoopprijs; software-stop zit op 25
+BEURSSTOP_SLIPPAGE = 0.10     # slechtste fill t.o.v. de trigger die HL mag nemen
+BEURSSTOP_PRIJS_TOL = 0.005   # bestaande stop binnen 0,5% van het doel = goed genoeg
+BEURSSTOP_FOUTEN_MELDEN = 3   # zoveel cycli op rij niet kunnen zetten -> één keer luid
+
 # ── winstbescherming bij kleine posities (2026-08-24) ──────────────────────
 # De winstladder (25% afromen bij +30/+60/+100%) is bij dit budget onuitvoerbaar.
 # HL weigert orders onder $10, dus 25% afromen vergt een positie van >=$40 bij
@@ -333,6 +345,8 @@ class ThematicExposureLab:
         self.exchange_client = exchange_client
         self._llm = None
         self._onleesbaar_gemeld = False  # één keer luid per herstart, niet elke cyclus
+        self._beursstop_fouten = 0       # cycli op rij dat de beursstops niet klopten
+        self._beursstop_gemeld = False
         self._self_custody = None      # cache: True/False of de sleeve-key == het account
         self._usdc_token = None        # cache: "USDC:0x..." token-id voor sendAsset
 
@@ -1274,6 +1288,11 @@ class ThematicExposureLab:
 
         changed = False
         for ticker, pos in open_positions.items():
+            if pos.get("hl_positie_weg"):
+                # Op HL is deze positie al weg (beursstop of handwerk), maar de fills
+                # waren nog niet te boeken. Geen verkooppoging: reduceOnly zou toch
+                # falen. _reconcilieer_beursstops probeert het elke cyclus opnieuw.
+                continue
             try:
                 mark = self.exchange_client.get_market_price(self._hl_symbol(ticker))
             except Exception:
@@ -1415,6 +1434,19 @@ class ThematicExposureLab:
             logger.warning(f"ThematicExposureLab: exit-order voor {ticker} mislukt ({reason})")
             return False
 
+        self._boek_verkoop(positions, ticker, pos, qty_to_sell, mark, reason, precision)
+        return True
+
+    def _boek_verkoop(self, positions: dict, ticker: str, pos: dict, qty_to_sell: float,
+                      mark: float, reason: str, precision: float = 0.0) -> float:
+        """Boekt een verkoop die op HL echt gebeurd is: kas, resultaat, piek, status.
+
+        Eén plek voor twee wegen: een verkoop door de software (_close_or_trim, tegen
+        de markprijs) en een beursstop die vuurde terwijl de software niet keek
+        (_reconcilieer_beursstops, tegen de echte fillprijs). Twee kopieën van deze
+        boekhouding zouden uit elkaar groeien; dat gebeurde in dit project al zes keer
+        met guards. Geeft het gerealiseerde resultaat terug.
+        """
         proceeds = qty_to_sell * mark
         cost_basis_sold = pos["avg_entry_price"] * qty_to_sell
         realized_pnl = proceeds - cost_basis_sold
@@ -1466,7 +1498,186 @@ class ThematicExposureLab:
             f"{qty_to_sell:.4f} @ ${mark:.2f} — gerealiseerd: ${realized_pnl:+.2f}"
             f"{' (volledig gesloten)' if full_close else ''}"
         )
-        return True
+        return realized_pnl
+
+    # ── beursstops: stops die ook werken als de server uitvalt ──────────
+    def _hl_account(self) -> str | None:
+        """Het HL-account waarop de dip-koper handelt (ccxt walletAddress)."""
+        ex = self.exchange_client
+        client = getattr(ex, "signing_client", None)
+        if client is None:
+            return None
+        return getattr(client, "walletAddress", None) or getattr(ex, "wallet_address", None)
+
+    def _hl_xyz_longs(self, account: str) -> dict:
+        """{'XYZ-NVDA': {'szi': 0.21, 'entry': 180.5}} — wat HL echt heeft (dex xyz).
+        Gooit bij een leesfout: onleesbaar is geen 'geen posities'."""
+        st = self._http_post({"type": "clearinghouseState", "user": account, "dex": "xyz"})
+        uit = {}
+        for ap in st.get("assetPositions") or []:
+            p = ap.get("position") or {}
+            coin, szi = p.get("coin") or "", _finite(p.get("szi"))
+            if coin.startswith("xyz:") and szi > 0:
+                uit["XYZ-" + coin.split(":", 1)[1]] = {"szi": szi, "entry": _finite(p.get("entryPx"))}
+        return uit
+
+    def _hl_xyz_beursstops(self, account: str) -> dict:
+        """{'XYZ-NVDA': [order, ...]} — onze openstaande reduceOnly-verkoopstops op xyz."""
+        oo = self._http_post({"type": "frontendOpenOrders", "user": account, "dex": "xyz"})
+        uit = {}
+        for o in oo or []:
+            coin = o.get("coin") or ""
+            if (coin.startswith("xyz:") and o.get("isTrigger") and o.get("reduceOnly")
+                    and o.get("side") == "A"):
+                uit.setdefault("XYZ-" + coin.split(":", 1)[1], []).append(o)
+        return uit
+
+    def _sync_beursstops(self) -> None:
+        """Trekt de beursstops gelijk met de open posities op HL.
+
+        Per long precies één reduceOnly stop-market ter grootte van de HELE positie
+        (zoals HL hem ziet, niet ons boek), op BEURSSTOP_PCT onder de aankoopprijs.
+        Een stop zonder positie wordt geannuleerd (reduceOnly maakt hem onschadelijk,
+        maar hij hoort er niet te staan). Leesfout = niets doen en tellen; na
+        BEURSSTOP_FOUTEN_MELDEN cycli één keer luid, want dan staan posities zonder
+        vangnet.
+        """
+        from utils.auto_params import subsysteem_aan
+        if not subsysteem_aan("beursstops"):
+            return
+        account = self._hl_account()
+        if not account:
+            return
+        try:
+            longs = self._hl_xyz_longs(account)
+            stops = self._hl_xyz_beursstops(account)
+        except Exception as e:
+            self._beursstop_fout("HL niet leesbaar: %s" % str(e)[:80])
+            return
+
+        boek = {t: p for t, p in (self._load_positions().get("positions") or {}).items()
+                if p.get("status") == "OPEN"}
+        ex = self.exchange_client
+        alles_goed = True
+        for ticker, hl in longs.items():
+            # Aankoopprijs uit ons boek (daar rekent de software-stop mee); staat de
+            # positie niet in het boek, dan die van HL.
+            entry = _finite((boek.get(ticker) or {}).get("avg_entry_price")) or hl["entry"]
+            if entry <= 0:
+                alles_goed = False
+                continue
+            doel_px = entry * (1 - BEURSSTOP_PCT / 100.0)
+            if hl["szi"] * doel_px < SLEEVE_MIN_TRIM_NOTIONAL_USD:
+                # HL weigert orders onder $10; een kleinere stop kan niet bestaan.
+                logger.info("ThematicExposureLab: geen beursstop voor %s — $%.2f bij de "
+                            "trigger ligt onder het HL-minimum", ticker, hl["szi"] * doel_px)
+                continue
+            bestaand = stops.pop(ticker, [])
+            goed = [o for o in bestaand
+                    if abs(_finite(o.get("sz")) - hl["szi"]) <= max(1e-9, hl["szi"] * 1e-6)
+                    and abs(_finite(o.get("triggerPx")) / doel_px - 1) <= BEURSSTOP_PRIJS_TOL]
+            if len(goed) == 1 and len(bestaand) == 1:
+                continue
+            for o in bestaand:
+                ex.cancel_order(o.get("oid"), self._hl_symbol(ticker))
+            if ex.create_stop_order(self._hl_symbol(ticker), hl["szi"], doel_px,
+                                    slippage=BEURSSTOP_SLIPPAGE) is None:
+                alles_goed = False
+        # Wat overblijft zijn stops op namen zonder long: weg ermee.
+        for ticker, rest in stops.items():
+            for o in rest:
+                ex.cancel_order(o.get("oid"), self._hl_symbol(ticker))
+
+        if alles_goed:
+            self._beursstop_fouten, self._beursstop_gemeld = 0, False
+        else:
+            self._beursstop_fout("niet elke positie heeft een beursstop")
+
+    def _beursstop_fout(self, reden: str) -> None:
+        self._beursstop_fouten += 1
+        logger.warning("ThematicExposureLab: beursstops — %s (%d cycli op rij)",
+                       reden, self._beursstop_fouten)
+        if self._beursstop_fouten >= BEURSSTOP_FOUTEN_MELDEN and not self._beursstop_gemeld:
+            self._beursstop_gemeld = True
+            self._notify_telegram(
+                "⚠️ *Dip-koper: beursstops ontbreken*\n%s, al %d cycli. De posities hebben "
+                "nu alleen de software-stop; valt de server uit, dan is er geen vangnet."
+                % (reden, self._beursstop_fouten))
+
+    def _reconcilieer_beursstops(self) -> None:
+        """Boekt posities die HL sloot terwijl de software niet keek.
+
+        Staat een positie OPEN in ons boek maar heeft HL hem niet meer, dan heeft
+        een beursstop (of handwerk) hem gesloten. We boeken hem tegen de ECHTE
+        fillprijs uit userFillsByTime, nooit tegen een markprijs: dat is precies de
+        fout die het boek eerder $8,11 liet afwijken. Zijn de fills nog niet te
+        vinden, dan krijgt de positie de vlag hl_positie_weg (geen verkooppogingen
+        meer) en proberen we het volgende cyclus opnieuw — geen verzonnen getal.
+        """
+        account = self._hl_account()
+        if not account:
+            return
+        positions = self._load_positions()
+        boek = {t: p for t, p in (positions.get("positions") or {}).items()
+                if p.get("status") == "OPEN"}
+        if not boek:
+            return
+        try:
+            longs = self._hl_xyz_longs(account)
+        except Exception as e:
+            logger.warning("ThematicExposureLab: reconciliatie overgeslagen — HL niet leesbaar: %s", e)
+            return
+        weg = [t for t in boek if t not in longs]
+        if not weg:
+            return
+
+        fills = None
+        for ticker in weg:
+            pos = boek[ticker]
+            if fills is None:
+                try:
+                    start = min(self._iso_ms(boek[t].get("opened_at")) for t in weg)
+                    fills = self._http_post({"type": "userFillsByTime", "user": account,
+                                             "startTime": start}) or []
+                except Exception as e:
+                    logger.warning("ThematicExposureLab: fills niet leesbaar: %s", e)
+                    fills = []
+            coin = "xyz:" + ticker.split("-", 1)[1]
+            # Nieuwste sluitende fills eerst, tot de resterende hoeveelheid gedekt is.
+            # Eerdere deelverkopen door de software staan al in het boek.
+            sluit = sorted((f for f in fills if f.get("coin") == coin
+                            and f.get("dir") == "Close Long"),
+                           key=lambda f: -int(f.get("time") or 0))
+            nodig, qty, waarde = _finite(pos.get("quantity")), 0.0, 0.0
+            for f in sluit:
+                if qty >= nodig * (1 - 1e-6):
+                    break
+                sz = min(_finite(f.get("sz")), nodig - qty)
+                qty += sz
+                waarde += sz * _finite(f.get("px"))
+            if nodig <= 0 or qty < nodig * (1 - 1e-6):
+                if not pos.get("hl_positie_weg"):
+                    pos["hl_positie_weg"] = _now_iso()
+                    self._save_positions(positions)
+                    self._notify_telegram(
+                        "⚠️ *Dip-koper: %s is op Hyperliquid gesloten*\nDe sluitende fills "
+                        "zijn nog niet gevonden; de positie wordt niet meer beheerd en "
+                        "geboekt zodra ze er zijn." % ticker)
+                continue
+            pos.pop("hl_positie_weg", None)
+            self._boek_verkoop(positions, ticker, pos, nodig, waarde / qty,
+                               "beursstop (gesloten door Hyperliquid, fillprijs)")
+
+    @staticmethod
+    def _iso_ms(iso: str | None) -> int:
+        """ISO-tijd -> ms sinds epoch; onleesbaar = 30 dagen terug (ruim genoeg)."""
+        try:
+            dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return int(dt.timestamp() * 1000)
+        except Exception:
+            return int((time.time() - 30 * 86400) * 1000)
 
     # ── funding-drag-monitor (guard c) ───────────────────────────────────
     def _check_funding_drag(self, positions: dict) -> list:
@@ -1614,7 +1825,11 @@ class ThematicExposureLab:
         self._onleesbaar_gemeld = False
         self._scan_new_tickers()
         report = self._score_and_report()
+        # Eerst boeken wat de beurs zelf sloot (terwijl wij niet keken), dan beheren,
+        # dan de beursstops gelijktrekken met wat er na het beheer nog openstaat.
+        self._reconcilieer_beursstops()
         self._manage_exits()
+        self._sync_beursstops()
         # Idle USDC (spot/main-perp) naar de xyz-dex zodat gestort/toegewezen
         # kapitaal inzetbaar wordt, VÓÓR de entry-poging in _maybe_advance_tranches.
         self._sweep_idle_to_xyz()

@@ -1117,5 +1117,202 @@ class TestPositiebestandVeiligheid(ThematicExposureLabTestBase):
         self.assertNotIn("reduce_only", koop)
 
 
+class TestBeursstops(ThematicExposureLabTestBase):
+    """Beursstops (2026-10-05): een reduceOnly stop-market bij HL zelf, zodat een
+    positie ook begrensd is als de server uitvalt. Alles hier draait tegen een
+    nagebootste HL; er gaat geen order de deur uit."""
+
+    ACCOUNT = "0xBd6c000000000000000000000000000000000000"
+
+    def setUp(self):
+        super().setUp()
+        self.exchange = MagicMock()
+        self.exchange.signing_client.walletAddress = self.ACCOUNT
+        self.exchange.create_stop_order.return_value = {"id": "stop-1"}
+        self.exchange.cancel_order.return_value = True
+        self.exchange.create_order.return_value = {"id": "exit-1"}
+        self.exchange.get_amount_precision.return_value = 0.0001
+        self.lab = ThematicExposureLab(exchange_client=self.exchange)
+        self.hl_longs = {}       # coin -> (szi, entryPx)
+        self.hl_stops = []       # frontendOpenOrders-regels
+        self.hl_fills = []
+        self.hl_fout = False
+        p = patch.object(ThematicExposureLab, "_http_post", side_effect=self._hl)
+        p.start()
+        self.addCleanup(p.stop)
+        t = patch.object(ThematicExposureLab, "_notify_telegram")
+        self.telegram = t.start()
+        self.addCleanup(t.stop)
+
+    def _hl(self, payload):
+        if self.hl_fout:
+            raise OSError("502 Bad Gateway")
+        soort = payload["type"]
+        if soort == "clearinghouseState":
+            assert payload.get("dex") == "xyz", "zonder dex=xyz ziet HL de dip-koper niet"
+            return {"assetPositions": [
+                {"position": {"coin": c, "szi": str(s), "entryPx": str(e)}}
+                for c, (s, e) in self.hl_longs.items()]}
+        if soort == "frontendOpenOrders":
+            assert payload.get("dex") == "xyz"
+            return list(self.hl_stops)
+        if soort == "userFillsByTime":
+            return list(self.hl_fills)
+        raise AssertionError("onverwachte info-aanroep %s" % soort)
+
+    def _seed(self, ticker="XYZ-NVDA", qty=0.25, entry=180.0):
+        data = self.lab._load_positions()
+        data["positions"][ticker] = {
+            "themes": {"semiconductors": 0.4}, "tranche_stage": 1, "status": "OPEN",
+            "quantity": qty, "avg_entry_price": entry, "cost_basis_usd": qty * entry,
+            "opened_at": "2026-09-01T00:00:00+00:00"}
+        self.lab._save_positions(data)
+
+    @staticmethod
+    def _stop(coin="xyz:NVDA", sz=0.25, px=126.0, oid=11):
+        return {"coin": coin, "sz": str(sz), "triggerPx": str(px), "oid": oid,
+                "isTrigger": True, "reduceOnly": True, "side": "A",
+                "orderType": "Stop Market"}
+
+    # ── zetten ───────────────────────────────────────────────────────────
+    def test_zet_een_stop_op_dertig_procent_onder_de_aankoopprijs(self):
+        self._seed(entry=180.0)
+        self.hl_longs = {"xyz:NVDA": (0.25, 181.0)}
+        self.lab._sync_beursstops()
+        self.exchange.create_stop_order.assert_called_once()
+        args, _ = self.exchange.create_stop_order.call_args
+        self.assertEqual(args[0], "XYZ-NVDA/USDC")
+        self.assertAlmostEqual(args[1], 0.25)                    # HL-grootte, hele positie
+        self.assertAlmostEqual(args[2], 180.0 * 0.70, places=6)  # boek-entry, niet HL-entry
+        self.assertLess(args[2], 180.0 * (1 - tel.SLEEVE_MAX_DRAWDOWN_STOP_PCT / 100),
+                        "de beursstop moet ONDER de software-stop liggen")
+
+    def test_een_goede_stop_blijft_staan(self):
+        self._seed(entry=180.0)
+        self.hl_longs = {"xyz:NVDA": (0.25, 180.0)}
+        self.hl_stops = [self._stop(sz=0.25, px=126.0)]
+        self.lab._sync_beursstops()
+        self.exchange.create_stop_order.assert_not_called()
+        self.exchange.cancel_order.assert_not_called()
+
+    def test_verkeerde_grootte_wordt_vervangen(self):
+        self._seed(qty=0.40, entry=180.0)
+        self.hl_longs = {"xyz:NVDA": (0.40, 180.0)}              # na een bijkoop
+        self.hl_stops = [self._stop(sz=0.25, px=126.0, oid=11)]
+        self.lab._sync_beursstops()
+        self.exchange.cancel_order.assert_called_once_with(11, "XYZ-NVDA/USDC")
+        self.assertAlmostEqual(self.exchange.create_stop_order.call_args[0][1], 0.40)
+
+    def test_twee_stops_op_een_naam_worden_er_een(self):
+        self._seed(entry=180.0)
+        self.hl_longs = {"xyz:NVDA": (0.25, 180.0)}
+        self.hl_stops = [self._stop(oid=11), self._stop(oid=12)]
+        self.lab._sync_beursstops()
+        self.assertEqual(self.exchange.cancel_order.call_count, 2)
+        self.exchange.create_stop_order.assert_called_once()
+
+    def test_stop_zonder_positie_wordt_geannuleerd(self):
+        self.hl_stops = [self._stop(coin="xyz:TSLA", oid=22)]
+        self.lab._sync_beursstops()
+        self.exchange.cancel_order.assert_called_once_with(22, "XYZ-TSLA/USDC")
+        self.exchange.create_stop_order.assert_not_called()
+
+    def test_geen_stop_onder_het_hl_minimum(self):
+        self._seed(qty=0.05, entry=180.0)                         # $6,30 bij de trigger
+        self.hl_longs = {"xyz:NVDA": (0.05, 180.0)}
+        self.lab._sync_beursstops()
+        self.exchange.create_stop_order.assert_not_called()
+
+    def test_leesfout_doet_niets_en_meldt_na_drie_cycli_een_keer(self):
+        self._seed()
+        self.hl_fout = True
+        for _ in range(tel.BEURSSTOP_FOUTEN_MELDEN + 2):
+            self.lab._sync_beursstops()
+        self.exchange.create_stop_order.assert_not_called()
+        self.exchange.cancel_order.assert_not_called()
+        self.assertEqual(self.telegram.call_count, 1)
+
+    def test_mislukte_stop_telt_als_fout(self):
+        self._seed()
+        self.hl_longs = {"xyz:NVDA": (0.25, 180.0)}
+        self.exchange.create_stop_order.return_value = None
+        for _ in range(tel.BEURSSTOP_FOUTEN_MELDEN):
+            self.lab._sync_beursstops()
+        self.assertEqual(self.telegram.call_count, 1)
+
+    def test_uitgeschakeld_doet_niets(self):
+        self._seed()
+        self.hl_longs = {"xyz:NVDA": (0.25, 180.0)}
+        with patch("utils.auto_params.subsysteem_aan", return_value=False):
+            self.lab._sync_beursstops()
+        self.exchange.create_stop_order.assert_not_called()
+
+    # ── boeken wat de beurs sloot ────────────────────────────────────────
+    def test_gevulde_beursstop_wordt_tegen_de_fillprijs_geboekt(self):
+        self._seed(qty=0.25, entry=180.0)
+        kas_voor = self.lab._load_positions()["cash_usd"]
+        self.hl_longs = {}                                        # HL heeft hem niet meer
+        self.hl_fills = [
+            {"coin": "xyz:NVDA", "dir": "Close Long", "sz": "0.25", "px": "120.0", "time": 2},
+            {"coin": "xyz:NVDA", "dir": "Open Long", "sz": "0.25", "px": "180.0", "time": 1},
+        ]
+        self.lab._reconcilieer_beursstops()
+        data = self.lab._load_positions()
+        pos = data["positions"]["XYZ-NVDA"]
+        self.assertEqual(pos["status"], "CLOSED")
+        self.assertAlmostEqual(pos["realized_pnl_usd"], 0.25 * (120.0 - 180.0), places=6)
+        self.assertAlmostEqual(data["cash_usd"], kas_voor + 30.0, places=6)
+        self.exchange.create_order.assert_not_called()
+
+    def test_zonder_fills_geen_verzonnen_prijs_en_geen_verkooppoging(self):
+        self._seed(qty=0.25, entry=180.0)
+        self.hl_longs = {}
+        self.lab._reconcilieer_beursstops()
+        pos = self.lab._load_positions()["positions"]["XYZ-NVDA"]
+        self.assertEqual(pos["status"], "OPEN")
+        self.assertTrue(pos.get("hl_positie_weg"))
+        self.assertNotIn("realized_pnl_usd", pos)
+        # ook bij een koers ver onder de software-stop: geen order meer
+        self.exchange.get_market_price.return_value = 100.0
+        self.lab._manage_exits()
+        self.exchange.create_order.assert_not_called()
+
+    def test_fills_later_gevonden_alsnog_geboekt(self):
+        self._seed(qty=0.25, entry=180.0)
+        self.hl_longs = {}
+        self.lab._reconcilieer_beursstops()                       # nog geen fills
+        self.hl_fills = [{"coin": "xyz:NVDA", "dir": "Close Long", "sz": "0.25",
+                          "px": "125.0", "time": 5}]
+        self.lab._reconcilieer_beursstops()
+        pos = self.lab._load_positions()["positions"]["XYZ-NVDA"]
+        self.assertEqual(pos["status"], "CLOSED")
+        self.assertNotIn("hl_positie_weg", pos)
+
+    def test_positie_die_hl_nog_heeft_wordt_niet_aangeraakt(self):
+        self._seed()
+        self.hl_longs = {"xyz:NVDA": (0.25, 180.0)}
+        self.lab._reconcilieer_beursstops()
+        self.assertEqual(self.lab._load_positions()["positions"]["XYZ-NVDA"]["status"], "OPEN")
+
+
+class TestCreateStopOrderIsAltijdReduceOnly(unittest.TestCase):
+    def test_reduce_only_en_stop_loss_gaan_mee(self):
+        import logging
+        from utils.exchange_client import HyperliquidExchange
+        ex = HyperliquidExchange.__new__(HyperliquidExchange)
+        ex.logger = logging.getLogger("test")
+        ex.signing_client = MagicMock()
+        ex.signing_client.price_to_precision.side_effect = lambda s, p: "%.2f" % p
+        ex.signing_client.create_order.return_value = {"id": "x"}
+        ex._normalize_symbol = lambda t: "XYZ-NVDA/USDC:USDC"
+        self.assertIsNotNone(ex.create_stop_order("XYZ-NVDA/USDC", 0.25, 126.004))
+        args, kwargs = ex.signing_client.create_order.call_args
+        self.assertEqual(args[1:4], ("market", "sell", 0.25))
+        params = kwargs["params"]
+        self.assertIs(params["reduceOnly"], True)
+        self.assertAlmostEqual(params["stopLossPrice"], 126.0)
+        self.assertEqual(params["slippage"], "0.1")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -353,6 +353,51 @@ class HyperliquidExchange:
                 self.logger.error(f"On-Chain Order Failed: {e}")
             return None
 
+    def create_stop_order(self, ticker, quantity, trigger_price, slippage=0.10):
+        """Legt een beursstop neer: een stop-market-VERKOOP die HL zelf uitvoert zodra
+        de markprijs onder trigger_price komt, ook als deze server niets doet.
+
+        Altijd reduceOnly, zonder uitzondering en zonder parameter om het uit te
+        zetten: een stop die vuurt op een positie die er niet meer is, mag nooit een
+        short openen (zie create_order, de spookshorts van juli). Alleen voor longs.
+
+        slippage: de slechtste prijs t.o.v. de trigger die HL mag accepteren. Ruim
+        (10%), want een stop vuurt juist in een vallende markt; een te krappe grens
+        laat hem ongevuld staan, en dan beschermt hij niets.
+        Geeft de ccxt-order terug, of None bij een fout.
+        """
+        if not self.signing_client:
+            self.logger.error("No Signing Client available.")
+            return None
+        symbol = self._normalize_symbol(ticker)
+        if symbol is None:
+            self.logger.error(f"Cannot place stop: {ticker} is not listed on Hyperliquid.")
+            return None
+        try:
+            trigger = float(self.signing_client.price_to_precision(symbol, trigger_price))
+            params = {"stopLossPrice": trigger, "reduceOnly": True, "slippage": str(slippage)}
+            order = self.signing_client.create_order(symbol, 'market', 'sell', quantity, trigger,
+                                                     params=params)
+            self.logger.info(f"Beursstop geplaatst: {quantity} {symbol} onder {trigger} ({order.get('id')})")
+            return order
+        except Exception as e:
+            self.logger.error(f"Beursstop voor {ticker} mislukt: {e}")
+            return None
+
+    def cancel_order(self, order_id, ticker):
+        """Annuleert één order. True als HL hem annuleerde, anders False."""
+        if not self.signing_client:
+            return False
+        symbol = self._normalize_symbol(ticker)
+        if symbol is None:
+            return False
+        try:
+            self.signing_client.cancel_order(str(order_id), symbol)
+            return True
+        except Exception as e:
+            self.logger.warning(f"Annuleren van order {order_id} ({ticker}) mislukt: {e}")
+            return False
+
     def fetch_order_status(self, order_id, ticker):
         """
         Checks status of an order via Public API (using ID).
