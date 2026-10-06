@@ -121,6 +121,14 @@ def test_gestopt_is_geen_stilstand_en_vult_geen_trede():
     assert any("trede 1 (papier) is leeg" in x for x in s["signalen"])
 
 
+def test_afgerond_is_een_uitkomst_zonder_budget_of_trede():
+    """Een ingebouwde tweak (beursstops, 06-10) vraagt geen proeftuinbudget en staat niet stil."""
+    s = motor.stand(_reg(a={"trede": 3, "status": "afgerond", "sinds": "2026-08-01"},
+                         b={"trede": 0, "status": "idee", "sinds": "2026-09-20"}), VANDAAG)
+    assert s["afgerond"] == ["a"] and s["per_trede"][3] == []
+    assert not any(x.startswith("a ") for x in s["signalen"])
+
+
 def test_ongeldig_budget_telt_nooit_als_geldig():
     """NaN, True, 0 en negatief zijn geen budget (ontwerpreview 22-09, bevinding 8)."""
     for fout in (float("nan"), True, 0, -5, float("inf"), "100"):

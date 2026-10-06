@@ -160,7 +160,7 @@ Via GCP Secret Manager op de VM, of `.env.adk` lokaal. Optioneel: `GEMINI_MODEL`
 Volledige lijst met achtergrond: **`docs/valkuilen.md`** (algemeen) en **`docs/kasbeheer.md`** (treasury).
 - **Guard-dekking:** sleeve/oogst-uitsluiting ontbrak al zes keer ergens. Grep op de data (`thematic_exposure`, `harvest`) door de hele repo.
 - **De swarm-client ziet de xyz-perp-dex niet.** Elke xyz-uitlezing via `exchange_client` meet 0 → vals alarm. Gebruik de rauwe info-API met `dex: "xyz"`.
-- **Stops bestaan alleen in software** (nul trigger-orders op HL). Beheer controleren via `peak_price`/`last_updated`, niet via logs.
+- **Stops zitten vooral in software.** Sinds 06-10 heeft alleen de dip-koper daarnaast een reduceOnly-**beursstop** op −30% bij HL (`_sync_beursstops`, schakelaar `subsystem_beursstops_enabled`); de software-stop (−25%) en de winstbescherming bestaan alleen in software. Beheer controleren via `peak_price`/`last_updated`; stops via `frontendOpenOrders` met `dex: "xyz"`.
 - **Unified account:** nooit ccxt perps + spot optellen; `accountValue` + spot.
 - **Valse drawdown:** verplaatst kapitaal moet in álle totalen meetellen (RiskManager, kasbeheer, nav, sleeve_nav).
 - **Definitiefouten > rekenfouten:** controleer eerst of een maatstaf de juiste vraag beantwoordt (URTH vs WEBN, notional vs waarde).

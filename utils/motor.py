@@ -29,6 +29,9 @@ WACHTSTATUSSEN = {"wacht_op_regime", "gepland"}
 # de motor haar weer, zodat niets ongemerkt eeuwig in de schaduw blijft staan.
 VOORUITMETING = "meet_vooruit"
 GESTOPT = "gestopt"
+# Een tweak die is ingebouwd in een bestaand potje (bv. beursstops in de dip-koper): een
+# uitkomst zoals gestopt, maar een geslaagde. Geen eigen trede en geen eigen budget.
+AFGEROND = "afgerond"
 
 
 def _dagen_sinds(tekst, vandaag):
@@ -42,7 +45,7 @@ def stand(register: dict, vandaag: date | None = None) -> dict:
     """{'per_trede': {trede: [...]}, 'gestopt': [...], 'signalen': [...], 'zonder_trede': [...]}."""
     vandaag = vandaag or date.today()
     per_trede = {t: [] for t in TREDEN}
-    zonder, signalen, gestopt = [], [], []
+    zonder, signalen, gestopt, afgerond = [], [], [], []
     for naam, e in (register.get("experimenten") or {}).items():
         if not isinstance(e, dict):
             continue
@@ -50,6 +53,9 @@ def stand(register: dict, vandaag: date | None = None) -> dict:
         # vult geen trede (anders lijkt de motor te lopen terwijl er niets meer op papier ligt).
         if e.get("status") == GESTOPT:
             gestopt.append(naam)
+            continue
+        if e.get("status") == AFGEROND:
+            afgerond.append(naam)
             continue
         trede = e.get("trede")
         if trede not in TREDEN:
@@ -98,7 +104,8 @@ def stand(register: dict, vandaag: date | None = None) -> dict:
             signalen.append("trede %d (%s) is leeg — de motor loopt droog" % (t, TREDEN[t]))
     for naam in zonder:
         signalen.append("%s heeft geen geldige trede" % naam)
-    return {"per_trede": per_trede, "gestopt": gestopt, "signalen": signalen, "zonder_trede": zonder}
+    return {"per_trede": per_trede, "gestopt": gestopt, "afgerond": afgerond,
+            "signalen": signalen, "zonder_trede": zonder}
 
 
 def rapport(register: dict | None = None, vandaag: date | None = None) -> int:
@@ -113,6 +120,9 @@ def rapport(register: dict | None = None, vandaag: date | None = None) -> int:
             dagen = "?" if e["dagen"] is None else "%dd" % e["dagen"]
             print("  - %-26s %-16s %5s  %s" % (e["naam"], e["status"] or "", dagen,
                                                (e["volgende_stap"] or "")[:90]))
+    if s["afgerond"]:
+        print()
+        print("afgerond, ingebouwd (%d): %s" % (len(s["afgerond"]), ", ".join(s["afgerond"])))
     if s["gestopt"]:
         print()
         print("gestopt (%d): %s" % (len(s["gestopt"]), ", ".join(s["gestopt"])))

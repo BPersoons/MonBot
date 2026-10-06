@@ -187,19 +187,20 @@
       "herzien": "2026-12-22"
     },
     "dip_koper_beursstops": {
-      "status": "bouw",
+      "status": "afgerond",
       "trede": 1,
-      "sinds": "2026-10-05",
+      "sinds": "2026-10-06",
       "soort": "tweak",
       "hypothese": "Stops als reduceOnly-trigger-orders op de beurs beschermen de dip-koper ook als de VM uit staat (sinds het venster van 21-09 elke nacht ~15 uur).",
       "bron": "gemiste kans uit de waakhond-audit (17-09) en het VM-venster (21-09)",
       "benchmark": "de huidige software-stop op -25%",
-      "volgende_stap": "HEROPEND 05-10 (dezelfde dag): voorwaarde voor de e2-micro-poging (akkoord Bart), zoals de heropen-trigger zegt. Ontwerp: per open positie één reduceOnly stop-market-trigger op HL, iets ONDER de software-stop (-25%), zodat de software normaal eerst sluit; grootte volgt de positie; bij sluiten annuleren; vuurt de beursstop terwijl de VM uit was, dan reconciliatie uit de HL-fills (positie op HL 0 en OPEN in ons boek -> CLOSED met de echte fillprijs). Eerst op papier: ondersteunt de xyz-dex trigger-orders via de client? A1 vóór deploy.",
+      "volgende_stap": "LIVE sinds 06-10 08:42 UTC (A1 r1 GO-mits, r2 GO; akkoord Bart). 6 stops geverifieerd via frontendOpenOrders: Stop Market, reduceOnly, sz = szi, trigger 0,700 x aankoopprijs; tweede cyclus (08:54) verving niets. Eerste live cyclus faalde zonder order ('markets not loaded'), gefixt in 390987b. Uitzetten: subsystem_beursstops_enabled=false.",
       "kaart": {
-        "wat": "De stops van de dip-koper bij de beurs zelf neerleggen, zodat ze ook werken als de server uitvalt.",
-        "kosten": "bouwtijd, geen extra geld",
-        "opbrengst": "bescherming bij uitval; voorwaarde voor de kleinere server",
-        "start": "in aanbouw (05-10), vóór de verkleining"
+        "wat": "De stops van de dip-koper liggen nu ook bij de beurs zelf (op -30%), zodat ze werken als de server uitvalt.",
+        "waarom_hier": "Vangnet voor de kleinere server; kost geen geld.",
+        "volgende": "Draait. Volgende stap is de kleinere server.",
+        "wanneer": "live",
+        "kort": "Afgerond 06-10: de dip-koper heeft nu ook stops bij de beurs (-30%), zodat een serveruitval het verlies niet laat doorlopen."
       }
     },
     "pendle_vaste_rente": {
@@ -272,7 +273,7 @@
       "hypothese": "De e2-micro volstaat als de geheugengroei van de swarm (~90 MiB per dag, gemeten 20-21-09) is opgespoord en verholpen. Levert tot $81/jaar op.",
       "bron": "terugdraaiing 21-09: voetafdruk 493 MiB; apt was NIET de oorzaak (runs van 10-40 s, de piek kwam later en hield uren aan)",
       "benchmark": "e2-small ($0,503/dag)",
-      "volgende_stap": "Akkoord Bart 05-10. Volgorde: (1) meter: mem_sample.sh logt sinds 05-10 14:24 ctr_werkelijk = anon + swap - swapcached en ctr_procs (exec-sessies zichtbaar) — KLAAR, eerste meting 228 MiB; (2) beursstops dip-koper bouwen (reduceOnly-trigger onder de software-stop, reconciliatie bij een fill), A1, deploy, één live trigger geverifieerd; (3) claimblad met de poort VOORAF: ctr_werkelijk < 400 MiB elke meting zonder exec (ctr_procs = basislijn), PSI-stall < 1%, 0 OOM, dashboard 200, 7 dagen nazorg; A2; (4) verkleinen in een weekend (beurzen dicht), snapshot vooraf. Raakt een criterium: terug, geen herziening.",
+      "volgende_stap": "Akkoord Bart 05-10. Volgorde: (1) meter: mem_sample.sh logt sinds 05-10 14:24 ctr_werkelijk = anon + swap - swapcached en ctr_procs (exec-sessies zichtbaar) — KLAAR, eerste meting 228 MiB; (2) beursstops dip-koper — KLAAR 06-10 (live, 6 stops geverifieerd); (3) claimblad met de poort VOORAF: ctr_werkelijk < 400 MiB elke meting zonder exec (ctr_procs = basislijn), PSI-stall < 1%, 0 OOM, dashboard 200, 7 dagen nazorg; A2; (4) verkleinen in een weekend (beurzen dicht), snapshot vooraf. Raakt een criterium: terug, geen herziening.",
       "kaart": {
         "wat": "Een kleinere, goedkopere server.",
         "kosten": "uitzoekwerk en een nieuwe meetperiode; er is geen geheugenlek (gemeten 05-10), maar of de kleine server het onder druk houdt is onbewezen",

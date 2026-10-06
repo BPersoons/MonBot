@@ -173,7 +173,8 @@ def motor():
                 "herzien": e.get("herzien"), "budget": e.get("budget_usd"),
                 "volgende": e.get("volgende_stap") or "", "hypothese": e.get("hypothese") or "",
                 "kaart": e.get("kaart") or {}}
-        if e.get("status") == "gestopt":
+        # afgerond (ingebouwd) staat bij de uitkomsten; de kaart zegt zelf dat het gelukt is
+        if e.get("status") in ("gestopt", "afgerond"):
             gestopt.append(item)
         elif str(e.get("trede")) in treden:
             treden[str(e.get("trede"))].append(item)
