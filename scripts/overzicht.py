@@ -62,12 +62,17 @@ NAMEN = {
 
 # Wat alleen Bart kan beslissen. Met de hand bijgehouden: een beslissing is geen meting.
 BESLISSINGEN = [
+    ("2026-10-10", "Sessie starten: server verkleinen",
+     "Zeg \"e2-micro verkleinen\". Bespaart $81 per jaar, genoeg om het project winstgevend te maken. "
+     "Daarna 7 dagen nazorg; gaat er iets mis, dan gaat hij terug."),
     ("2026-11-03", "LDOS kopen bij de broker?",
      "Zakte onder de wachtprijs ($117 < $120) en is volgens de regels koopbaar, maar de verwachtingen "
      "dalen en de kwartaalcijfers van 3 november meten precies het twijfelpunt. Advies: wachten tot dan."),
     ("2026-11-03", "Uitstapsignaal WEBN: de regel, of een vaste mix?",
      "De regel is een verzekering tegen trage crashes (2008: daling 25% i.p.v. 42%), maar kost in "
      "gewone jaren 1,5-3 procentpunt per jaar tegen een vaste mix van ~75% WEBN / 25% geldmarkt."),
+    ("2026-12-22", "Dip-koper: doorgaan?",
+     "Herbeoordeling na een kwartaal: verdient hij meer dan het wereldindexfonds, met de beursstops erbij?"),
 ]
 
 VM_SCRIPT = r'''

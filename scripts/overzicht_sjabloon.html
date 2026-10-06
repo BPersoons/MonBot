@@ -182,22 +182,43 @@ details.blok{margin-top:1rem}
 details.blok>summary{cursor:pointer;font-family:var(--serif);font-size:1.2rem}
 .chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:10px;margin-top:.8rem}
 .chip{background:var(--vlak);border:1px solid var(--lijn);border-radius:8px;padding:11px 13px;font-size:.88rem}
+.kort{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:12px;margin-top:1.2rem}
+.kaart-k{background:var(--vlak);border:1px solid var(--lijn);border-radius:10px;padding:14px 18px}
+.kaart-k h2{font-size:1.05rem;color:var(--inkt2);margin-bottom:.35rem}
+.kaart-k .groot{font-family:var(--serif);font-size:1.9rem;line-height:1.15}
+.kaart-k ul{list-style:none;margin:.5rem 0 0;padding:0;font-size:.92rem}
+.kaart-k li{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-top:1px solid var(--lijn2)}
+.kaart-k li:first-child{border-top:0}
+.kaart-k li span:last-child{color:var(--inkt2);text-align:right}
+.kaart-k .stip{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-right:.45rem;vertical-align:baseline}
+.oordeel{font-weight:600}
+.oordeel.goed{color:var(--goed)} .oordeel.letop{color:var(--letop)}
+.details-kop{margin-top:2.6rem;font-size:1.3rem}
+.details-uitleg{color:var(--zacht);font-size:.9rem;margin:.2rem 0 0}
+details.sectie{margin-top:.8rem;background:var(--vlak);border:1px solid var(--lijn);border-radius:10px}
+details.sectie>summary{cursor:pointer;padding:14px 18px;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+details.sectie>summary::-webkit-details-marker{display:none}
+details.sectie>summary::before{content:"";width:.5rem;height:.5rem;border-right:2px solid var(--zacht);border-bottom:2px solid var(--zacht);transform:rotate(-45deg);transition:transform .15s;align-self:center}
+details.sectie[open]>summary::before{transform:rotate(45deg)}
+details.sectie>summary h2{font-size:1.2rem}
+details.sectie>summary .sub{color:var(--zacht);font-size:.9rem}
+details.sectie>section{padding:0 18px 18px;margin:0}
 .voet{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--lijn);color:var(--zacht);font-size:.84rem}
 </style>
 <div class="wrap" id="app">
   <header>
     <div class="kop"><h1>Waar we staan</h1><span class="datum" id="datum"></span></div>
-    <p class="samenvatting" id="samenvatting"></p>
     <div id="meldingen"></div>
+    <div class="kort" id="kort"></div>
     <div class="todo" id="todo"></div>
   </header>
 
-  <nav class="nav" aria-label="Onderdelen"><div class="nav-in">
-    <a href="#vermogen">Vermogen</a><a href="#motor">De motor</a><a href="#schaduw">Schaduwpotjes</a><a href="#signalen">Signalen</a><a href="#meer">Scorekaart en thema's</a>
-  </div></nav>
+  <h2 class="details-kop">Details</h2>
+  <p class="details-uitleg">Alleen nodig als je iets wilt nazoeken. Klik om open te klappen.</p>
 
+  <details class="sectie"><summary><h2 id="h-vermogen">Vermogen</h2><span class="sub">per potje en over tijd</span></summary>
   <section id="vermogen" aria-labelledby="h-vermogen">
-    <div class="sectie-kop"><div><h2 id="h-vermogen">Vermogen</h2><p class="intro" id="vermogen-uitleg"></p></div>
+    <div class="sectie-kop"><div><p class="intro" id="vermogen-uitleg"></p></div>
       <div class="schakel" role="tablist" aria-label="Weergave van het vermogen">
         <button type="button" id="knop-rendement" role="tab" aria-selected="true">Per potje</button>
         <button type="button" id="knop-waarde" role="tab" aria-selected="false">Over tijd</button>
@@ -206,32 +227,35 @@ details.blok>summary{cursor:pointer;font-family:var(--serif);font-size:1.2rem}
     <div class="vlak" id="paneel-waarde" hidden><div class="grafiek-rij">
       <div class="grafiek" id="vermogen-grafiek"></div><div class="legenda" id="vermogen-legenda"></div>
     </div><p class="noot" id="vermogen-noot"></p></div>
-  </section>
+  </section></details>
 
+  <details class="sectie"><summary><h2 id="h-motor">Experimenten</h2><span class="sub" id="motor-sub">van idee tot echt geld</span></summary>
   <section id="motor" aria-labelledby="h-motor">
-    <div class="sectie-kop"><div><h2 id="h-motor">De motor</h2>
+    <div class="sectie-kop"><div>
       <p class="intro">Elk idee beklimt dezelfde trap. Pas als het een trede haalt, gaat het een stap omhoog, en pas bovenaan komt er meer geld in. Wat een trede niet haalt, stopt, met de reden erbij. Klik op een experiment voor de uitleg.</p></div>
       <span class="klein" id="motor-kapitaal"></span></div>
     <svg class="trap" id="trap" viewBox="0 0 640 170" role="img" aria-label="Aantal experimenten per trede"></svg>
     <div id="groepen"></div>
     <details class="gestopt" id="gestopt"></details>
-  </section>
+  </section></details>
 
+  <details class="sectie"><summary><h2 id="h-schaduw">Schaduwpotjes</h2><span class="sub">mandjes die zonder geld meelopen</span></summary>
   <section id="schaduw" aria-labelledby="h-schaduw">
-    <div class="sectie-kop"><div><h2 id="h-schaduw">Schaduwpotjes</h2>
+    <div class="sectie-kop"><div>
       <p class="intro">Mandjes die zonder geld vooruit meelopen, tegen je kern (WEBN) en tegen het themafonds. We leren of de methode werkt: het knelpunt in een keten kiezen in plaats van het hele thema. Werkt ze over meerdere thema's, dan passen we haar voortaan meteen toe, met geld.</p></div></div>
     <div class="raster" id="schaduwlijst"></div>
-  </section>
+  </section></details>
 
+  <details class="sectie"><summary><h2 id="h-signalen">Signalen en doelen</h2><span class="sub">uitstapsignaal, doelen voor 31 december, scorekaart</span></summary>
   <section id="signalen" aria-labelledby="h-signalen">
-    <div class="sectie-kop"><div><h2 id="h-signalen">Signalen en doelen</h2></div></div>
     <div class="raster" id="signaallijst"></div>
-  </section>
+  </section></details>
 
+  <details class="sectie"><summary><h2>Naslag</h2><span class="sub">gescoorde aandelen en thema's</span></summary>
   <section id="meer">
     <details class="blok" id="namen"></details>
     <details class="blok" id="themas"></details>
-  </section>
+  </section></details>
 
   <footer class="voet" id="voet"></footer>
 </div>
@@ -262,10 +286,20 @@ function samenvatting(){
   const wacht = tel(e => e.status === "gepland" || e.status === "wacht_op_regime");
   const B = [...D.beslissingen].sort((a,b) => (a.wanneer === "open") - (b.wanneer === "open") || a.wanneer.localeCompare(b.wanneer));
   const eerst = B.find(b => b.wanneer !== "open");
-  let t = `Je vermogen is <strong>${usd(nu)}</strong>. De afgelopen 30 dagen kwam er <strong>${verschil >= 0 ? usd(verschil) + " bij" : usd(-verschil) + " af"}</strong> aan koersen en rente. `;
-  t += `In de motor draait ${geld === 1 ? "één experiment" : geld + " experimenten"} met echt geld, ${mee} ${mee === 1 ? "loopt" : "lopen"} mee zonder geld en ${wacht} ${wacht === 1 ? "wacht" : "wachten"} op de markt of op jou.`;
-  if (B.length) t += ` ${B.length === 1 ? "Er ligt één besluit" : "Er liggen " + B.length + " besluiten"} bij jou${eerst ? ", het eerste op " + datum(eerst.wanneer) : ""}.`;
-  $("samenvatting").innerHTML = t;
+  const lab = Object.fromEntries(v.groepen.map(g => [g.sleutel, g.label]));
+  const groepen = laatst ? Object.entries(laatst.g).filter(([,w]) => w > 0).sort((a,b) => b[1]-a[1]) : [];
+  const k = (D.signalen || {}).kpi || {}, h1 = k.h1, h2 = k.h2;
+  const veilig = [k.h3, k.h4, k.h5].every(x => x && x.doel_gehaald);
+  const oordeel = (ok, ja, nee) => `<span class="oordeel ${ok ? "goed" : "letop"}">${ok ? ja : nee}</span>`;
+  const kaart1 = `<div class="kaart-k"><h2>Vermogen</h2><div class="groot">${usd(nu)}</div>
+    <p class="klein" style="margin:.2rem 0 0;color:var(--zacht)">${verschil >= 0 ? usd(verschil) + " erbij" : usd(-verschil) + " eraf"} in 30 dagen (koersen en rente)</p>
+    <ul>${groepen.map(([g,w]) => `<li><span><i class="stip" style="background:${kleur(g)}"></i>${esc(lab[g] || g)}</span><span>${usd(w)}</span></li>`).join("")}</ul></div>`;
+  const kaart2 = `<div class="kaart-k"><h2>Ligt het op koers?</h2><ul>
+    <li><span>Verdient het project meer dan het kost?</span><span>${h1 ? oordeel(h1.doel_gehaald, "ja", "nog niet") + `<br><small>${h1.dagen} dagen: ${usd(h1.opbrengst_usd)} erin, ${usd(h1.kosten_usd)} kosten</small>` : "onbekend"}</span></li>
+    <li><span>Rente beter dan gewoon Aave?</span><span>${h2 ? oordeel(h2.doel_gehaald, "ja", "nog niet") + `<br><small>${nl(h2.rendement_jaar_pct,1)}% tegen ${nl(h2.aave_apy_pct,1)}% per jaar</small>` : "onbekend"}</span></li>
+    <li><span>Veilig? (verlies, bewaking, metingen)</span><span>${k.h3 ? oordeel(veilig, "in orde", "let op") : "onbekend"}</span></li>
+    </ul></div>`;
+  $("kort").innerHTML = kaart1 + kaart2;
   $("datum").textContent = "Stand van " + datum(D.vm_ts || D.gebouwd) + ", " + (D.vm_ts || D.gebouwd).slice(11,16) + " UTC";
   const m = [];
   const oud = (Date.now() - Date.parse(D.vm_ts || D.gebouwd)) / 864e5;
