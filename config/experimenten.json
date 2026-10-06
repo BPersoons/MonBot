@@ -265,6 +265,22 @@
         "kort": "Maakte de dip-koper op 16 jaar data niet beter."
       }
     },
+    "basis_hype": {
+      "status": "idee",
+      "trede": 1,
+      "sinds": "2026-10-06",
+      "soort": "nieuwe_bron",
+      "hypothese": "Spot-HYPE long + HYPE-perp short op Hyperliquid (een venue, hefboom 2x op de short) levert netto op kapitaal structureel meer dan Aave + 2pp, zonder koersrisico, omdat HYPE-longs structureel funding betalen.",
+      "bron": "scripts/basis_sim.py HYPE (06-10): dagkoersen + uurfunding sinds 2024-12-05, liquidatietoets op de dag-high, bijsturen binnen hefboom 1,4-3x, kosten perp 0,045% en spot 0,07% per handeling incl. in- en uitstap; simulator getoetst: zonder funding en kosten exact 0 resultaat bij koers x17, vlak 10%/jr -> 6,7% op kapitaal",
+      "benchmark": "Aave v3 Arbitrum USDC (2026 ~3,0%) en dezelfde trade op BTC",
+      "volgende_stap": "PAPIER GEDAAN 06-10. Netto op kapitaal: hele periode 14,0%/jr, 2025 14,9%, 2026 t/m sep 5,7% (met kHYPE-staking +2%: 7,1%), laatste 6 mnd 5,9%. Geen liquidatie, geen verliesmaand (slechtste hele maand apr-26 +$2,8 op $1000). BTC zelfde methode: 2025 7,2%, 2026 3,2%. Wat het papier NIET meet: spot- vs perpkoers (simulatie gebruikt de perpkoers voor beide), slippage, ADL (HL kan de short bij een squeeze sluiten), venue-risico (alles op HL). Volgende: VOORUITMETING met vaste parameters vanaf 2026-10-07 (lev 2, band 1,4-3, zonder staking; evaluatie: python scripts/basis_sim.py HYPE --vanaf 2026-10-07), en een voorstel aan Bart voor een proefpotje uit de proeftuin om juist die niet-gemeten punten met echt geld te meten (A1 voor de code, A2 voor het geld).",
+      "kaart": {
+        "wat": "HYPE kopen en tegelijk HYPE short op Hyperliquid: geen koersrisico, wel de vergoeding die kopers betalen.",
+        "kosten": "bouwtijd; risico zit in de beurs zelf en in een gedwongen sluiting van de short bij een squeeze",
+        "opbrengst": "papier: 2025 15% per jaar, 2026 6% (7% met staking), tegen Aave 3%",
+        "start": "vooruitmeting vanaf 07-10; daarna een proefpotje, alleen met jouw akkoord"
+      }
+    },
     "basis_xyz_goud": {
       "status": "idee",
       "trede": 0,
