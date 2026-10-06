@@ -126,7 +126,7 @@ Lezen/schrijven op de VM zonder SCP: `B=$(printf '%s' "$SCRIPT" | base64 -w0); g
 |---|---|
 | Project ID | `gen-lang-client-0441524375` |
 | Region / Zone | `europe-west1` / `europe-west1-b` |
-| VM | `agent-trader-swarm-vm` — **e2-small** (0,5 vCPU, 2 GB, plus 1 GB swap). e2-micro geprobeerd 19–21-09 en teruggedraaid: de voetafdruk (RAM + swap) kwam boven 450 MiB tijdens de ochtendlijke apt-run. Zie PLAN M4 |
+| VM | `agent-trader-swarm-vm` — **e2-small** (0,5 vCPU, 2 GB, plus 1 GB swap). e2-micro geprobeerd 19–21-09 en teruggedraaid: de geheugenballon van de hypervisor gaf geheugendruk (eerst als apt-run gediagnosticeerd, gecorrigeerd 06-10). Tweede poging za 10-10, poort in `scripts/e2micro_poort.py`. Zie PLAN M4 |
 | Image URI | `europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest` |
 | Container | `agent_trader_swarm` (canonieke compose-dir `/home/bartpersoons_gmail_com`) |
 | Ports | `8080` (dashboard) |
