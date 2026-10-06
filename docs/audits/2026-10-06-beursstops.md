@@ -63,3 +63,5 @@ Na de deploy controleren: 6 stops (side A, isTrigger, reduceOnly, sz = szi, trig
 - (4) Opgelost. Reconciliatie en sync draaien in `run_cycle` elk in een eigen try/except. Toets: `fout_in_reconciliatie…`.
 - (5) Gecorrigeerd. Er zijn nu 20 beursstop-toetsen. De reconciliatie heeft **bewust geen schakelaar**: ze boekt alleen wat HL echt sloot (ook bij handwerk) en zet zelf nooit een order.
 - Mutatietoets: 6 van de 7 fixes maken de toetsen rood als je ze terugdraait. De zevende (`geopend is not None`) blijft groen, omdat het startmoment dan ook ontbreekt en er dus geen fill is. De uitkomst is getoetst; het pad zelf is dubbel gedekt.
+
+**A1 r2, 2026-10-06: GO.** Alle vijf de punten zijn opgelost en hebben een toets. Klein punt 1 (beursstops vielen stil uit zonder eigen wallet) is verwerkt: er wordt nu geteld en gemeld. Klein punt 2 (gemengde prijs bij scheefgroei tussen boek en HL) staat genoteerd en raakt alleen het boek.

@@ -1354,6 +1354,8 @@ class TestBeursstops(ThematicExposureLabTestBase):
         self.assertNotIn("hl_positie_weg", self.lab._load_positions()["positions"]["XYZ-NVDA"])
         self.exchange.cancel_order.assert_not_called()
         self.exchange.create_stop_order.assert_not_called()
+        # ...maar wel één melding: de open positie heeft geen beursstop
+        self.assertEqual(self.telegram.call_count, 1)
 
     def test_fout_in_reconciliatie_slaat_beheer_niet_over(self):
         self._seed(qty=0.25, entry=180.0)

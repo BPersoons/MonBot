@@ -1555,6 +1555,11 @@ class ThematicExposureLab:
             return
         account = self._hl_account()
         if not account:
+            # Niet stil: staan er posities open, dan hebben ze nu geen vangnet
+            # (A1-audit r2, 06-10).
+            if any(p.get("status") == "OPEN"
+                   for p in (self._load_positions().get("positions") or {}).values()):
+                self._beursstop_fout("geen eigen wallet (self-custody) gevonden")
             return
         try:
             longs = self._hl_xyz_longs(account)
