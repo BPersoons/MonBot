@@ -265,6 +265,22 @@
         "kort": "Maakte de dip-koper op 16 jaar data niet beter."
       }
     },
+    "felix_usdc_hyperevm": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-10-06",
+      "soort": "nieuwe_bron",
+      "hypothese": "De Felix USDC-vault (Morpho Blue op HyperEVM) levert structureel meer dan Aave Arbitrum: 30d 4,67% tegen 3,02% (DeFiLlama 06-10), TVL $8,1 mln, boven onze vloer van $5 mln.",
+      "bron": "scan 06-10 van alle stablecoin-pools >= $5 mln TVL en >= 4% (30d) op Arbitrum en Hyperliquid; de rest viel af: Fluid gestopt (Bart 05-10), sUSDai/Pendle eerder verworpen (krediet- en depegpremie), Harmonix en Liminal zijn funding-strategieen (geen rente), growihf onverklaarbaar (62%)",
+      "benchmark": "Aave v3 Arbitrum USDC (30d 3,02%)",
+      "volgende_stap": "Papier: (1) welke markten en onderpand de vault uitleent (Morpho-markten, LLTV, orakels); (2) opnameliquiditeit: kan 100% binnen een dag terug?; (3) route en kosten Arbitrum -> HyperEVM en terug, en welke wallet; (4) risicoscore met utils/treasury_risk.py; (5) opbrengst: +1,65pp op het deel dat erin mag (max 1/3 van veilig = ~$830) is ~$14/jaar, op alles ~$41/jaar. NIEUWE VENUE: vraagt Barts akkoord voor er geld heen gaat.",
+      "kaart": {
+        "wat": "Een deel van de rente naar een Morpho-vault op Hyperliquids eigen chain (HyperEVM) in plaats van Aave.",
+        "kosten": "uitzoekwerk; daarna een nieuwe venue met eigen risico (curator, orakels, brug)",
+        "opbrengst": "~$14 per jaar op een derde van de rentepot, ~$41 op alles",
+        "start": "eerst op papier; geld pas na jouw akkoord op de nieuwe venue"
+      }
+    },
     "e2_micro_poging_2": {
       "status": "gepland_bouw",
       "trede": 1,
