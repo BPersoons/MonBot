@@ -347,6 +347,7 @@ class ThematicExposureLab:
         self._onleesbaar_gemeld = False  # één keer luid per herstart, niet elke cyclus
         self._beursstop_fouten = 0       # cycli op rij dat de beursstops niet klopten
         self._beursstop_gemeld = False
+        self._weg_gezien = {}            # ticker -> uitlezingen op rij zonder HL-positie
         self._self_custody = None      # cache: True/False of de sleeve-key == het account
         self._usdc_token = None        # cache: "USDC:0x..." token-id voor sendAsset
 
@@ -1502,12 +1503,19 @@ class ThematicExposureLab:
 
     # ── beursstops: stops die ook werken als de server uitvalt ──────────
     def _hl_account(self) -> str | None:
-        """Het HL-account waarop de dip-koper handelt (ccxt walletAddress)."""
+        """Het HL-account waarop de dip-koper handelt (ccxt walletAddress), of None.
+
+        Alleen op de eigen wallet (self-custody). Zonder de HL_THEMATIC-secrets valt
+        main.py terug op de hoofdwallet; die heeft geen xyz-posities, en dan zou de
+        reconciliatie elke positie als 'gesloten' zien (A1-audit 06-10)."""
         ex = self.exchange_client
         client = getattr(ex, "signing_client", None)
         if client is None:
             return None
-        return getattr(client, "walletAddress", None) or getattr(ex, "wallet_address", None)
+        address = getattr(client, "walletAddress", None) or getattr(ex, "wallet_address", None)
+        if not address or not self._is_self_custody(client, address):
+            return None
+        return address
 
     def _hl_xyz_longs(self, account: str) -> dict:
         """{'XYZ-NVDA': {'szi': 0.21, 'entry': 180.5}} — wat HL echt heeft (dex xyz).
@@ -1578,8 +1586,12 @@ class ThematicExposureLab:
                     and abs(_finite(o.get("triggerPx")) / doel_px - 1) <= BEURSSTOP_PRIJS_TOL]
             if len(goed) == 1 and len(bestaand) == 1:
                 continue
-            for o in bestaand:
-                ex.cancel_order(o.get("oid"), self._hl_symbol(ticker))
+            # Alleen een nieuwe stop als de oude echt weg zijn; anders stapelen ze
+            # zich elke cyclus op (A1-audit 06-10, punt 3).
+            if not all([ex.cancel_order(o.get("oid"), self._hl_symbol(ticker))
+                        for o in bestaand]):
+                alles_goed = False
+                continue
             if ex.create_stop_order(self._hl_symbol(ticker), hl["szi"], doel_px,
                                     slippage=BEURSSTOP_SLIPPAGE) is None:
                 alles_goed = False
@@ -1627,57 +1639,94 @@ class ThematicExposureLab:
         except Exception as e:
             logger.warning("ThematicExposureLab: reconciliatie overgeslagen — HL niet leesbaar: %s", e)
             return
-        weg = [t for t in boek if t not in longs]
-        if not weg:
-            return
 
+        # Een vlag die niet meer klopt gaat weg: staat de positie weer op HL, dan was
+        # de eerdere uitlezing fout, en zonder dit bleven de software-stops voorgoed
+        # uit (A1-audit 06-10, punt 1).
+        gewijzigd = False
+        for ticker, pos in boek.items():
+            if ticker in longs:
+                self._weg_gezien.pop(ticker, None)
+                if pos.pop("hl_positie_weg", None):
+                    gewijzigd = True
+                    logger.warning("ThematicExposureLab: %s staat weer op HL — vlag "
+                                   "hl_positie_weg gewist, beheer hervat", ticker)
+                    self._notify_telegram("ℹ️ *Dip-koper: %s staat weer op Hyperliquid*\n"
+                                          "Vals alarm; de positie wordt weer beheerd." % ticker)
+        if gewijzigd:
+            self._save_positions(positions)
+
+        weg = [t for t in boek if t not in longs]
         fills = None
         for ticker in weg:
             pos = boek[ticker]
-            if fills is None:
-                try:
-                    start = min(self._iso_ms(boek[t].get("opened_at")) for t in weg)
-                    fills = self._http_post({"type": "userFillsByTime", "user": account,
-                                             "startTime": start}) or []
-                except Exception as e:
-                    logger.warning("ThematicExposureLab: fills niet leesbaar: %s", e)
-                    fills = []
-            coin = "xyz:" + ticker.split("-", 1)[1]
-            # Nieuwste sluitende fills eerst, tot de resterende hoeveelheid gedekt is.
-            # Eerdere deelverkopen door de software staan al in het boek.
-            sluit = sorted((f for f in fills if f.get("coin") == coin
-                            and f.get("dir") == "Close Long"),
-                           key=lambda f: -int(f.get("time") or 0))
-            nodig, qty, waarde = _finite(pos.get("quantity")), 0.0, 0.0
-            for f in sluit:
-                if qty >= nodig * (1 - 1e-6):
-                    break
-                sz = min(_finite(f.get("sz")), nodig - qty)
-                qty += sz
-                waarde += sz * _finite(f.get("px"))
-            if nodig <= 0 or qty < nodig * (1 - 1e-6):
-                if not pos.get("hl_positie_weg"):
-                    pos["hl_positie_weg"] = _now_iso()
-                    self._save_positions(positions)
-                    self._notify_telegram(
-                        "⚠️ *Dip-koper: %s is op Hyperliquid gesloten*\nDe sluitende fills "
-                        "zijn nog niet gevonden; de positie wordt niet meer beheerd en "
-                        "geboekt zodra ze er zijn." % ticker)
+            self._weg_gezien[ticker] = self._weg_gezien.get(ticker, 0) + 1
+            geopend = self._iso_ms(pos.get("opened_at"))
+            koers = None
+            if geopend is not None:
+                if fills is None:
+                    try:
+                        start = min(m for m in (self._iso_ms(boek[t].get("opened_at"))
+                                                for t in weg) if m is not None)
+                        fills = self._http_post({"type": "userFillsByTime", "user": account,
+                                                 "startTime": start}) or []
+                    except Exception as e:
+                        logger.warning("ThematicExposureLab: fills niet leesbaar: %s", e)
+                        fills = []
+                koers = self._sluitkoers(fills, ticker, geopend, _finite(pos.get("quantity")))
+            if koers is not None:
+                pos.pop("hl_positie_weg", None)
+                self._weg_gezien.pop(ticker, None)
+                self._boek_verkoop(positions, ticker, pos, _finite(pos.get("quantity")), koers,
+                                   "beursstop (gesloten door Hyperliquid, fillprijs)")
                 continue
-            pos.pop("hl_positie_weg", None)
-            self._boek_verkoop(positions, ticker, pos, nodig, waarde / qty,
-                               "beursstop (gesloten door Hyperliquid, fillprijs)")
+            # Pas na TWEE uitlezingen op rij zonder positie: één lege of verkeerde
+            # uitlezing mag het beheer niet uitzetten.
+            if self._weg_gezien[ticker] >= 2 and not pos.get("hl_positie_weg"):
+                pos["hl_positie_weg"] = _now_iso()
+                self._save_positions(positions)
+                self._notify_telegram(
+                    "⚠️ *Dip-koper: %s staat niet meer op Hyperliquid*\nDe sluitende fills "
+                    "zijn nog niet gevonden; de positie wordt niet meer beheerd en geboekt "
+                    "zodra ze er zijn." % ticker)
 
     @staticmethod
-    def _iso_ms(iso: str | None) -> int:
-        """ISO-tijd -> ms sinds epoch; onleesbaar = 30 dagen terug (ruim genoeg)."""
+    def _sluitkoers(fills: list, ticker: str, geopend_ms: int, nodig: float):
+        """Gewogen fillprijs van de nieuwste sluitende fills van DEZE ronde, of None.
+
+        Alleen fills vanaf de opening van deze positie: een sluiting van een eerdere
+        ronde in dezelfde naam (ORCL, 08-09: 23 minuten vóór de huidige opening) hoort
+        er niet bij (A1-audit 06-10, punt 2). Dekken de fills de hoeveelheid niet,
+        dan None: liever niet boeken dan een verzonnen prijs.
+        """
+        if nodig <= 0:
+            return None
+        coin = "xyz:" + ticker.split("-", 1)[1]
+        sluit = sorted((f for f in fills if f.get("coin") == coin
+                        and f.get("dir") == "Close Long"
+                        and int(_finite(f.get("time"))) >= geopend_ms),
+                       key=lambda f: -int(_finite(f.get("time"))))
+        qty, waarde = 0.0, 0.0
+        for f in sluit:
+            if qty >= nodig * (1 - 1e-6):
+                break
+            sz = min(_finite(f.get("sz")), nodig - qty)
+            qty += sz
+            waarde += sz * _finite(f.get("px"))
+        if qty < nodig * (1 - 1e-6) or qty <= 0:
+            return None
+        return waarde / qty
+
+    @staticmethod
+    def _iso_ms(iso: str | None):
+        """ISO-tijd -> ms sinds epoch, of None als hij onleesbaar is."""
         try:
             dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             return int(dt.timestamp() * 1000)
         except Exception:
-            return int((time.time() - 30 * 86400) * 1000)
+            return None
 
     # ── funding-drag-monitor (guard c) ───────────────────────────────────
     def _check_funding_drag(self, positions: dict) -> list:
@@ -1827,9 +1876,17 @@ class ThematicExposureLab:
         report = self._score_and_report()
         # Eerst boeken wat de beurs zelf sloot (terwijl wij niet keken), dan beheren,
         # dan de beursstops gelijktrekken met wat er na het beheer nog openstaat.
-        self._reconcilieer_beursstops()
+        # Elk in een eigen vangnet: een fout in de beursstops mag het software-beheer
+        # (stops, winstbescherming) nooit overslaan (A1-audit 06-10, punt 4).
+        try:
+            self._reconcilieer_beursstops()
+        except Exception as e:
+            logger.error("ThematicExposureLab: reconciliatie faalde: %s", e)
         self._manage_exits()
-        self._sync_beursstops()
+        try:
+            self._sync_beursstops()
+        except Exception as e:
+            self._beursstop_fout("onverwachte fout: %s" % str(e)[:80])
         # Idle USDC (spot/main-perp) naar de xyz-dex zodat gestort/toegewezen
         # kapitaal inzetbaar wordt, VÓÓR de entry-poging in _maybe_advance_tranches.
         self._sweep_idle_to_xyz()

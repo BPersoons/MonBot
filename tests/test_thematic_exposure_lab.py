@@ -1117,6 +1117,9 @@ class TestPositiebestandVeiligheid(ThematicExposureLabTestBase):
         self.assertNotIn("reduce_only", koop)
 
 
+NA = 1788220800000 + 1000   # net na opened_at 2026-09-01T00:00:00Z van _seed
+
+
 class TestBeursstops(ThematicExposureLabTestBase):
     """Beursstops (2026-10-05): een reduceOnly stop-market bij HL zelf, zodat een
     positie ook begrensd is als de server uitvalt. Alles hier draait tegen een
@@ -1133,6 +1136,7 @@ class TestBeursstops(ThematicExposureLabTestBase):
         self.exchange.create_order.return_value = {"id": "exit-1"}
         self.exchange.get_amount_precision.return_value = 0.0001
         self.lab = ThematicExposureLab(exchange_client=self.exchange)
+        self.lab._self_custody = True   # de eigen wallet; de terugval-toets zet dit uit
         self.hl_longs = {}       # coin -> (szi, entryPx)
         self.hl_stops = []       # frontendOpenOrders-regels
         self.hl_fills = []
@@ -1253,8 +1257,8 @@ class TestBeursstops(ThematicExposureLabTestBase):
         kas_voor = self.lab._load_positions()["cash_usd"]
         self.hl_longs = {}                                        # HL heeft hem niet meer
         self.hl_fills = [
-            {"coin": "xyz:NVDA", "dir": "Close Long", "sz": "0.25", "px": "120.0", "time": 2},
-            {"coin": "xyz:NVDA", "dir": "Open Long", "sz": "0.25", "px": "180.0", "time": 1},
+            {"coin": "xyz:NVDA", "dir": "Close Long", "sz": "0.25", "px": "120.0", "time": NA + 2},
+            {"coin": "xyz:NVDA", "dir": "Open Long", "sz": "0.25", "px": "180.0", "time": NA + 1},
         ]
         self.lab._reconcilieer_beursstops()
         data = self.lab._load_positions()
@@ -1267,6 +1271,9 @@ class TestBeursstops(ThematicExposureLabTestBase):
     def test_zonder_fills_geen_verzonnen_prijs_en_geen_verkooppoging(self):
         self._seed(qty=0.25, entry=180.0)
         self.hl_longs = {}
+        self.lab._reconcilieer_beursstops()
+        self.assertFalse(self.lab._load_positions()["positions"]["XYZ-NVDA"].get("hl_positie_weg"),
+                         "één lege uitlezing mag het beheer niet uitzetten")
         self.lab._reconcilieer_beursstops()
         pos = self.lab._load_positions()["positions"]["XYZ-NVDA"]
         self.assertEqual(pos["status"], "OPEN")
@@ -1282,11 +1289,83 @@ class TestBeursstops(ThematicExposureLabTestBase):
         self.hl_longs = {}
         self.lab._reconcilieer_beursstops()                       # nog geen fills
         self.hl_fills = [{"coin": "xyz:NVDA", "dir": "Close Long", "sz": "0.25",
-                          "px": "125.0", "time": 5}]
+                          "px": "125.0", "time": NA + 5}]
         self.lab._reconcilieer_beursstops()
         pos = self.lab._load_positions()["positions"]["XYZ-NVDA"]
         self.assertEqual(pos["status"], "CLOSED")
         self.assertNotIn("hl_positie_weg", pos)
+
+    def test_vlag_verdwijnt_als_hl_de_positie_weer_toont_en_beheer_hervat(self):
+        self._seed(qty=0.25, entry=180.0)
+        self.hl_longs = {}                                        # twee foute uitlezingen
+        self.lab._reconcilieer_beursstops()
+        self.lab._reconcilieer_beursstops()
+        self.assertTrue(self.lab._load_positions()["positions"]["XYZ-NVDA"].get("hl_positie_weg"))
+        self.hl_longs = {"xyz:NVDA": (0.25, 180.0)}               # HL toont hem weer
+        self.lab._reconcilieer_beursstops()
+        self.assertNotIn("hl_positie_weg", self.lab._load_positions()["positions"]["XYZ-NVDA"])
+        self.exchange.get_market_price.return_value = 130.0      # -27,8%: software-stop
+        self.lab._manage_exits()
+        self.exchange.create_order.assert_called_once()
+        self.assertIs(self.exchange.create_order.call_args.kwargs["reduce_only"], True)
+
+    def test_sluiting_van_een_eerdere_ronde_telt_niet_mee(self):
+        # Zoals ORCL op 08-09: een Close Long 23 minuten vóór de huidige opening.
+        self._seed(qty=0.25, entry=180.0)                         # geopend 2026-09-01
+        geopend = tel.ThematicExposureLab._iso_ms("2026-09-01T00:00:00+00:00")
+        self.hl_longs = {}
+        self.hl_fills = [{"coin": "xyz:NVDA", "dir": "Close Long", "sz": "0.30",
+                          "px": "163.13", "time": geopend - 23 * 60 * 1000}]
+        self.lab._reconcilieer_beursstops()
+        pos = self.lab._load_positions()["positions"]["XYZ-NVDA"]
+        self.assertEqual(pos["status"], "OPEN")
+        self.assertNotIn("realized_pnl_usd", pos)
+
+    def test_onleesbare_opening_wordt_niet_geboekt(self):
+        self._seed(qty=0.25, entry=180.0)
+        data = self.lab._load_positions()
+        data["positions"]["XYZ-NVDA"]["opened_at"] = "onzin"
+        self.lab._save_positions(data)
+        self.hl_longs = {}
+        self.hl_fills = [{"coin": "xyz:NVDA", "dir": "Close Long", "sz": "0.25",
+                          "px": "120.0", "time": 5}]
+        self.lab._reconcilieer_beursstops()
+        self.assertEqual(self.lab._load_positions()["positions"]["XYZ-NVDA"]["status"], "OPEN")
+
+    def test_mislukte_annulering_geeft_geen_nieuwe_stop(self):
+        self._seed(qty=0.40, entry=180.0)
+        self.hl_longs = {"xyz:NVDA": (0.40, 180.0)}
+        self.hl_stops = [self._stop(sz=0.25, px=126.0, oid=11)]
+        self.exchange.cancel_order.return_value = False
+        for _ in range(tel.BEURSSTOP_FOUTEN_MELDEN):
+            self.lab._sync_beursstops()
+        self.exchange.create_stop_order.assert_not_called()
+        self.assertEqual(self.telegram.call_count, 1)
+
+    def test_niet_op_de_hoofdwallet(self):
+        # Terugval van main.py zonder HL_THEMATIC-secrets: geen self-custody.
+        self.lab._self_custody = False
+        self._seed()
+        self.hl_longs = {}
+        self.hl_stops = [self._stop(coin="xyz:TSLA", oid=22)]
+        for _ in range(3):
+            self.lab._reconcilieer_beursstops()
+            self.lab._sync_beursstops()
+        self.assertNotIn("hl_positie_weg", self.lab._load_positions()["positions"]["XYZ-NVDA"])
+        self.exchange.cancel_order.assert_not_called()
+        self.exchange.create_stop_order.assert_not_called()
+
+    def test_fout_in_reconciliatie_slaat_beheer_niet_over(self):
+        self._seed(qty=0.25, entry=180.0)
+        self.exchange.get_market_price.return_value = 130.0
+        with patch.object(ThematicExposureLab, "_reconcilieer_beursstops",
+                          side_effect=KeyError("raar veld")), \
+             patch.object(ThematicExposureLab, "_scan_new_tickers"), \
+             patch.object(ThematicExposureLab, "_score_and_report", return_value=None), \
+             patch.object(ThematicExposureLab, "_sweep_idle_to_xyz"):
+            self.hl_longs = {"xyz:NVDA": (0.25, 180.0)}
+            self.lab.run_cycle()
+        self.exchange.create_order.assert_called_once()
 
     def test_positie_die_hl_nog_heeft_wordt_niet_aangeraakt(self):
         self._seed()
