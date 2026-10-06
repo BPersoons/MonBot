@@ -114,7 +114,7 @@
       "status": "wacht_op_regime",
       "trede": 1,
       "sinds": "2026-09-15",
-      "volgende_stap": "Backtest haalt de poort (8,2%), maar het 180d-regime (4,4%) ligt onder de rente. Wacht op de heractivatie-trigger.",
+      "volgende_stap": "Backtest haalt de poort (8,2%), maar het 180d-regime (4,4%) ligt onder de rente. Wacht op de heractivatie-trigger. AANVULLING 06-10: HYPE apart gemeten. Funding sinds 12-2024 gemiddeld 20,5%/jr, GEEN negatieve maand (slechtste apr-26 +5,1%), afgelopen 6 maanden ~9,5%; spot-HYPE is liquide op HL zelf (een venue, intern bijstorten) en kHYPE geeft ~2% extra. Op kapitaal bij 2x ~2/3 daarvan: nu ~6-7%/jr, in 2025 ~13%. Ter vergelijking, wat de markt nu voor carry betaalt: sUSDe 4,9%, Felix 4,7%, goud-basis ~4%.",
       "verlies_meten_vanaf": null,
       "besluit_2026_09_15": "Backtest-poort gehaald (8,24% netto 2023-2026, elk jaar >= 0), maar huidig regime 180d 4,41% (2x) / 3,31% (1x) < Fluid 5,46%. Spot telt op de unified account niet als onderpand. Niet live; heractiveren op de trigger hieronder.",
       "heractivatie": {
@@ -273,7 +273,7 @@
       "hypothese": "Funding op grondstof- en aandelenperps van de xyz-dex is structureel positief (retail-long, 24/7): over de laatste ~21 dagen GOLD 8,4% per jaar (97% van de uren positief), SILVER 8,8% (97%), NVDA 5,3% (93%), tegen BTC/ETH ~4,4% (180d). Short xyz:GOLD + long goudtoken (XAUT/PAXG) int die funding zonder koersrisico.",
       "bron": "meting 06-10 via HL fundingHistory (dex xyz), 15 grootste markten op open interest; GOLD OI $280 mln",
       "benchmark": "Aave v3 Arbitrum USDC (30d 3,02%) en basis_traag",
-      "volgende_stap": "Papier: (1) volledige fundinghistorie sinds de notering (pagineren, niet 500 uur), per maand, met de slechtste maand; (2) netto op kapitaal: spot + marge bij hefboom <= 2x, handels- en brugkosten, rebalancering; (3) hedge-token: liquiditeit en peg van XAUT/PAXG, waar (Arbitrum of HyperEVM), afwijking token vs perp-orakel; (4) zelfde voor SILVER en een aandelenperp zonder goede hedge (dan afvallen). Nieuwe venue/token: akkoord Bart voor geld.",
+      "volgende_stap": "EERSTE REKENSOM 06-10 (scripts/funding_historie.py + dagsimulatie): funding sinds notering 22-12-2025 gemiddeld 8,5%/jr, geen negatieve maand (slechtste apr-26 +1,4%). Maar netto op kapitaal bij hefboom 2x, 5 keer bijstorten, 0,1% perp- en 0,3% swapkosten: 3,7%/jr over 9,5 maand (lange termijn ~4,5%), tegen Aave 3,0%. Het goudtoken staat niet op HL (XAUT0 op HL-spot is illiquide), dus twee venues en een brug. Valt waarschijnlijk af tegen de HYPE-basis (zelfde venue). Papier: (1) volledige fundinghistorie sinds de notering (pagineren, niet 500 uur), per maand, met de slechtste maand; (2) netto op kapitaal: spot + marge bij hefboom <= 2x, handels- en brugkosten, rebalancering; (3) hedge-token: liquiditeit en peg van XAUT/PAXG, waar (Arbitrum of HyperEVM), afwijking token vs perp-orakel; (4) zelfde voor SILVER en een aandelenperp zonder goede hedge (dan afvallen). Nieuwe venue/token: akkoord Bart voor geld.",
       "kaart": {
         "wat": "Goud kopen als token en tegelijk goud short op Hyperliquid: geen koersrisico, wel de vergoeding (funding) die longs betalen.",
         "kosten": "uitzoekwerk; daarna een nieuw token en marge op Hyperliquid",
