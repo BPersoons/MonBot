@@ -231,6 +231,7 @@ def omgeving(monkeypatch, tmp_path):
         st["withdrawable"] = max(0.0, st["perp_av"] - st["short_hype"] * st["px"] / 2)
         return dict(st)
 
+    monkeypatch.setattr(bh.time, "sleep", lambda s: None)
     monkeypatch.setattr(bh.BasisHype, "_verplaats", verplaats)
     monkeypatch.setattr(bh.BasisHype, "toestand", toestand)
     funding = {"v": 0.00001}
@@ -352,3 +353,33 @@ def test_lees_state_oude_meting_zonder_benen_blijft_geldig(tmp_path):
     p = tmp_path / "s.json"
     p.write_text(json.dumps({"waarde_usd": 150.0, "open": False, "laatst": "2026-10-01T10:00:00+00:00"}))
     assert bh.lees_state(str(p))[0] == 150.0
+
+
+# ── A1 r2 ─────────────────────────────────────────────────────────────────────
+
+def test_boven_2x_met_losse_spot_usdc_wordt_short_toch_kleiner():
+    # 2,25x met $40 spot-USDC: het doel zou meer spot geven, maar boven 2x gaat de short omlaag
+    p = plan(T(spot=2.25, short=2.25, perp=40, usdc=40, px=40), 170, 0.0001)
+    assert stappen(p)[0] == "short_kleiner" and p[0]["qty"] * 40 >= bh.MIN_ORDER_USD
+
+
+def test_noodschakelaar_werkt_via_run_cycle(omgeving, monkeypatch):
+    b, ex = omgeving[:2]
+    b.run_cycle()
+    import utils.auto_params as ap
+    monkeypatch.setattr(ap.AutoParams, "get_candidate_value",
+                        lambda self, k: True if k == "basis_hype_afbouwen" else None)
+    ex.orders.clear()
+    b.run_cycle()
+    assert ex.orders[0][0] == "perp" and ex.orders[0][3] is True
+    assert b.state["afgebouwd"] == "schakelaar basis_hype_afbouwen"
+
+
+def test_rem_na_te_veel_handelende_cycli(omgeving):
+    b, ex, _, meldingen = omgeving[:4]
+    from datetime import datetime, timezone
+    nu = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    b.state["historie"] = [{"ts": nu, "stappen": ["short_volgt_spot"]}] * bh.MAX_ACTIES_PER_DAG
+    b.run_cycle()
+    b.run_cycle()
+    assert ex.orders == [] and len(meldingen) == 1 and b.state["waarde_usd"] is not None

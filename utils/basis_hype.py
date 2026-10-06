@@ -49,6 +49,7 @@ HEDGE_TOL = 0.03
 STOP_VERLIES_PCT = 50.0
 FUNDING_STOP_DAGEN = 7
 FOUTEN_MELDEN = 3
+MAX_ACTIES_PER_DAG = 12          # meer handelende cycli in 24 u = er klopt iets niet: stoppen en melden
 MAX_OUDERDOM_S = 3600            # voor de meetkant: oudere waarde met open benen = onmeetbaar
 SPOT_KOOP_FRACTIE = 0.97         # ruimte voor de slippage-limiet van een spot-marketorder
 API = "https://api.hyperliquid.xyz/info"
@@ -147,10 +148,11 @@ def plan(t, inleg_usd, funding_7d, afbouwen=False, afgebouwd=None, live=True):
     h = hefboom(t)
     if h is not None and (h > LEV_MAX or h < LEV_MIN):
         dq = n_doel / t["px"] - t["spot_hype"]
-        if h > LEV_MAX and abs(dq) * t["px"] < MIN_ORDER_USD:
-            # Kader 2x gaat voor: liever iets te ver terug dan boven 2x blijven omdat
-            # het bijsturen onder het HL-minimum valt (A1 06-10).
-            dq = -MIN_ORDER_USD / t["px"]
+        if h > LEV_MAX:
+            # Boven 2x wordt de short ALTIJD kleiner, ook als er spot-USDC ligt waardoor
+            # het doel een grotere spot zou geven (A1 r2: dan kocht hij spot en weigerde HL
+            # de grotere short). En minstens het HL-minimum, zodat 2x nooit blijft staan.
+            dq = min(dq, -MIN_ORDER_USD / t["px"])
         if abs(dq) * t["px"] < MIN_ORDER_USD:
             return [{"stap": "niets", "reden": "hefboom %.2fx maar bijsturen < $%.0f" % (h, MIN_ORDER_USD)}]
         reden = "hefboom %.2fx" % h
@@ -290,6 +292,7 @@ class BasisHype:
                 raise RuntimeError("spot-koop te klein ($%.2f)" % (qty * t["px"]))
             if not self.ex.create_spot_order(COIN, "buy", qty):
                 raise RuntimeError("spot-koop mislukt")
+            time.sleep(2)   # anders ziet short_volgt_spot de fill soms nog niet (A1 r2)
         elif s == "spot_verkoop":
             qty = math.floor(min(stap["qty"], t["spot_hype"]) / prec) * prec
             if qty * t["px"] >= MIN_ORDER_USD and not self.ex.create_spot_order(COIN, "sell", qty):
@@ -326,6 +329,16 @@ class BasisHype:
         try:
             t = self.toestand()
             inleg = self.inleg()
+            recent = [h for h in self.state.get("historie", [])
+                      if _leeftijd_s(h.get("ts")) < 86400]
+            if handelen and len(recent) >= MAX_ACTIES_PER_DAG:
+                if not self.state.get("rem_gemeld"):
+                    self._telegram("BasisHype: %d handelende cycli in 24 uur; handelen gepauzeerd. "
+                                   "Controleer de hedge en de historie." % len(recent))
+                    self.state["rem_gemeld"] = True
+                handelen = False
+            elif len(recent) < MAX_ACTIES_PER_DAG:
+                self.state.pop("rem_gemeld", None)
             if handelen:
                 stappen = plan(t, inleg, self.funding_7d(), afbouwen,
                                self.state.get("afgebouwd"), register_live())
@@ -365,6 +378,13 @@ class BasisHype:
             self.state["laatst_fout"] = nu
         self._bewaar()
         return self.state
+
+
+def _leeftijd_s(ts, nu=None):
+    try:
+        return (nu or time.time()) - datetime.fromisoformat(ts).timestamp()
+    except Exception:
+        return math.inf
 
 
 def lees_state(pad=None, nu=None):

@@ -117,3 +117,23 @@
    - `signing_client=None` na "does not exist" kan op deze wallet pas na de storting niet meer optreden. Niet aangepast.
 
 Toetsen: 41 in `test_basis_hype.py`, 73 over de drie bestanden.
+
+**r2 (2026-10-06): GO-mits.** Voorwaarden:
+1. Boven 2x kon de short groter worden als er spot-USDC lag.
+2. De noodschakelaar was niet getoetst via `run_cycle`.
+
+Klein:
+- het terugzetten van de foutenteller verbergt een patroon van afwisselend fout en goed;
+- flow pas boeken als het geld zichtbaar is;
+- spotfill nog niet zichtbaar;
+- het aantal toetsen in de tekst.
+
+Reactie r2:
+1. In de tak `h > LEV_MAX` geldt nu altijd `dq = min(dq, -$11/px)`. Toets `test_boven_2x_met_losse_spot_usdc_wordt_short_toch_kleiner`.
+2. Toets `test_noodschakelaar_werkt_via_run_cycle` leest de echte sleutel via `get_candidate_value` en verwacht reduceOnly plus de vlag `afgebouwd`.
+3. Nieuwe rem: na ≥ 12 handelende cycli in 24 uur handelt hij niet meer, met één melding. Meten gaat door. Toets `test_rem_na_te_veel_handelende_cycli`.
+4. Volgorde overgenomen: eerst de overboeking, dan het saldo zien, dan pas de flow boeken.
+5. `time.sleep(2)` na de spotkoop.
+6. Toetsaantal in de tekst gecorrigeerd.
+
+Tweede tranche: een regel "kas inzetten" volgt bij die stap, met een eigen A1.
