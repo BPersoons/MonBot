@@ -298,3 +298,27 @@ def test_lees_metingen_geeft_de_onleesbaar_vlag_door(register, tmp_path, monkeyp
     assert vb.lees_metingen(register, nu=NU)["dip_koper_onleesbaar"] is True
     open(vb.THEMATIC_FILE, "w").write('{"positions": {}}')
     assert vb.lees_metingen(register, nu=NU)["dip_koper_onleesbaar"] is False
+
+
+# ── HYPE-basis (proefpotje 06-10) ────────────────────────────────────────────
+
+def _register_basis_live(register):
+    r = json.loads(json.dumps(register))
+    r["experimenten"]["basis_hype"].update({"status": "live", "verliesbudget_telt_mee": True})
+    return r
+
+
+def test_basis_verlies_telt_in_budget_als_live(register):
+    g, st = vb.evalueer(_basis(basis_verlies_usd=130.0), {}, _register_basis_live(register))
+    assert st["experimentverlies_usd"] == 130.0 and "experimentbudget:alarm" in _sleutels(g)
+
+
+def test_basis_verlies_telt_niet_zolang_niet_live(register):
+    _, st = vb.evalueer(_basis(basis_verlies_usd=130.0), {}, register)
+    assert st["experimentverlies_usd"] == 0.0
+
+
+def test_basis_onmeetbaar_terwijl_live_meldt(register):
+    g, _ = vb.evalueer(_basis(basis_verlies_usd=None, basis_onleesbaar=True), {},
+                       _register_basis_live(register))
+    assert "basis_onmeetbaar:alarm" in _sleutels(g)

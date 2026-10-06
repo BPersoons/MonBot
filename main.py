@@ -376,6 +376,26 @@ def main():
         logger.error(f"   ⚠️ ThematicExposureLab FAILED (non-critical): {e}")
         thematic_exposure_lab = None
 
+    # --- BasisHype (proefpotje 06-10): spot-HYPE long + perp short op een EIGEN wallet ---
+    # Alleen met eigen secrets; nooit terugvallen op de hoofdwallet (daar beheert de
+    # swarm en kasbeheer het USDC, en een vreemde short zou als wees worden gezien).
+    basis_hype = None
+    try:
+        from utils.gcp_secrets import get_secret
+        _basis_adres = get_secret("HL_BASIS_WALLET_ADDRESS")
+        _basis_key = get_secret("HL_BASIS_PRIVATE_KEY")
+        if _basis_adres and _basis_key:
+            from utils.exchange_client import HyperliquidExchange
+            from utils.basis_hype import BasisHype
+            basis_hype = BasisHype(HyperliquidExchange(
+                testnet=False, wallet_address=_basis_adres, private_key=_basis_key), _basis_adres)
+            logger.info(f"   ✅ BasisHype op eigen wallet {_basis_adres}")
+        else:
+            logger.info("   ⏸️  BasisHype: geen HL_BASIS_* secrets — niet actief")
+    except Exception as e:
+        logger.error(f"   ⚠️ BasisHype FAILED (non-critical): {e}")
+        basis_hype = None
+
     logger.info("=" * 60)
     logger.info("🎉 All critical agents initialized successfully!")
     logger.info("=" * 60)
@@ -554,6 +574,13 @@ def main():
                 thematic_exposure_lab.run_cycle()
             except Exception as e:
                 logger.error(f"⚠️ ThematicExposureLab failed: {e}")
+
+        # 0a2b. BasisHype: ECHTE orders (proefpotje). Offset 4, naast de dip-koper (1).
+        if basis_hype is not None and cycle_count % 5 == 4:
+            try:
+                basis_hype.run_cycle()
+            except Exception as e:
+                logger.error(f"⚠️ BasisHype failed: {e}")
 
         # 0a3. SleeveNAV (Masterplan F0): max één snapshot per UTC-dag; goedkope
         # no-op check op andere cycli. Offset 3 zodat treasury (0), shadow (2)

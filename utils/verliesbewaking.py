@@ -276,6 +276,17 @@ def lees_metingen(register, nu=None):
     laatst_bij = max((flows._epoch(p.get("last_updated")) or 0.0 for p in open_pos), default=0.0)
     m["dip_koper_stilstand_min"] = ((nu - laatst_bij) / 60.0) if open_pos and laatst_bij else None
 
+    # HYPE-basis: verlies = netto inleg (flows, potje `basis`) min de huidige waarde.
+    try:
+        from utils.basis_hype import lees_state
+        r = lees_state()
+        if r is not None:
+            inleg = flows.netto_flow(flows.laad_flows(), "basis", 0.0, nu)
+            m["basis_verlies_usd"] = exp_register.verlies_usd(inleg, r[0])
+            m["basis_onleesbaar"] = m["basis_verlies_usd"] is None
+    except Exception:
+        m["basis_verlies_usd"], m["basis_onleesbaar"] = None, True
+
     hist = (_lees_json(SLEEVE_NAV_FILE, {}) or {}).get("history") or []
     laatste = flows._epoch(hist[-1].get("ts")) if hist else None
     m["snapshot_leeftijd_uur"] = (nu - laatste) / 3600.0 if laatste else None
@@ -418,9 +429,13 @@ def evalueer(m, state, register, stromen=(), nu=None):
 
     # ── basis (live vanaf M6; de module levert basis_verlies_usd) ─────────
     basis_verlies = m.get("basis_verlies_usd")
-    if basis_verlies is not None and exp_register.telt_mee_voor_budget(
-            experimenten.get("basis_traag")):
+    basis_exp = experimenten.get("basis_hype")
+    if basis_verlies is not None and exp_register.telt_mee_voor_budget(basis_exp):
         verlies_experimenten += max(0.0, basis_verlies)
+    if m.get("basis_onleesbaar") and exp_register.telt_mee_voor_budget(basis_exp):
+        meld("basis_onmeetbaar", "alarm", "basis_hype",
+             "HYPE-basis staat live maar het verlies is niet te meten",
+             "statebestand en wallet controleren")
 
     # ── verliesbudget ────────────────────────────────────────────────────
     budget = float(globaal.get("verliesbudget_usd", 250))

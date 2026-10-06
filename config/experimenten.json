@@ -266,6 +266,9 @@
       }
     },
     "basis_hype": {
+      "sleeve": "basis",
+      "budget_usd": 245,
+      "verliesbudget_telt_mee": false,
       "status": "idee",
       "trede": 1,
       "sinds": "2026-10-06",

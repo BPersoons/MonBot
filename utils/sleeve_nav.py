@@ -18,6 +18,7 @@ grote treasury-verplaatsingen zijn zichtbaar in de venue-regel van het rapport.
 """
 
 import json
+import math
 import logging
 import os
 import urllib.parse
@@ -162,6 +163,17 @@ class SleeveNAV:
             sleeves["conviction_core"] = sleeves.get("conviction_core", 0.0) + conviction_usd
             venues["hyperliquid"] = venues.get("hyperliquid", 0.0) + conviction_usd
 
+        # HYPE-basis (proefpotje sinds 06-10): eigen wallet, waarde uit zijn statebestand.
+        # Geen statebestand = er is (nog) geen potje = 0. Wel een bestand maar geen
+        # waarde = onmeetbaar: snapshot uitstellen, nooit nul.
+        basis_usd = self._basis_value()
+        if basis_usd is None:
+            logger.warning("HYPE-basis niet te waarderen — snapshot uitgesteld")
+            return None
+        if basis_usd > 0:
+            sleeves["basis"] = sleeves.get("basis", 0.0) + basis_usd
+            venues["hyperliquid_basis"] = venues.get("hyperliquid_basis", 0.0) + basis_usd
+
         # Broker (DeGiro): kern + thema + kas, ~42% van het vermogen. Viel buiten deze
         # reeks, waardoor geen enkele KPI het totaal zag (plan 2026-09-15, gat G3).
         # Zelfde regel als hierboven: onmeetbaar -> snapshot uitgesteld, nooit nul. De
@@ -175,6 +187,24 @@ class SleeveNAV:
             venues["broker"] = venues.get("broker", 0.0) + tradfi_usd
 
         return sleeves, venues
+
+    @staticmethod
+    def _basis_value():
+        """0.0 zonder potje, None als het potje bestaat maar niet te waarderen is."""
+        try:
+            from utils.basis_hype import lees_state
+            r = lees_state()
+        except Exception as e:
+            logger.warning(f"basis_hype_state.json onleesbaar: {e}")
+            return None
+        if r is None:
+            return 0.0
+        waarde = r[0]
+        try:
+            waarde = float(waarde)
+        except (TypeError, ValueError):
+            return None
+        return waarde if math.isfinite(waarde) else None
 
     @staticmethod
     def _tradfi_value():

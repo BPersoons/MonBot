@@ -288,6 +288,27 @@ def _broker():
     return potjes
 
 
+def _basis():
+    """HYPE-basis (proefpotje): uit zijn statebestand, met de ouderdom erbij.
+    Geen bestand = geen potje (dan ook geen regel)."""
+    try:
+        from utils.basis_hype import lees_state
+        r = lees_state()
+    except Exception as e:
+        return [_potje("basis", "HYPE-basis (proefpotje)", None, status="fout",
+                       detail=str(e)[:120], bron="data/basis_hype_state.json")]
+    if r is None:
+        return []
+    waarde, inleg, laatst = r
+    if waarde is None:
+        return [_potje("basis", "HYPE-basis (proefpotje)", None, status="fout",
+                       detail="geen waarde in het statebestand", bron="data/basis_hype_state.json")]
+    return [_potje("basis", "HYPE-basis (proefpotje)", round(float(waarde), 2),
+                   detail="inleg $%s · laatst bijgewerkt %s"
+                          % ("?" if inleg is None else "%.2f" % inleg, (laatst or "?")[:16]),
+                   bron="data/basis_hype_state.json")]
+
+
 def compute_nav(exchange=None):
     """Het volledige beeld. Faalt nooit in zijn geheel; markeert wat ontbreekt."""
     potjes = []
@@ -309,6 +330,7 @@ def compute_nav(exchange=None):
 
     potjes.extend(_rente_en_kas())
     potjes.extend(_dip_koper())
+    potjes.extend(_basis())
     potjes.extend(_broker())
 
     gelukt = [p for p in potjes if p["status"] == "ok" and p["waarde_usd"] is not None]
