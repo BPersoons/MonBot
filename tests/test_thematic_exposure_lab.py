@@ -1383,7 +1383,15 @@ class TestCreateStopOrderIsAltijdReduceOnly(unittest.TestCase):
         ex = HyperliquidExchange.__new__(HyperliquidExchange)
         ex.logger = logging.getLogger("test")
         ex.signing_client = MagicMock()
-        ex.signing_client.price_to_precision.side_effect = lambda s, p: "%.2f" % p
+        geladen = []
+        ex.signing_client.load_markets.side_effect = lambda *a, **k: geladen.append(1)
+
+        def precisie(s, p):
+            # zoals ccxt: zonder geladen markten faalt price_to_precision (06-10 live)
+            if not geladen:
+                raise Exception("hyperliquid markets not loaded")
+            return "%.2f" % p
+        ex.signing_client.price_to_precision.side_effect = precisie
         ex.signing_client.create_order.return_value = {"id": "x"}
         ex._normalize_symbol = lambda t: "XYZ-NVDA/USDC:USDC"
         self.assertIsNotNone(ex.create_stop_order("XYZ-NVDA/USDC", 0.25, 126.004))

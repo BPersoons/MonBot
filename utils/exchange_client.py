@@ -374,6 +374,10 @@ class HyperliquidExchange:
             self.logger.error(f"Cannot place stop: {ticker} is not listed on Hyperliquid.")
             return None
         try:
+            # De signing-client laadt zijn markten pas lui in ccxt.create_order;
+            # price_to_precision hiervoor faalde daardoor met "markets not loaded"
+            # (eerste live cyclus, 06-10). load_markets() is gecachet na de eerste keer.
+            self.signing_client.load_markets()
             trigger = float(self.signing_client.price_to_precision(symbol, trigger_price))
             params = {"stopLossPrice": trigger, "reduceOnly": True, "slippage": str(slippage)}
             order = self.signing_client.create_order(symbol, 'market', 'sell', quantity, trigger,
