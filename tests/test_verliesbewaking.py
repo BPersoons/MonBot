@@ -208,7 +208,8 @@ def test_verliesbudget(register):
 def test_verlies_van_een_experiment_dat_nog_niet_leeft_telt_niet_mee(register):
     """Zelfde regel als H3: `house` bestaat al, het HLP-experiment nog niet."""
     g, st = vb.evalueer(_basis(hlp_inleg_usd=500.0, hlp_equity_usd=200.0,
-                               basis_verlies_usd=99.0), {"hlp_piek_ratio": 1.0}, register)
+                               basis_verlies_usd=99.0), {"hlp_piek_ratio": 1.0},
+                        _register_basis_uit(register))
     assert "experimentbudget:alarm" not in _sleutels(g)
     assert st["experimentverlies_usd"] == 0.0
     assert "hlp_drawdown:kill" in _sleutels(g), "de drawdown-melding blijft wel staan"
@@ -302,6 +303,13 @@ def test_lees_metingen_geeft_de_onleesbaar_vlag_door(register, tmp_path, monkeyp
 
 # ── HYPE-basis (proefpotje 06-10) ────────────────────────────────────────────
 
+def _register_basis_uit(register):
+    """Het echte register met basis_hype terug op 'idee' (staat sinds 08-10 live)."""
+    r = json.loads(json.dumps(register))
+    r["experimenten"]["basis_hype"].update({"status": "idee", "verliesbudget_telt_mee": False})
+    return r
+
+
 def _register_basis_live(register):
     r = json.loads(json.dumps(register))
     r["experimenten"]["basis_hype"].update({"status": "live", "verliesbudget_telt_mee": True})
@@ -314,7 +322,7 @@ def test_basis_verlies_telt_in_budget_als_live(register):
 
 
 def test_basis_verlies_telt_niet_zolang_niet_live(register):
-    _, st = vb.evalueer(_basis(basis_verlies_usd=130.0), {}, register)
+    _, st = vb.evalueer(_basis(basis_verlies_usd=130.0), {}, _register_basis_uit(register))
     assert st["experimentverlies_usd"] == 0.0
 
 

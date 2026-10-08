@@ -86,6 +86,9 @@ def test_h3_experimentverlies_negeert_de_inleg(register):
 def test_h3_telt_een_experiment_dat_nog_niet_leeft_niet_mee(register):
     """Productiefout 2026-09-16: `house` bestond al, dus H3 meldde $1.087 op HLP-in-spe."""
     hist = [_snap(0, house=1500.0), _snap(1, house=1000.0), _snap(2, house=400.0)]
+    # alleen de experimenten die nog niet leven (basis_hype staat sinds 08-10 live)
+    register = {**register, "experimenten": {k: v for k, v in register["experimenten"].items()
+                                              if v.get("status") != "live"}}
     uit = kpi.bereken(hist, [], register, {}, {}, {}, {}, "2026-09-12")
     assert uit["h3"]["per_experiment_usd"] == {}
     assert uit["h3"]["verlies_usd"] == 0.0 and uit["h3"]["doel_gehaald"]
@@ -94,7 +97,9 @@ def test_h3_telt_een_experiment_dat_nog_niet_leeft_niet_mee(register):
 def test_h3_live_zonder_startdatum_is_onmeetbaar_geen_getal(register):
     """Zonder startdatum erft het experiment de hele historie — dat gaf de $1.087,80."""
     hist = [_snap(0, house=1087.8), _snap(1, house=1086.5), _snap(2, house=0.0)]
-    uit = kpi.bereken(hist, [], _live(register), {}, {}, {}, {}, "2026-09-12")
+    r = _live(register)
+    r["experimenten"]["basis_hype"]["status"] = "idee"   # live sinds 08-10; hier alleen HLP
+    uit = kpi.bereken(hist, [], r, {}, {}, {}, {}, "2026-09-12")
     assert uit["h3"]["per_experiment_usd"] == {}, "geen getal"
     assert "experimentverlies:hlp_vault" in uit["h5"]["onmeetbaar"]
     assert not uit["h5"]["doel_gehaald"]
