@@ -608,6 +608,16 @@ def main():
                         except Exception as e:
                             logger.debug(f"ThematicExposureLab daily_status_text failed: {e}")
                     sleeve_nav.send_telegram(_nav_report)
+                    # Agenda (besluit 2026-10-12): zaterdag werkronde, anders alleen
+                    # wat vandaag vervalt. Eigen bericht, eigen try.
+                    try:
+                        from datetime import timezone as _tz
+                        from utils.agenda import herinnering_vandaag
+                        _agenda = herinnering_vandaag(datetime.now(_tz.utc).date())
+                        if _agenda:
+                            sleeve_nav.send_telegram(_agenda)
+                    except Exception as e:
+                        logger.error(f"⚠️ Agenda-herinnering faalde: {e}")
                     # KPI's H1-H5 (plan 2026-09-15): direct na de snapshot, want ze
                     # rekenen op de potjesreeks. Eigen try: een KPI-fout mag de
                     # NAV-digest niet raken.

@@ -110,7 +110,8 @@
       }
     },
     "basis_traag": {
-      "sleeve": "basis",
+      "sleeve": "basis_traag",
+      "_sleeve_uitleg": "Eigen potjesnaam sinds 12-10 (A1): potje basis is van basis_hype; twee meetellende experimenten op een potje gaven een valse H5 en zouden bij geld op beide basis_hype vals verlies laten zien. Gaat dit live, dan krijgt het een eigen bron in sleeve_nav.",
       "status": "wacht_op_regime",
       "trede": 1,
       "sinds": "2026-09-15",
@@ -327,7 +328,7 @@
       "hypothese": "De e2-micro volstaat: er is geen geheugenlek; poging 1 strandde op de geheugenballon van de hypervisor (21-09 04:42, PSI 1,01%), niet op groei of apt. Levert $81/jaar op.",
       "bron": "terugdraaiing 21-09: voetafdruk 493 MiB; apt was NIET de oorzaak (runs van 10-40 s, de piek kwam later en hield uren aan)",
       "benchmark": "e2-small ($0,503/dag)",
-      "volgende_stap": "Akkoord Bart 05-10. Volgorde: (1) meter: mem_sample.sh logt sinds 05-10 14:24 ctr_werkelijk = anon + swap - swapcached en ctr_procs (exec-sessies zichtbaar) — KLAAR, eerste meting 228 MiB; (2) beursstops dip-koper — KLAAR 06-10 (live, 6 stops geverifieerd); (3) poort VOORAF — KLAAR 06-10, A2 r3 GO: scripts/e2micro_poort.py (ctr_werkelijk < 400 MiB zonder exec, PSI < 1% per interval ook bij ballon, onmeetbaar = geraakt, swap_free > 400 MB, trend < 50 MiB/dag, geen OOM/herstart), plus 0 OOM over alle boots, 0 CYCLE_FROZEN, dashboard 200; opstartscript zonder apt; (4) verkleinen ZA 2026-10-10 (akkoord Bart 06-10), snapshot vooraf, nazorg t/m 17-10 zonder deploys; uitvoering en terugdraaien in docs/audits/2026-10-06-e2micro.md. Raakt een criterium: terug, geen herziening.",
+      "volgende_stap": "Akkoord Bart 05-10. Volgorde: (1) meter: mem_sample.sh logt sinds 05-10 14:24 ctr_werkelijk = anon + swap - swapcached en ctr_procs (exec-sessies zichtbaar) — KLAAR, eerste meting 228 MiB; (2) beursstops dip-koper — KLAAR 06-10 (live, 6 stops geverifieerd); (3) poort VOORAF — KLAAR 06-10, A2 r3 GO: scripts/e2micro_poort.py (ctr_werkelijk < 400 MiB zonder exec, PSI < 1% per interval ook bij ballon, onmeetbaar = geraakt, swap_free > 400 MB, trend < 50 MiB/dag, geen OOM/herstart), plus 0 OOM over alle boots, 0 CYCLE_FROZEN, dashboard 200; opstartscript zonder apt; (4) verkleinen ZA 2026-10-17 (10-10 viel weg: geen sessie; verschoven door Bart 12-10, voorwaarde HYPE-basis 9 dagen zonder incident, anders 24-10), snapshot vooraf, nazorg t/m 24-10 zonder deploys; de bijgewerkte agenda (afgehandelde regels weg) deployen VOOR het verkleinen; uitvoering en terugdraaien in docs/audits/2026-10-06-e2micro.md. Raakt een criterium: terug, geen herziening.",
       "kaart": {
         "wat": "Een kleinere, goedkopere server.",
         "kosten": "uitzoekwerk en een nieuwe meetperiode; er is geen geheugenlek (gemeten 05-10), maar of de kleine server het onder druk houdt is onbewezen",

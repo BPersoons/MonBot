@@ -116,6 +116,23 @@ def test_geld_in_een_niet_live_experiment_wordt_gemarkeerd(register):
     assert leeg["h5"]["onmeetbaar"] == []
 
 
+def test_productiestand_basis_geeft_geen_valse_h5(register):
+    """Productie 2026-10-12: basis_traag (uit) deelde potje `basis` met basis_hype (live).
+    De $115 van basis_hype zette H5 op rood als 'experiment_niet_live:basis_traag'.
+    Opgelost in het register (eigen potje), niet met een uitzondering in de KPI."""
+    from datetime import datetime, timezone
+    start = datetime.fromtimestamp(T0, timezone.utc).isoformat()
+    r = _live(register, naam="basis_hype", verlies_meten_vanaf=start)
+    hist = [_snap(0, basis=115.0), _snap(1, basis=115.0)]
+    uit = kpi.bereken(hist, [], r, {}, {}, {}, {}, "2026-09-11")
+    assert not any(m.startswith("experiment_niet_live") for m in uit["h5"]["onmeetbaar"])
+    assert uit["h3"]["per_experiment_usd"]["basis_hype"] == 0.0
+    # Staat basis_hype zelf niet live, dan is hetzelfde geld wel onbewaakt.
+    r["experimenten"]["basis_hype"]["status"] = "gepland"
+    uit = kpi.bereken(hist, [], r, {}, {}, {}, {}, "2026-09-11")
+    assert "experiment_niet_live:basis_hype" in uit["h5"]["onmeetbaar"]
+
+
 def test_h3_meet_pas_vanaf_de_startdatum_van_het_experiment(register):
     """Verlies van vóór de start telt niet mee — anders erft het experiment oude historie."""
     hist = [_snap(0, house=1000.0), _snap(1, house=600.0), _snap(2, house=550.0)]

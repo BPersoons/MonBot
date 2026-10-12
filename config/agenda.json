@@ -1,0 +1,15 @@
+{
+  "_uitleg": "Wat alleen Bart kan doen of beslissen, met een datum. Eén lijst voor de overzichtspagina (scripts/overzicht.py) en de herinnering op de VM (utils/agenda.py): elke zaterdag een werkronde-bericht met wat binnen 7 dagen vervalt of achterstallig is, op andere dagen alleen wat vandaag vervalt. Met de hand bijgehouden: een beslissing is geen meting. Afgehandeld = regel weg (zit in de image, dus pas weg na een deploy).",
+  "items": [
+    {"datum": "2026-10-17", "vraag": "Kern bijstorten: ~16 stuks WEBN",
+     "uitleg": "Stort ~€175 op DeGiro en koop ~16 WEBN (met de €41 kas). Brengt de kern van 37% naar 40%. Daarna in een sessie: /boek-order."},
+    {"datum": "2026-10-17", "vraag": "Sessie starten: werkronde + server verkleinen",
+     "uitleg": "Zeg \"werkronde\". Verkleinen naar e2-micro als de HYPE-basis 9 dagen zonder incident draaide, anders 24-10. Bespaart $81 per jaar; 7 dagen nazorg, gaat er iets mis dan gaat hij terug."},
+    {"datum": "2026-11-03", "vraag": "LDOS kopen bij de broker?",
+     "uitleg": "Zakte onder de wachtprijs ($117 < $120) en is volgens de regels koopbaar, maar de verwachtingen dalen en de kwartaalcijfers van 3 november meten precies het twijfelpunt. Advies: wachten tot dan."},
+    {"datum": "2026-11-03", "vraag": "Uitstapsignaal WEBN: de regel, of een vaste mix?",
+     "uitleg": "De regel is een verzekering tegen trage crashes (2008: daling 25% i.p.v. 42%), maar kost in gewone jaren 1,5-3 procentpunt per jaar tegen een vaste mix van ~75% WEBN / 25% geldmarkt."},
+    {"datum": "2026-12-22", "vraag": "Dip-koper: doorgaan?",
+     "uitleg": "Herbeoordeling na een kwartaal: verdient hij meer dan de Nasdaq-100 over dezelfde periode, gecorrigeerd voor beta?"}
+  ]
+}

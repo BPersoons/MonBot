@@ -66,3 +66,32 @@ def test_het_echte_register_voldoet_aan_de_regels():
         if exp.telt_mee_voor_budget(e):
             assert exp.meet_vanaf(e) is not None, (
                 "%s staat live en telt mee, maar heeft geen verlies_meten_vanaf" % naam)
+
+
+def _echt_register():
+    import json
+    pad = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "config", "experimenten.json")
+    with open(pad, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def test_hooguit_een_meetellend_experiment_per_potje():
+    """A1 2026-10-12: basis_traag en basis_hype deelden potje `basis`. Dat gaf een valse H5,
+    en bij geld op beide had basis_hype vals verlies gezien (inleg = alle stromen naar het
+    potje, waarde = alleen zijn eigen state) — met een echte afbouw via de 50%-regel."""
+    gezien = {}
+    for naam, e in (_echt_register().get("experimenten") or {}).items():
+        if e.get("sleeve") and e.get("verliesbudget_telt_mee"):
+            assert e["sleeve"] not in gezien, "%s en %s delen potje %s" % (
+                gezien.get(e["sleeve"]), naam, e["sleeve"])
+            gezien[e["sleeve"]] = naam
+
+
+def test_startdatum_ligt_niet_in_de_toekomst():
+    """Een tikfout (2027) zou H3 stil op 0,0 zetten: geen meetbare periode."""
+    import time
+    for naam, e in (_echt_register().get("experimenten") or {}).items():
+        vanaf = exp.meet_vanaf(e)
+        if vanaf is not None:
+            assert vanaf <= time.time(), "%s: verlies_meten_vanaf ligt in de toekomst" % naam

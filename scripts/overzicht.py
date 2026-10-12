@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 
 WORTEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(WORTEL, "research"))
+sys.path.insert(0, WORTEL)
 import track  # noqa: E402
 
 UIT = os.path.join(WORTEL, "docs", "overzicht_artifact.html")
@@ -61,20 +62,8 @@ NAMEN = {
     "schaduw_splijtstof": "Splijtstof-knelpunten (schaduw)", "schaduw_net_tolhuisje": "Net-tolhuisje (schaduw)",
 }
 
-# Wat alleen Bart kan beslissen. Met de hand bijgehouden: een beslissing is geen meting.
-BESLISSINGEN = [
-    ("2026-10-10", "Sessie starten: server verkleinen",
-     "Zeg \"e2-micro verkleinen\". Bespaart $81 per jaar, genoeg om het project winstgevend te maken. "
-     "Daarna 7 dagen nazorg; gaat er iets mis, dan gaat hij terug."),
-    ("2026-11-03", "LDOS kopen bij de broker?",
-     "Zakte onder de wachtprijs ($117 < $120) en is volgens de regels koopbaar, maar de verwachtingen "
-     "dalen en de kwartaalcijfers van 3 november meten precies het twijfelpunt. Advies: wachten tot dan."),
-    ("2026-11-03", "Uitstapsignaal WEBN: de regel, of een vaste mix?",
-     "De regel is een verzekering tegen trage crashes (2008: daling 25% i.p.v. 42%), maar kost in "
-     "gewone jaren 1,5-3 procentpunt per jaar tegen een vaste mix van ~75% WEBN / 25% geldmarkt."),
-    ("2026-12-22", "Dip-koper: doorgaan?",
-     "Herbeoordeling na een kwartaal: verdient hij meer dan het wereldindexfonds, met de beursstops erbij?"),
-]
+# Wat alleen Bart kan beslissen: config/agenda.json, dezelfde lijst als de herinnering op de VM.
+from utils.agenda import laad_items as _agenda  # noqa: E402
 
 VM_SCRIPT = r'''
 import json, time
@@ -436,7 +425,8 @@ def bouw(vm):
         "rendement": rendement(vm),
         "namen": rijen,
         "themas": themas(),
-        "beslissingen": [{"wanneer": w, "vraag": v, "uitleg": u} for w, v, u in BESLISSINGEN],
+        "beslissingen": [{"wanneer": i["datum"].isoformat(), "vraag": i["vraag"], "uitleg": i["uitleg"]}
+                         for i in _agenda()],
     }
     js = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     with io.open(SJABLOON, encoding="utf-8") as fh:
