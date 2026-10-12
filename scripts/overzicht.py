@@ -58,6 +58,10 @@ NAMEN = {
     "thema_radar_keten": "Thema-radar per keten", "uitstapregel_crash": "Uitstapsignaal WEBN",
     "uitstapregel_crypto": "Uitstapregel crypto", "uitstapregel_thema": "Uitstapregel thema's",
     "risicopotjes_etf": "Risicopotjes (ETF's)", "crypto_vol_target": "Crypto vol-targeting",
+    "basis_hype": "HYPE-basis", "basis_xyz_goud": "Goud-basis (token)", "felix_usdc_hyperevm": "Felix-rente (HyperEVM)",
+    "basis_aandelen_degiro": "Aandelen-basis (DeGiro + Hyperliquid)", "optiepremie_crypto": "Optiepremie (verzekeringen verkopen)",
+    "basis_scan_hl": "Basis-scan (tweede HYPE)", "basis_hype_khype": "HYPE-basis met staking",
+    "fusie_arbitrage": "Fusie-arbitrage",
     "uitschieterpotje": "Uitschieterpotje", "schaduw_ai_tolhuisje": "AI-tolhuisje (schaduw)",
     "schaduw_splijtstof": "Splijtstof-knelpunten (schaduw)", "schaduw_net_tolhuisje": "Net-tolhuisje (schaduw)",
 }

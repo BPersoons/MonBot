@@ -21,7 +21,7 @@ Diepere naslag (letterlijk verplaatst uit deze file op 2026-09-15): `docs/valkui
 - **Nooit** geld uit DeGiro of de Ethereum-wallet. Nieuw kapitaal, nieuwe venue of een verruimde drempel: eerst vragen.
 - **Geen experimentgeld vóór de meter er staat** (KPI's + verliesbewaking).
 - Melden aan Bart **alleen** bij mijlpaal, poort, kill, budget ≥ $125 of een onbetrouwbare KPI. Kort: conclusie + aanbeveling. Daarnaast de agenda-herinnering van de VM (`config/agenda.json`: zaterdag werkronde, anders alleen de vervaldag) — afgehandeld = regel weg.
-- **Noordster (Bart, 2026-10-12):** per bron bewijzen dat opschalen loont (na variabele kosten, zonder vaste VM-kosten, tegen de eigen benchmark: marktneutraal Aave + 2pp, risicodragend de index beta-gecorrigeerd). H1 is een ondergrens per kwartaal. Risicodeel ≤ 20%.
+- **Noordster (Bart, 2026-10-12):** per bron bewijzen dat opschalen loont (na variabele kosten, zonder vaste VM-kosten, tegen de eigen benchmark: marktneutraal Aave + 2pp, risicodragend de index beta-gecorrigeerd). H1 is een ondergrens per kwartaal. Risicodeel ≤ 20%. Mandaat: structurele premies, ook met marktrisico — **nooit richting voorspellen**. Bart laat de keuze van premies aan de bouwer en wil ideeën waar hij zelf niet aan dacht.
 
 ## Werkwijze: bouwer + controle-agent
 

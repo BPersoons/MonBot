@@ -289,35 +289,109 @@
       }
     },
     "basis_xyz_goud": {
-      "status": "idee",
+      "status": "gestopt",
       "trede": 0,
-      "sinds": "2026-10-06",
+      "sinds": "2026-10-12",
       "soort": "nieuwe_bron",
-      "hypothese": "Funding op grondstof- en aandelenperps van de xyz-dex is structureel positief (retail-long, 24/7): over de laatste ~21 dagen GOLD 8,4% per jaar (97% van de uren positief), SILVER 8,8% (97%), NVDA 5,3% (93%), tegen BTC/ETH ~4,4% (180d). Short xyz:GOLD + long goudtoken (XAUT/PAXG) int die funding zonder koersrisico.",
-      "bron": "meting 06-10 via HL fundingHistory (dex xyz), 15 grootste markten op open interest; GOLD OI $280 mln",
-      "benchmark": "Aave v3 Arbitrum USDC (30d 3,02%) en basis_traag",
-      "volgende_stap": "EERSTE REKENSOM 06-10 (scripts/funding_historie.py + dagsimulatie): funding sinds notering 22-12-2025 gemiddeld 8,5%/jr, geen negatieve maand (slechtste apr-26 +1,4%). Maar netto op kapitaal bij hefboom 2x, 5 keer bijstorten, 0,1% perp- en 0,3% swapkosten: 3,7%/jr over 9,5 maand (lange termijn ~4,5%), tegen Aave 3,0%. Het goudtoken staat niet op HL (XAUT0 op HL-spot is illiquide), dus twee venues en een brug. Valt waarschijnlijk af tegen de HYPE-basis (zelfde venue). Papier: (1) volledige fundinghistorie sinds de notering (pagineren, niet 500 uur), per maand, met de slechtste maand; (2) netto op kapitaal: spot + marge bij hefboom <= 2x, handels- en brugkosten, rebalancering; (3) hedge-token: liquiditeit en peg van XAUT/PAXG, waar (Arbitrum of HyperEVM), afwijking token vs perp-orakel; (4) zelfde voor SILVER en een aandelenperp zonder goede hedge (dan afvallen). Nieuwe venue/token: akkoord Bart voor geld.",
+      "hypothese": "Short xyz:GOLD + long goudtoken (XAUT/PAXG) int de funding zonder koersrisico.",
+      "bron": "meting 06-10 via HL fundingHistory (dex xyz)",
+      "benchmark": "Aave v3 Arbitrum USDC + 2pp (besluit 12-10)",
+      "volgende_stap": "GESTOPT 12-10 in deze vorm: eerste rekensom 3,7-4,5%/jr op kapitaal (twee venues, brug, 0,3% swapkosten) < lat Aave + 2pp (~5,2%). Opgegaan in basis_aandelen_degiro: de long-poot als goud-ETC of aandeel bij DeGiro i.p.v. een token, zonder brug.",
       "kaart": {
-        "wat": "Goud kopen als token en tegelijk goud short op Hyperliquid: geen koersrisico, wel de vergoeding (funding) die longs betalen.",
-        "kosten": "uitzoekwerk; daarna een nieuw token en marge op Hyperliquid",
-        "opbrengst": "onbekend; gemeten funding 8% per jaar, op kapitaal na marge en kosten naar schatting de helft tot twee derde daarvan",
-        "start": "eerst op papier over de hele historie"
+        "kort": "Goud-basis met een token haalde de lat niet; zit nu in de aandelen-basis met DeGiro."
       }
     },
     "felix_usdc_hyperevm": {
+      "status": "gestopt",
+      "trede": 0,
+      "sinds": "2026-10-12",
+      "soort": "nieuwe_bron",
+      "hypothese": "De Felix USDC-vault (Morpho Blue op HyperEVM) levert structureel meer dan Aave Arbitrum.",
+      "bron": "scan 06-10 (DeFiLlama): 30d 4,67% tegen Aave 3,02%",
+      "benchmark": "Aave v3 Arbitrum USDC + 2pp (besluit 12-10)",
+      "volgende_stap": "GESTOPT 12-10: +1,65pp (~4,9%) < lat Aave + 2pp (~5,2%), nieuwe venue, ~$14/jaar op het deel dat erin mag; dezelfde afweging als Fluid (gestopt door Bart 05-10). Voorgesteld 12-10, geen bezwaar van Bart.",
+      "kaart": {
+        "kort": "Rentevault op HyperEVM: te weinig extra rente voor een nieuwe venue, net als Fluid."
+      }
+    },
+    "basis_aandelen_degiro": {
       "status": "idee",
       "trede": 0,
-      "sinds": "2026-10-06",
+      "sinds": "2026-10-12",
       "soort": "nieuwe_bron",
-      "hypothese": "De Felix USDC-vault (Morpho Blue op HyperEVM) levert structureel meer dan Aave Arbitrum: 30d 4,67% tegen 3,02% (DeFiLlama 06-10), TVL $8,1 mln, boven onze vloer van $5 mln.",
-      "bron": "scan 06-10 van alle stablecoin-pools >= $5 mln TVL en >= 4% (30d) op Arbitrum en Hyperliquid; de rest viel af: Fluid gestopt (Bart 05-10), sUSDai/Pendle eerder verworpen (krediet- en depegpremie), Harmonix en Liminal zijn funding-strategieen (geen rente), growihf onverklaarbaar (62%)",
-      "benchmark": "Aave v3 Arbitrum USDC (30d 3,02%)",
-      "volgende_stap": "Papier: (1) welke markten en onderpand de vault uitleent (Morpho-markten, LLTV, orakels); (2) opnameliquiditeit: kan 100% binnen een dag terug?; (3) route en kosten Arbitrum -> HyperEVM en terug, en welke wallet; (4) risicoscore met utils/treasury_risk.py; (5) opbrengst: +1,65pp op het deel dat erin mag (max 1/3 van veilig = ~$830) is ~$14/jaar, op alles ~$41/jaar. NIEUWE VENUE: vraagt Barts akkoord voor er geld heen gaat.",
+      "hypothese": "Longs op de aandelen- en grondstofperps van de xyz-dex betalen structureel funding (retail wil 24/7 met hefboom long). Het echte aandeel (of goud-ETC) bij DeGiro kopen en dezelfde perp op Hyperliquid shorten int die funding zonder koersrisico: de HYPE-basis, maar met een hedge die wel bestaat.",
+      "bron": "meting 12-10, HL fundingHistory (dex xyz), 12-04 t/m 12-10 (~4.400 uur): ORCL 11,1%/jr (89% van de uren positief), AVGO 11,2% (89%), BABA 11,3% (91%), NVDA 9,1% (92%), TSM 8,0% (86%), GOLD 7,7% (96%), TSLA 5,6% (85%). Keerzijde: de dip-koper BETAALT deze funding op zijn longs ($3,06 sinds 23-07, ~5%/jr op zijn budget).",
+      "benchmark": "Aave v3 Arbitrum USDC + 2pp (marktneutraal, besluit 12-10)",
+      "volgende_stap": "Papier: (1) volledige fundinghistorie per naam sinds notering, per maand, slechtste maand; ALLEEN bull-data (xyz bestaat pas sinds eind 2025), een daling ontbreekt, dus regime-afhankelijkheid expliciet benoemen; (2) netto op kapitaal: aandeel 100% + perp-marge bij hefboom <= 2x (kapitaal ~1,5x de positie: 11% funding -> ~7% op kapitaal), DeGiro-kosten (EUR 1-3/order, AutoFX 0,25%), dividendbelasting 15% op de long, perpkosten; (3) basisrisico: perp handelt 24/7, aandeel niet (weekend- en nachtafwijking orakel vs slot); (4) margerisico: winst van de long staat bij DeGiro, niet bij HL; hoeveel buffer houdt een stijging van 40-50% uit, en hoe vaak bijstorten; (5) DeGiro heeft geen API: de long is handwerk, alleen de short wordt bewaakt. Nieuwe combinatie van venues: akkoord Bart voor geld.",
       "kaart": {
-        "wat": "Een deel van de rente naar een Morpho-vault op Hyperliquids eigen chain (HyperEVM) in plaats van Aave.",
-        "kosten": "uitzoekwerk; daarna een nieuwe venue met eigen risico (curator, orakels, brug)",
-        "opbrengst": "~$14 per jaar op een derde van de rentepot, ~$41 op alles",
-        "start": "eerst op papier; geld pas na jouw akkoord op de nieuwe venue"
+        "wat": "Een aandeel (bijv. Oracle) of goud kopen bij DeGiro en hetzelfde aandeel short zetten op Hyperliquid. De koers maakt dan niet uit; je ontvangt de vergoeding die kopers op Hyperliquid betalen.",
+        "kosten": "uitzoekwerk; daarna twee rekeningen tegelijk (DeGiro met de hand), marge op Hyperliquid",
+        "opbrengst": "onbekend; gemeten vergoeding 6-11% per jaar op de positie, naar schatting 4-7% op het kapitaal na marge en kosten, maar alleen gemeten in een stijgende markt",
+        "start": "eerst op papier over de hele historie"
+      }
+    },
+    "optiepremie_crypto": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-10-12",
+      "soort": "nieuwe_bron",
+      "hypothese": "Opties verkopen is verzekeringen verkopen: de impliciete volatiliteit ligt structureel boven de gerealiseerde (volatiliteitspremie). Gedekte calls op de BTC/ETH die we al houden, of puts met kas als dekking, innen die premie zonder richting te voorspellen, tegen het risico van harde verliezen in een crash.",
+      "bron": "MASTERPLAN bron F (optie-inkomen); mandaat verruimd 12-10 (structurele premies, ook met marktrisico, nooit voorspellen)",
+      "benchmark": "BTC/ETH vasthouden (gedekte calls) en kas + Aave (puts), beta-gecorrigeerd",
+      "volgende_stap": "Papier: (1) historische impliciete vs gerealiseerde volatiliteit BTC/ETH (Deribit DVOL, publiek) sinds 2021; (2) naspelen van maandelijkse gedekte calls en puts met kasdekking, delta ~0,2-0,3, na kosten en spreads; (3) door 2022 en maart 2020 heen: slechtste maand, maximale daling, tegen gewoon vasthouden; (4) welke venue voor een EU-particulier (Deribit; on-chain Derive/Aevo/HyperEVM) en minimumgrootte per contract; op ~$230 crypto mogelijk te klein. Nieuwe venue: akkoord Bart voor geld.",
+      "kaart": {
+        "wat": "Verzekeringen verkopen op bitcoin en ether: je krijgt elke maand een premie, en in een crash betaal je uit.",
+        "kosten": "uitzoekwerk; daarna een venue voor opties, en een minimumgrootte die mogelijk boven ons crypto-potje ligt",
+        "opbrengst": "onbekend; historisch is de premie fors, maar de klappen in een crash ook",
+        "start": "eerst op papier, door 2022 en maart 2020 heen"
+      }
+    },
+    "basis_scan_hl": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-10-12",
+      "soort": "nieuwe_bron",
+      "hypothese": "Naast HYPE zijn er munten met spot en perp op Hyperliquid waarop longs structureel funding betalen; zo'n munt is een tweede HYPE-basis op dezelfde venue met dezelfde code.",
+      "bron": "HYPE-basis live 08-10 (~6%/jr op kapitaal); BTC haalt het niet (2026 3,2%)",
+      "benchmark": "Aave v3 Arbitrum USDC + 2pp (~5,2%)",
+      "volgende_stap": "Papier: alle HL-munten met spot en perp, spot-dagvolume >= $1 mln; funding sinds notering per maand (scripts/funding_historie.py), netto op kapitaal met scripts/basis_sim.py (hefboom <= 2x, kosten in en uit). Door als: >= 5,2% op kapitaal in elk halfjaar, geen verliesmaand, niet gedragen door een maand.",
+      "kaart": {
+        "wat": "Zoeken naar een tweede munt zoals HYPE, waarop kopers op Hyperliquid structureel een vergoeding betalen.",
+        "kosten": "alleen rekenwerk; de scripts bestaan al",
+        "opbrengst": "per munt die de lat haalt ~5-7% per jaar op het kapitaal, zonder koersrisico",
+        "start": "op papier in de werkronde"
+      }
+    },
+    "basis_hype_khype": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-10-12",
+      "soort": "tweak",
+      "hypothese": "De spot-HYPE van de HYPE-basis kan via liquid staking (kHYPE) ~2% extra verdienen zonder de hedge te raken: op papier 5,7% -> 7,1% op kapitaal (2026).",
+      "bron": "scripts/basis_sim.py HYPE (06-10), variant met kHYPE-staking",
+      "benchmark": "de huidige HYPE-basis (tweak)",
+      "volgende_stap": "Papier: (1) kHYPE-koers vs HYPE sinds lancering: grootste afwijking (depeg) en hoe snel terug; (2) uitstappen: kan kHYPE binnen een dag terug naar HYPE als de basis moet afbouwen, en tegen welke kosten; (3) smart-contractrisico en audits van het protocol (Kinetiq); (4) staat kHYPE op HL-spot of alleen op HyperEVM (extra stap/brug). Geldcode: A1 voor bouw.",
+      "kaart": {
+        "wat": "De HYPE die de basis vasthoudt laten staken voor ~2% extra per jaar.",
+        "kosten": "een extra smart contract, en de kans dat kHYPE tijdelijk minder waard is dan HYPE",
+        "opbrengst": "~1,4 procentpunt extra op het kapitaal van de HYPE-basis",
+        "start": "eerst op papier"
+      }
+    },
+    "fusie_arbitrage": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-10-12",
+      "soort": "nieuwe_bron",
+      "hypothese": "Na een aangekondigde overname noteert het doelwit onder het bod; dat gat is een vergoeding voor het risico dat de deal afketst (fusie-arbitrage). Over veel deals is die premie historisch positief, zonder de richting van de markt te voorspellen.",
+      "bron": "bekende risicopremie (merger arbitrage); mandaat verruimd 12-10",
+      "benchmark": "Aave v3 Arbitrum USDC + 2pp; beta tegen WEBN meten (de premie valt weg in crashes)",
+      "volgende_stap": "Papier, later: (1) historische spreads en afketskansen van aangekondigde cash-deals (VS/EU), geannualiseerd, na kosten; (2) hoeveel deals tegelijk nodig zijn voor spreiding; op ons bedrag mogelijk te weinig; (3) uitvoering via DeGiro (handwerk). Prioriteit lager dan de basis-ideeen.",
+      "kaart": {
+        "wat": "Aandelen kopen van bedrijven die worden overgenomen, net onder het bod, en het verschil ontvangen als de overname doorgaat.",
+        "kosten": "uitzoekwerk per deal; spreiding over veel deals is nodig",
+        "opbrengst": "onbekend; per deal klein, soms een verlies als de deal afketst",
+        "start": "later op papier"
       }
     },
     "e2_micro_poging_2": {
