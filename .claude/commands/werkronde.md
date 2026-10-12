@@ -68,5 +68,7 @@ Kort: conclusie en aanbeveling. De onderbouwing staat in commit en audit.
 - Een KPI die niet te meten was overslaan in plaats van hem als bevinding te melden.
 - Geld verplaatsen omdat de ronde "af moet".
 
-## Afsluiten — de overzichtspagina bijwerken
+## Afsluiten — agenda en overzichtspagina bijwerken
+`config/agenda.json` (besluit 12-10): afgehandelde regels weg, nieuwe acties die op Bart wachten erin, met datum. Hij zit in de image, dus een wijziging vraagt een deploy — anders blijft de VM elke zaterdag om iets achterstalligs zeuren.
+
 `python scripts/overzicht.py --vm`, daarna `docs/overzicht_artifact.html` publiceren met de vaste `url` uit memory `reference_overzichtspagina`. Bart kijkt daar af en toe; de pagina is zo vers als de laatste werkronde.
