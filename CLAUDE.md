@@ -127,7 +127,7 @@ Lezen/schrijven op de VM zonder SCP: `B=$(printf '%s' "$SCRIPT" | base64 -w0); g
 |---|---|
 | Project ID | `gen-lang-client-0441524375` |
 | Region / Zone | `europe-west1` / `europe-west1-b` |
-| VM | `agent-trader-swarm-vm` — **e2-small** (0,5 vCPU, 2 GB, plus 1 GB swap). e2-micro geprobeerd 19–21-09 en teruggedraaid: de geheugenballon van de hypervisor gaf geheugendruk (eerst als apt-run gediagnosticeerd, gecorrigeerd 06-10). Tweede poging za 10-10, poort in `scripts/e2micro_poort.py`. Zie PLAN M4 |
+| VM | `agent-trader-swarm-vm` — **e2-micro sinds 19-10 20:05 UTC** (tweede poging, 1 GB + 1 GB swap), **nazorg t/m 26-10: geen deploys of hot-patches**; eindoordeel `scripts/e2micro_poort.py --vanaf 2026-10-19T20:07:30Z --tot 2026-10-26T20:07:30Z`, raakt een criterium → terug naar e2-small (0,5 vCPU, 2 GB). Poging 1 (19–21-09) strandde op de geheugenballon van de hypervisor. Zie PLAN M4 |
 | Image URI | `europe-west1-docker.pkg.dev/gen-lang-client-0441524375/agent-trader/swarm:latest` |
 | Container | `agent_trader_swarm` (canonieke compose-dir `/home/bartpersoons_gmail_com`) |
 | Ports | `8080` (dashboard) |
