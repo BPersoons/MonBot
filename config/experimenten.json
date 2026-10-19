@@ -347,19 +347,20 @@
       }
     },
     "basis_scan_hl": {
-      "status": "idee",
-      "trede": 0,
-      "sinds": "2026-10-12",
+      "status": "meet_vooruit",
+      "trede": 2,
+      "sinds": "2026-10-19",
+      "herzien": "2026-11-16",
       "soort": "nieuwe_bron",
       "hypothese": "Naast HYPE zijn er munten met spot en perp op Hyperliquid waarop longs structureel funding betalen; zo'n munt is een tweede HYPE-basis op dezelfde venue met dezelfde code.",
-      "bron": "HYPE-basis live 08-10 (~6%/jr op kapitaal); BTC haalt het niet (2026 3,2%)",
+      "bron": "scripts/basis_scan.py (19-10, na A4 r1 gecorrigeerd naar de live-parameters hefboom 1,5, band 1,0-2,0): 11 spotparen >= $1 mln/dag, 9 met een perp van dezelfde munt, kosten in en uit",
       "benchmark": "Aave v3 Arbitrum USDC + 2pp (~5,2%)",
-      "volgende_stap": "Papier: alle HL-munten met spot en perp, spot-dagvolume >= $1 mln; funding sinds notering per maand (scripts/funding_historie.py), netto op kapitaal met scripts/basis_sim.py (hefboom <= 2x, kosten in en uit). Door als: >= 5,2% op kapitaal in elk halfjaar, geen verliesmaand, niet gedragen door een maand.",
+      "volgende_stap": "PAPIER GEDAAN 19-10. Twee munten halen alle criteria (>= 5,2% in elk halfjaar, geen verliesmaand, niet gedragen door een maand, geen liquidatie): NEAR 12,9%/jr over 11-2023 t/m 10-2026, maar de laatste drie halfjaren 5,4 / 5,4 / 5,3% (op de lat); spot ONEAR $3,6 mln/dag, perp-OI ~$290 mln. XMR 17,3%/jr over 15-01 t/m 19-10-2026 (2026-H1 15,2%), elke maand positief, spot volgt de perp (p5-p95 -0,6/+0,4%, max -2,0%), spot $2,9 mln/dag; maar slechts 9 maanden, een regime. Vallen af: BTC 2026-H1 1,5%, ETH 1,8%, SOL -2,6%, PUMP 3,9%, ZEC (verliesmaand, gedragen door 08-2026), PURR (liquidatie), en HYPE zelf 2026-H1 4,5% (onder de lat; de live HYPE-basis heeft een eigen evaluatie 08-12). Bewaarrisico zit in de UITGEVER van het spottoken, niet in de vlag isCanonical (die staat ook bij HYPE op false): HYPE is native; XMR1 is van Wagyu.xyz (een swapdienst, custodiaal, geen reservebewijs gevonden, in juli 2026 stond volgens xmr.club de terugweg naar XMR stil) en betaalt dus waarschijnlijk voor dat risico; ONEAR ('NEAR Protocol', ERC-20 op HyperEVM) — uitgever en reservebewijs nog uitzoeken. Valt een spottoken weg, dan is ~2/3 van het kapitaal weg terwijl de short blijft staan. SCHADUW 19-10 t/m 16-11 (4 weken, MOTOR), geen geld, met de live-parameters: python scripts/basis_sim.py NEAR --vanaf 2026-10-19 --lev 1.5 --lev-min 1.0 --lev-max 2.0 (en XMR). DOOR (vooraf vastgelegd): per munt geannualiseerd >= 5,2% op kapitaal over het venster, en het spottoken sloot nooit > 3% onder de perp. STOP: afwijking > 3%, of de omwisseling van het token valt stil. Geld daarna alleen met reservebewijs van de uitgever en akkoord Bart (nieuwe tegenpartij), uit de proeftuin, A1/A2.",
       "kaart": {
         "wat": "Zoeken naar een tweede munt zoals HYPE, waarop kopers op Hyperliquid structureel een vergoeding betalen.",
-        "kosten": "alleen rekenwerk; de scripts bestaan al",
-        "opbrengst": "per munt die de lat haalt ~5-7% per jaar op het kapitaal, zonder koersrisico",
-        "start": "op papier in de werkronde"
+        "kosten": "alleen rekenwerk; nu vier weken gratis vooruit meten op NEAR en Monero (XMR)",
+        "opbrengst": "papier: NEAR ~13% per jaar over drie jaar maar recent net op de lat (~5,3%); XMR ~17% maar via een bewaarde Monero-munt van een kleine partij; de rest haalt de lat niet",
+        "start": "schaduw 19-10 t/m 16-11; geld pas met reservebewijs van de uitgever en jouw akkoord"
       }
     },
     "basis_hype_khype": {
@@ -395,14 +396,15 @@
       }
     },
     "e2_micro_poging_2": {
-      "status": "gepland_bouw",
+      "status": "nazorg",
       "trede": 1,
-      "sinds": "2026-10-06",
+      "sinds": "2026-10-19",
+      "herzien": "2026-10-26",
       "soort": "kosten",
       "hypothese": "De e2-micro volstaat: er is geen geheugenlek; poging 1 strandde op de geheugenballon van de hypervisor (21-09 04:42, PSI 1,01%), niet op groei of apt. Levert $81/jaar op.",
       "bron": "terugdraaiing 21-09: voetafdruk 493 MiB; apt was NIET de oorzaak (runs van 10-40 s, de piek kwam later en hield uren aan)",
       "benchmark": "e2-small ($0,503/dag)",
-      "volgende_stap": "Akkoord Bart 05-10. Volgorde: (1) meter: mem_sample.sh logt sinds 05-10 14:24 ctr_werkelijk = anon + swap - swapcached en ctr_procs (exec-sessies zichtbaar) — KLAAR, eerste meting 228 MiB; (2) beursstops dip-koper — KLAAR 06-10 (live, 6 stops geverifieerd); (3) poort VOORAF — KLAAR 06-10, A2 r3 GO: scripts/e2micro_poort.py (ctr_werkelijk < 400 MiB zonder exec, PSI < 1% per interval ook bij ballon, onmeetbaar = geraakt, swap_free > 400 MB, trend < 50 MiB/dag, geen OOM/herstart), plus 0 OOM over alle boots, 0 CYCLE_FROZEN, dashboard 200; opstartscript zonder apt; (4) verkleinen ZA 2026-10-17 (10-10 viel weg: geen sessie; verschoven door Bart 12-10, voorwaarde HYPE-basis 9 dagen zonder incident, anders 24-10), snapshot vooraf, nazorg t/m 24-10 zonder deploys; de bijgewerkte agenda (afgehandelde regels weg) deployen VOOR het verkleinen; uitvoering en terugdraaien in docs/audits/2026-10-06-e2micro.md. Raakt een criterium: terug, geen herziening.",
+      "volgende_stap": "UITGEVOERD 19-10 (maandagavond na het slot van de VS-beurzen; 17-10 viel weg, geen sessie; A4+A2 19-10 GO-mits): nazorg 7 dagen tot dezelfde tijd op 26-10, geen deploys of hot-patches in die week, geen dagelijkse controle (geen sessies), dashboard alleen bij begin en eind; eindoordeel met scripts/e2micro_poort.py --vanaf/--tot in de eerstvolgende sessie na 26-10; het venster eindigt op 26-10, ook als die sessie later komt. Waakhond of CYCLE_FROZEN tijdens de nazorg = sessie starten en terugdraaien, zonder diagnose. Verwachting vooraf: op de e2-small lag het hoogste PSI-interval al op 0,86% (19-10) en 0,98% (07-10, ballon) tegen een grens van 1%; criterium b raakt dus waarschijnlijk. Raakt een criterium: terug naar e2-small, geen herziening; raakt b, dan geen derde poging op e2-micro. Snapshot bewaren tot >= 02-11. Eerdere stappen: Akkoord Bart 05-10. Volgorde: (1) meter: mem_sample.sh logt sinds 05-10 14:24 ctr_werkelijk = anon + swap - swapcached en ctr_procs (exec-sessies zichtbaar) — KLAAR, eerste meting 228 MiB; (2) beursstops dip-koper — KLAAR 06-10 (live, 6 stops geverifieerd); (3) poort VOORAF — KLAAR 06-10, A2 r3 GO: scripts/e2micro_poort.py (ctr_werkelijk < 400 MiB zonder exec, PSI < 1% per interval ook bij ballon, onmeetbaar = geraakt, swap_free > 400 MB, trend < 50 MiB/dag, geen OOM/herstart), plus 0 OOM over alle boots, 0 CYCLE_FROZEN, dashboard 200; opstartscript zonder apt; (4) verkleinen ZA 2026-10-17 (10-10 viel weg: geen sessie; verschoven door Bart 12-10, voorwaarde HYPE-basis 9 dagen zonder incident, anders 24-10), snapshot vooraf, nazorg t/m 24-10 zonder deploys; de bijgewerkte agenda (afgehandelde regels weg) deployen VOOR het verkleinen; uitvoering en terugdraaien in docs/audits/2026-10-06-e2micro.md. Raakt een criterium: terug, geen herziening.",
       "kaart": {
         "wat": "Een kleinere, goedkopere server.",
         "kosten": "uitzoekwerk en een nieuwe meetperiode; er is geen geheugenlek (gemeten 05-10), maar of de kleine server het onder druk houdt is onbewezen",
@@ -531,15 +533,16 @@
       }
     },
     "uitschieterpotje": {
-      "status": "idee",
+      "status": "gestopt",
       "trede": 0,
-      "sinds": "2026-10-05",
+      "sinds": "2026-10-19",
       "soort": "nieuwe_bron",
       "hypothese": "Een klein, begrensd potje met veel kleine inzetten op mogelijke uitschieters (thema's, scorekaartnamen) levert via een paar grote winnaars meer op dan de kern, terwijl het verlies nooit groter wordt dan het potje (Bart 21-09: 'een deel inzetten op grote uitschieters, maar slim').",
       "bron": "Bart 21-09; scorekaart (research/, 20 namen vooruit gemeten), thema_radar_keten, dip-koper-infrastructuur",
       "benchmark": "kern (WEBN) over dezelfde periode",
-      "volgende_stap": "Terug naar trede 0 (A4-audit 05-10): de drie schaduwpotjes zijn 2-5 grote kwaliteitsnamen, geen 'veel kleine inzetten op uitschieters', en toetsen deze hypothese dus niet. Volgende stap: een eigen schaduwontwerp (bijv. 15-20 kleine posities uit scorekaart en thema's, vaste regels voor stop en laten lopen), vastgelegd vóór de start. Geen geld.",
+      "volgende_stap": "GESTOPT 19-10 (werkronde): (1) mandaat 12-10 is structurele premies innen, nooit richting voorspellen; uitschieters kiezen is voorspellen welke namen winnen; (2) wie loterij-achtige aandelen koopt, BETAALT gemiddeld een premie in plaats van er een te ontvangen (MAX-effect, Bali-Cakici-Whitelaw 2011: aandelen met de hoogste uitschieters renderen daarna lager); (3) 14 dagen op trede 0 zonder schaduwontwerp. Eerlijk: Barts wens van 21-09 ('een deel inzetten op grote uitschieters, maar slim') wordt hiermee door NIETS meer getoetst; de schaduwpotjes zijn kwaliteitsnamen en toetsen deze hypothese niet (A4 05-10). Gemeld aan Bart 19-10; zijn idee, dus hij kan het heropenen. Heropenen bij voorkeur als premie die de koper ontvangt.",
       "kaart": {
+        "kort": "Gestopt: uitschieters kiezen is richting voorspellen, en kopers van loterij-aandelen betalen gemiddeld een premie.",
         "wat": "Een klein potje met veel kleine inzetten op mogelijke uitschieters, met vaste regels.",
         "kosten": "hooguit het potje zelf (binnen de $500 proeftuin)",
         "opbrengst": "een paar grote winnaars moeten de rest goedmaken",
