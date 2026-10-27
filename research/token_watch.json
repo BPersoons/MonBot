@@ -3,18 +3,18 @@
     "Ethereum/USDC": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 2.68,
-      "pool_usd": 3955297,
+      "waarde_usd": 2.53,
+      "pool_usd": 3725122,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/USDT": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.32,
-      "pool_usd": 121351,
+      "pool_usd": 121799,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/PNKSTR": {
       "basis_levend": false,
@@ -31,7 +31,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/CWEB": {
       "basis_levend": false,
@@ -39,7 +39,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/WBTC": {
       "basis_levend": false,
@@ -47,7 +47,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/BIRBSTR": {
       "basis_levend": false,
@@ -55,15 +55,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/SHIB": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 0.43,
-      "pool_usd": 11953,
+      "waarde_usd": 0.4,
+      "pool_usd": 11347,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/DOG": {
       "basis_levend": false,
@@ -71,7 +71,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 9,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/TIPJA": {
       "basis_levend": false,
@@ -79,7 +79,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/RUNIX": {
       "basis_levend": false,
@@ -87,7 +87,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/PLANET": {
       "basis_levend": false,
@@ -95,7 +95,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/BALPHA": {
       "basis_levend": false,
@@ -103,7 +103,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/MON": {
       "basis_levend": false,
@@ -111,15 +111,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/HEX": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 424631,
+      "pool_usd": 394523,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/AUSDT": {
       "basis_levend": false,
@@ -127,15 +127,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/WETH": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 65656,
+      "pool_usd": 63033,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00",
+      "gemeten": "2026-10-27T13:00:02+00:00",
       "laatste_melding": "2026-10-22T12:48:05+00:00"
     },
     "Ethereum/cLOOKS": {
@@ -144,7 +144,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/PEP": {
       "basis_levend": false,
@@ -152,7 +152,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/Luna Community Refund (terraluna.cloud)": {
       "basis_levend": false,
@@ -160,7 +160,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/NXAN": {
       "basis_levend": false,
@@ -168,7 +168,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/FIFO": {
       "basis_levend": false,
@@ -176,7 +176,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/GMIBOT": {
       "basis_levend": false,
@@ -184,7 +184,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/VRTX": {
       "basis_levend": false,
@@ -192,7 +192,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/ANFD": {
       "basis_levend": false,
@@ -200,7 +200,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/WOOL": {
       "basis_levend": false,
@@ -208,7 +208,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/?": {
       "basis_levend": false,
@@ -216,7 +216,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/TIP": {
       "basis_levend": false,
@@ -224,7 +224,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/MWAT": {
       "basis_levend": false,
@@ -232,7 +232,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/LUFFY": {
       "basis_levend": false,
@@ -240,7 +240,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/NIFT": {
       "basis_levend": false,
@@ -248,7 +248,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/1UP": {
       "basis_levend": false,
@@ -256,7 +256,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/mbird.fun": {
       "basis_levend": false,
@@ -264,7 +264,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/YIELD": {
       "basis_levend": false,
@@ -272,7 +272,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/MORT": {
       "basis_levend": false,
@@ -280,7 +280,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/TBET": {
       "basis_levend": false,
@@ -288,7 +288,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/TAP": {
       "basis_levend": false,
@@ -296,7 +296,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/INKZ": {
       "basis_levend": false,
@@ -304,15 +304,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/KYL": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 0.0,
-      "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "waarde_usd": 0.36,
+      "pool_usd": 384,
+      "geen_paar": false,
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/MORC": {
       "basis_levend": false,
@@ -320,15 +320,15 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/INFI": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 0.0,
-      "pool_usd": 0,
-      "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "waarde_usd": 0.12,
+      "pool_usd": 20284,
+      "geen_paar": false,
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/mbBASED": {
       "basis_levend": false,
@@ -336,7 +336,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/Rainbows": {
       "basis_levend": false,
@@ -344,7 +344,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/DEX": {
       "basis_levend": false,
@@ -352,7 +352,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/Otherside Gas Refund (OTHR.claims)": {
       "basis_levend": false,
@@ -360,7 +360,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/Otherside Gas Refund (koda.family)": {
       "basis_levend": false,
@@ -368,7 +368,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/ERCAI": {
       "basis_levend": false,
@@ -376,7 +376,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/SUPERX": {
       "basis_levend": false,
@@ -384,7 +384,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/PMAI": {
       "basis_levend": false,
@@ -392,7 +392,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/SBX": {
       "basis_levend": false,
@@ -400,7 +400,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/INX": {
       "basis_levend": false,
@@ -408,7 +408,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/FOMO": {
       "basis_levend": false,
@@ -416,7 +416,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/CAI": {
       "basis_levend": false,
@@ -424,7 +424,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/MCAT": {
       "basis_levend": false,
@@ -432,7 +432,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/DAD": {
       "basis_levend": false,
@@ -448,23 +448,23 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/DOGE": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 390,
-      "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "pool_usd": 0,
+      "geen_paar": true,
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/MASK": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
       "waarde_usd": 0.0,
-      "pool_usd": 8867,
+      "pool_usd": 8863,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/WAR": {
       "basis_levend": false,
@@ -480,7 +480,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/XCHART": {
       "basis_levend": false,
@@ -488,7 +488,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/ROFLCOPTER": {
       "basis_levend": false,
@@ -496,7 +496,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/MB": {
       "basis_levend": false,
@@ -504,7 +504,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/PEPES": {
       "basis_levend": false,
@@ -512,7 +512,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/KAKA": {
       "basis_levend": false,
@@ -520,7 +520,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/ETHG": {
       "basis_levend": false,
@@ -528,7 +528,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/BEN": {
       "basis_levend": false,
@@ -536,7 +536,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/ySUSD": {
       "basis_levend": false,
@@ -544,7 +544,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/yRise": {
       "basis_levend": false,
@@ -552,7 +552,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/PBETS": {
       "basis_levend": false,
@@ -560,7 +560,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/AICC": {
       "basis_levend": false,
@@ -568,7 +568,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/LIQUID": {
       "basis_levend": false,
@@ -576,7 +576,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/REB": {
       "basis_levend": false,
@@ -584,7 +584,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/UNI-V2": {
       "basis_levend": false,
@@ -592,7 +592,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/FORG": {
       "basis_levend": false,
@@ -600,7 +600,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/RMPL": {
       "basis_levend": false,
@@ -608,7 +608,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Base/USDC": {
       "basis_levend": true,
@@ -1529,18 +1529,18 @@
     "Optimism/WETH": {
       "basis_levend": true,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 841.08,
-      "pool_usd": 157099200,
+      "waarde_usd": 851.22,
+      "pool_usd": 156744031,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Optimism/OP": {
       "basis_levend": false,
       "basis_op": "2026-08-23T13:27:18+00:00",
-      "waarde_usd": 14.44,
-      "pool_usd": 105068,
+      "waarde_usd": 14.62,
+      "pool_usd": 106539,
       "geen_paar": false,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Optimism/GRG": {
       "basis_levend": false,
@@ -1548,7 +1548,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Optimism/OPT": {
       "basis_levend": false,
@@ -1556,7 +1556,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Optimism/BEARY": {
       "basis_levend": false,
@@ -1564,7 +1564,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Arbitrum/USDC": {
       "basis_levend": false,
@@ -1636,7 +1636,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Gnosis/USDC": {
       "basis_levend": false,
@@ -1644,7 +1644,7 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     },
     "Ethereum/PVC": {
       "basis_levend": false,
@@ -1652,8 +1652,8 @@
       "waarde_usd": 0.0,
       "pool_usd": 0,
       "geen_paar": true,
-      "gemeten": "2026-10-26T13:55:57+00:00"
+      "gemeten": "2026-10-27T13:00:02+00:00"
     }
   },
-  "laatst_gedraaid": "2026-10-26T13:55:57+00:00"
+  "laatst_gedraaid": "2026-10-27T13:00:02+00:00"
 }
