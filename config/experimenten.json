@@ -520,6 +520,19 @@
         "kort": "Nasdaq, momentum en small cap value haalden de vooraf gestelde grens niet (2015-2026)."
       }
     },
+    "lage_volatiliteit": {
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-11-02",
+      "soort": "nieuwe_bron",
+      "hypothese": "Aandelen met lage beweeglijkheid leveren meer op dan hun beta zegt (bekende premie: Blitz & van Vliet 2007, Frazzini & Pedersen 2014). Een min-vol-fonds verslaat dan de index met dezelfde beta (index + kas).",
+      "bron": "research/lage_volatiliteit.py (maandrendementen 2011-2026: ACWV vs ACWI, USMV en SPLV vs SPY, kas BIL)",
+      "benchmark": "index met dezelfde beta (noordster 12-10: risicodragend tegen de index, beta-gecorrigeerd)",
+      "volgende_stap": "GESTOPT 02-11 op papier (criterium: beide helften). Over 15 jaar +1,1 tot +1,4%/jr na beta (beta 0,60-0,69, daling -17 tot -21% tegen -24 tot -26%), maar alles in 2011-2019 (+3,8 tot +4,5%/jr); 2019-2026 -1,2 tot -2,3%/jr. Absoluut 8,7-11,6% tegen 11,1-14,6% voor de index. De premie is sinds hij bekend en populair werd weg, of zit in rentegevoeligheid (laag-vol-aandelen gedragen zich als obligaties). UCITS-reeks IQQ0.DE onbetrouwbaar (vol hoger dan de index). Heropen alleen bij nieuwe data die de 2e helft weerspreekt, niet door te variëren op deze reeks.",
+      "kaart": {
+        "kort": "Het lage-volatiliteitseffect werkte tot 2019 en kost sindsdien geld."
+      }
+    },
     "crypto_vol_target": {
       "status": "gestopt",
       "trede": 1,
