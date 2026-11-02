@@ -49,6 +49,7 @@ THEMATIC_FILE = "thematic_exposure_positions.json"
 ALARM_COOLDOWN_S = 6 * 3600
 KILL_COOLDOWN_S = 24 * 3600
 ONMEETBAAR_RONDES = 3
+HERLEES_PAUZE_S = 2.0      # herlezing van het positiebestand na een halve schrijfactie
 
 USDC_ARB = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
 HL_INFO = "https://api.hyperliquid.xyz/info"
@@ -67,16 +68,25 @@ def _lees_json(pad, standaard):
         return standaard
 
 
-def _lees_dip_koper(pad=None):
+def _lees_dip_koper(pad=None, pauze_s=None):
     """(inhoud, onleesbaar). Bestaat het positiebestand maar is het onleesbaar, dan staat
     de dip-koper stil (hij weigert een leeg potje aan te nemen) en zou deze meting nul
-    open posities tellen: dat moet een alarm zijn, geen 'niets aan de hand'."""
+    open posities tellen: dat moet een alarm zijn, geen 'niets aan de hand'.
+
+    Eén herlezing na een korte pauze: de dip-koper schrijft in-place (bind mount), dus een
+    lezing midden in zijn schrijfactie ziet een leeg of half bestand. Dat gaf op 23-10 een
+    vals alarm. Een bestand dat echt kapot is, is dat bij de tweede lezing nog steeds."""
     pad = pad or THEMATIC_FILE
-    inhoud = _lees_json(pad, None)
-    geldig = isinstance(inhoud, dict) and isinstance(inhoud.get("positions", {}), dict)
-    if geldig:
-        return inhoud, False
-    return {}, bool(os.path.lexists(pad))
+    pauze_s = HERLEES_PAUZE_S if pauze_s is None else pauze_s
+    for poging in range(2):
+        inhoud = _lees_json(pad, None)
+        if isinstance(inhoud, dict) and isinstance(inhoud.get("positions", {}), dict):
+            return inhoud, False
+        if not os.path.lexists(pad):
+            return {}, False
+        if poging == 0:
+            time.sleep(pauze_s)
+    return {}, True
 
 
 def _schrijf_json(pad, data):

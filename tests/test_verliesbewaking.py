@@ -281,19 +281,46 @@ def test_dip_koper_onleesbaar_geeft_alarm(register):
 
 def test_lees_dip_koper_onderscheidt_ontbrekend_van_onleesbaar(tmp_path):
     pad = str(tmp_path / "pos.json")
-    assert vb._lees_dip_koper(pad) == ({}, False)            # nog geen bestand: geen alarm
+    assert vb._lees_dip_koper(pad, pauze_s=0) == ({}, False)   # nog geen bestand: geen alarm
     for tekst in ("", '{"positions": {"XYZ', "[]", '{"positions": []}'):
         open(pad, "w").write(tekst)
-        assert vb._lees_dip_koper(pad) == ({}, True), repr(tekst)
+        assert vb._lees_dip_koper(pad, pauze_s=0) == ({}, True), repr(tekst)
     open(pad, "w").write('{"positions": {"XYZ-NVDA": {"status": "OPEN"}}}')
-    inhoud, onleesbaar = vb._lees_dip_koper(pad)
+    inhoud, onleesbaar = vb._lees_dip_koper(pad, pauze_s=0)
     assert onleesbaar is False and "XYZ-NVDA" in inhoud["positions"]
+
+
+def test_lees_dip_koper_herleest_na_een_halve_schrijfactie(tmp_path, monkeypatch):
+    """23-10 23:15: de bewaking las het bestand terwijl de dip-koper het in-place schreef
+    (leeg) en meldde een vals alarm. Is het bij de herlezing heel, dan is er niets aan de hand."""
+    pad = str(tmp_path / "pos.json")
+    open(pad, "w").write("")                                     # midden in de schrijfactie
+    pauzes = []
+
+    def schrijver_klaar(s):
+        pauzes.append(s)
+        open(pad, "w").write('{"positions": {"XYZ-MU": {"status": "OPEN"}}}')
+
+    monkeypatch.setattr(vb.time, "sleep", schrijver_klaar)
+    inhoud, onleesbaar = vb._lees_dip_koper(pad)
+    assert onleesbaar is False and "XYZ-MU" in inhoud["positions"]
+    assert pauzes == [vb.HERLEES_PAUZE_S] and vb.HERLEES_PAUZE_S > 0
+
+
+def test_lees_dip_koper_blijft_kapot_is_alarm_na_een_herlezing(tmp_path, monkeypatch):
+    pad = str(tmp_path / "pos.json")
+    open(pad, "w").write('{"positions": {"XYZ')
+    pauzes = []
+    monkeypatch.setattr(vb.time, "sleep", pauzes.append)
+    assert vb._lees_dip_koper(pad) == ({}, True)
+    assert len(pauzes) == 1, "precies één herlezing, geen eindeloze lus"
 
 
 def test_lees_metingen_geeft_de_onleesbaar_vlag_door(register, tmp_path, monkeypatch):
     """De helper alleen toetsen is niet genoeg: de regel die de vlag in de metingen zet,
     moet zelf rood kunnen worden (audit ronde 2, bev. a)."""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(vb, "HERLEES_PAUZE_S", 0)
     monkeypatch.setattr(vb, "_veilig", lambda fn, *a: None)          # geen netwerk
     open(vb.THEMATIC_FILE, "w").write("")                            # half geschreven
     assert vb.lees_metingen(register, nu=NU)["dip_koper_onleesbaar"] is True

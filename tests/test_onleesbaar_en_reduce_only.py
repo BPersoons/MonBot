@@ -5,6 +5,7 @@
 - kasbeheer: het sluiten van de harvest-short (BUY) ging zonder reduceOnly; bestaat de short
   niet meer, dan opent zo'n order een long.
 """
+import json
 import os
 import sys
 from types import SimpleNamespace
@@ -42,6 +43,35 @@ def test_sleeve_nav_stelt_snapshot_uit_bij_onleesbare_dip_koper(tmp_path, monkey
 
     monkeypatch.setattr(sn.SleeveNAV, "_thematic_exposure_value", staticmethod(lambda: None))
     assert nav.compute_sleeves() is None, "onleesbare dip-koper moet de snapshot uitstellen"
+
+
+def _snapshot_nav(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(exist_ok=True)
+    nav = sn.SleeveNAV.__new__(sn.SleeveNAV)
+    nav.config = dict(sn._DEFAULT_CONFIG, sleeves=["yield_core"])
+    monkeypatch.setattr(nav, "compute_sleeves", lambda: ({"yield_core": 100.0}, {}))
+    monkeypatch.setattr(nav, "_eur_rate", lambda state: 1.1)
+    return nav
+
+
+def test_sleeve_nav_begint_een_reeks_als_het_bestand_ontbreekt(tmp_path, monkeypatch):
+    """Controle op de opzet van de toets hieronder: zonder bestand komt er een snapshot."""
+    nav = _snapshot_nav(tmp_path, monkeypatch)
+    assert nav.snapshot_if_new_day() is not None
+    data = json.loads((tmp_path / sn.STATE_FILE).read_text())
+    assert len(data["history"]) == 1 and data["history"][0]["total_usd"] == 100.0
+
+
+def test_sleeve_nav_overschrijft_een_onleesbare_reeks_niet(tmp_path, monkeypatch):
+    """A1 12-10 (buiten scope, PLAN punt 6): een onleesbaar bestand werd een lege historie
+    en de volgende snapshot schreef één regel over de hele potjesreeks heen."""
+    nav = _snapshot_nav(tmp_path, monkeypatch)
+    for tekst in ('{"history": [{"date": "2026-07-05", "sleeves"', "", "[]", '{"history": "x"}',
+                  '{"geen": []}'):
+        (tmp_path / sn.STATE_FILE).write_text(tekst)
+        assert nav.snapshot_if_new_day() is None, repr(tekst)
+        assert (tmp_path / sn.STATE_FILE).read_text() == tekst, "reeks overschreven: %r" % tekst
 
 
 def test_harvest_sluiten_is_reduce_only():

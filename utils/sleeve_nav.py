@@ -54,15 +54,23 @@ class SleeveNAV:
             logger.warning(f"sleeves.json niet leesbaar ({e}) — defaults actief")
 
     # ── state ────────────────────────────────────────────────────────────
-    def _load_state(self) -> dict:
+    def _load_state(self):
+        """Ontbreekt het bestand, dan begint de reeks leeg. Bestaat het maar is het
+        onleesbaar of geen geldige reeks, dan None: de snapshot schrijft dan niets, want
+        een lege historie wegschrijven wist de hele potjesreeks (de basis onder H1 en H3;
+        A1 12-10). De verliesbewaking meldt daarna 'geen NAV-snapshot'."""
         try:
             with open(STATE_FILE) as f:
                 data = json.load(f)
-                if isinstance(data, dict) and isinstance(data.get("history"), list):
-                    return data
-        except Exception:
-            pass
-        return {"history": []}
+        except FileNotFoundError:
+            return {"history": []}
+        except Exception as e:
+            logger.error(f"{STATE_FILE} onleesbaar ({e}) — snapshot overgeslagen, reeks blijft staan")
+            return None
+        if isinstance(data, dict) and isinstance(data.get("history"), list):
+            return data
+        logger.error(f"{STATE_FILE} heeft geen geldige reeks — snapshot overgeslagen, bestand blijft staan")
+        return None
 
     def _save_state(self, state: dict) -> None:
         state["history"] = state["history"][-MAX_HISTORY:]
@@ -326,6 +334,8 @@ class SleeveNAV:
         """Neem max één snapshot per UTC-dag. Returns rapport-tekst of None."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         state = self._load_state()
+        if state is None:
+            return None
         if state["history"] and state["history"][-1].get("date") == today:
             return None
         computed = self.compute_sleeves()
