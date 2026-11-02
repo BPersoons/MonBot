@@ -2,11 +2,12 @@
 
 Werk op de VM kan zelf doorlopen, maar een sessie, een overboeking of een besluit wacht op
 Bart. Op 2026-10-10 viel daardoor de geplande verkleining van de VM weg: niemand startte
-de sessie. Daarom een vaste werkronde op zaterdag, en een bericht op de dag dat iets
-vervalt.
+de sessie. Daarom een vaste werkronde, en een bericht op de dag dat iets vervalt. Sinds
+2026-11-02 start de werkronde zelf (dinsdag 09:00, Taakplanner op Barts pc,
+`scripts/werkronde_gepland.ps1`); zaterdag blijft het weekoverzicht van wat op Bart wacht.
 
 Bron: `config/agenda.json` (zit in de image). Dezelfde lijst voedt de overzichtspagina.
-- zaterdag: werkronde-bericht met alles wat binnen 7 dagen vervalt of achterstallig is;
+- zaterdag: alles wat binnen 7 dagen vervalt of achterstallig is, anders niets;
 - andere dagen: alleen wat vandaag vervalt, anders niets.
 
 `main.py` roept dit aan direct na de dagelijkse potjes-snapshot, dus hooguit één bericht
@@ -40,9 +41,9 @@ def herinnering(vandaag: date, items: list):
     if vandaag.weekday() == ZATERDAG:
         grens = vandaag + timedelta(days=7)
         relevant = [i for i in items if i["datum"] <= grens]
-        regels = ["*Werkronde vandaag* — start een sessie en zeg \"werkronde\"."]
-        if relevant:
-            regels.append("Op de agenda:")
+        if not relevant:
+            return None
+        regels = ["*Wat deze week op jou wacht:*"]
         for i in relevant:
             if i["datum"] < vandaag:
                 wanneer = "achterstallig sinds %s" % i["datum"].strftime("%d-%m")

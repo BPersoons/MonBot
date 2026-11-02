@@ -1,4 +1,5 @@
-"""Agenda-herinnering (besluit 2026-10-12): zaterdag werkronde, anders alleen de vervaldag."""
+"""Agenda-herinnering (besluit 2026-10-12, bijgesteld 2026-11-02): zaterdag het weekoverzicht,
+anders alleen de vervaldag. De werkronde zelf start via de Taakplanner."""
 import json
 import os
 import sys
@@ -18,10 +19,11 @@ ITEMS = [
 ]
 
 
-def test_zaterdag_geeft_werkronde_met_week_en_achterstand():
+def test_zaterdag_geeft_week_en_achterstand():
     tekst = agenda.herinnering(date(2026, 10, 17), ITEMS)
     assert date(2026, 10, 17).weekday() == agenda.ZATERDAG
-    assert "Werkronde vandaag" in tekst
+    assert tekst.startswith("*Wat deze week op jou wacht:*")
+    assert "sessie" not in tekst, "de werkronde start sinds 02-11 zelf (Taakplanner)"
     assert "Oud (achterstallig sinds 03-10)" in tekst
     assert "Woensdag (achterstallig sinds 14-10)" in tekst
     assert "Zaterdag (vandaag) — u2" in tekst, "wat vandaag vervalt krijgt de uitleg erbij"
@@ -30,8 +32,9 @@ def test_zaterdag_geeft_werkronde_met_week_en_achterstand():
     assert "Ver weg" not in tekst
 
 
-def test_zaterdag_zonder_items_meldt_toch_de_werkronde():
-    assert "Werkronde vandaag" in agenda.herinnering(date(2026, 10, 17), [])
+def test_zaterdag_zonder_items_is_stil():
+    assert agenda.herinnering(date(2026, 10, 17), []) is None
+    assert agenda.herinnering(date(2026, 10, 17), ITEMS[-1:]) is None, "alleen verder dan 7 dagen = stil"
 
 
 def test_doordeweeks_alleen_de_vervaldag():

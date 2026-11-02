@@ -170,3 +170,6 @@ sleeve_harness_cache_*.json
 
 # Stand van de VM voor de overzichtspagina (bevat saldi)
 vm_snapshot.json
+
+# geplande werkronde (scripts/werkronde_gepland.ps1)
+logs/werkronde/

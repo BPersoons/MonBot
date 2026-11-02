@@ -5,7 +5,25 @@ controleerbaar (plan 2026-09-15, S5). **Voert alleen uit wat binnen het plan en 
 alles daarbuiten wordt een vraag aan Bart.**
 
 ## Arguments
-`$ARGUMENTS` — optioneel: `kort` (stap 1–4, geen audit), default = volledig.
+`$ARGUMENTS` — optioneel: `kort` (stap 1–4, geen audit), `gepland` (volledig, zonder mens —
+zie onder), `rooktest` (alleen stap 1, voor de test van de taakplanner). Default = volledig.
+
+## Zonder mens: `gepland` en `rooktest`
+Sinds 2026-11-02 draait de werkronde elke dinsdag om 09:00 vanzelf op Barts pc
+(`scripts/werkronde_gepland.ps1`, Taakplanner-taak `AgentTrader-werkronde`). Niemand leest mee
+en niemand beantwoordt vragen. Daarom:
+- Wat Barts toestemming vraagt (stap 7, laatste punt) doe je **niet**: het komt in je eindbericht.
+  Een echte overboeking draai je nooit zelf; zet het script klaar en meld het.
+- Weigert de permissiecontrole een actie: niet omheen werken. Noteer het en ga door. Een
+  geweigerde deploy of containerherstart (gebeurde 02-11 bij een hot-patch) is `MELDEN: ja`, met
+  het commando erbij zodat Bart het met `!` kan draaien of een sessie kan starten.
+- Git: het script deed al `git pull --ff-only`. Stage alleen bestanden die je zelf wijzigde
+  (nooit `git add -A`), commit als "Werkronde DD-MM (gepland): …", dan
+  `git pull --rebase --autostash` en `push`.
+- Je **laatste bericht** is voor het script: eerste regel precies `MELDEN: ja` of `MELDEN: nee`,
+  daarna hooguit 8 regels gewone taal (conclusie + aanbeveling). `ja` alleen bij de criteria van
+  stap 7; het script stuurt die regels dan via Telegram. Bij `nee` gaat er niets naar Bart.
+- `rooktest`: alleen stap 1, niets wijzigen, eindig met `MELDEN: nee` en één regel uitkomst.
 
 ---
 
