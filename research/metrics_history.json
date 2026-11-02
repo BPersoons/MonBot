@@ -8,8 +8,8 @@
       "revenue_usd": 773689000.0
     },
     "2025-09": {
-      "eps": 1.84,
-      "fcf_quarter_usd": 338888000.0,
+      "eps": 2.14,
+      "fcf_quarter_usd": 284713000.0,
       "gross_profit_usd": 1048872000.0,
       "operating_income_usd": 367982000.0,
       "revenue_usd": 1249026000.0
@@ -34,6 +34,13 @@
       "gross_profit_usd": 992497000.0,
       "operating_income_usd": 231441000.0,
       "revenue_usd": 1290948000.0
+    },
+    "2026-09": {
+      "eps": 15.72,
+      "fcf_quarter_usd": 271153000.0,
+      "gross_profit_usd": 1096336000.0,
+      "operating_income_usd": 345798000.0,
+      "revenue_usd": 1458086000.0
     }
   },
   "AMSC": {
@@ -267,6 +274,13 @@
     },
     "2026-06": {
       "eps": 1.19
+    },
+    "2026-09": {
+      "eps": 1.61,
+      "fcf_quarter_usd": 95545000.0,
+      "gross_profit_usd": 244870000.0,
+      "operating_income_usd": 95386000.0,
+      "revenue_usd": 599333000.0
     }
   },
   "LDOS": {
@@ -489,6 +503,13 @@
       "gross_profit_usd": 73012000.0,
       "operating_income_usd": 27902000.0,
       "revenue_usd": 212681000.0
+    },
+    "2026-09": {
+      "eps": 3.56,
+      "fcf_quarter_usd": 10130000.0,
+      "gross_profit_usd": 70002000.0,
+      "operating_income_usd": 24897000.0,
+      "revenue_usd": 209501000.0
     }
   },
   "SEB": {
