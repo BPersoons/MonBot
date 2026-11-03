@@ -40,8 +40,8 @@ INSTRUMENT = "WEBN.DE"
 CONTROLE = "IWDA.AS"
 VENSTER = 10
 EERSTE_VOORUIT = "2026-09"
-# Pas True na de poort van 03-11 en een expliciet besluit van Bart (docs/besluiten.md).
-# Tot dan is een omslag informatie over de schaduwmeting, geen opdracht.
+# Besluit Bart 03-11: geen regel (docs/besluiten.md). Blijft False; de workflow meet stil
+# door zonder Telegram. Pas True na een heropening van uitstapregel_crash én een nieuw besluit.
 ADVIES = False
 ONMEETBAAR_NA_DAG = 5
 
