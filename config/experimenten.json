@@ -73,7 +73,7 @@
       "status": "gepland",
       "trede": 1,
       "sinds": "2026-09-19",
-      "volgende_stap": "HLP-APR 3,75% (19-09), maand 6,7%: ver onder de ~8% waarop M5 gebouwd is. Opnieuw wegen als HLP aanhoudend boven ~6% staat.",
+      "volgende_stap": "Stand 03-11 (werkronde): HLP 30 dagen +0,045% (~0,5%/jr geannualiseerd), 7 dagen -0,21%, vault-APR -0,09% (vaultDetails); lat Aave + 3pp ~5,7%. Poort 07-11 wordt gemeten in de werkronde van 10-11, als het venster dicht is. Vooraf vastgelegd (audit 03-11): lat = gemiddelde Aave v3 Arbitrum USDC-APY over het venster + 3pp (hypothese 19-09; ligt boven de noordster-lat Aave + 2pp); venster 10-10 00:00 t/m 07-11 00:00 UTC uit pnlHistory/accountValueHistory, niet de 'month'-reeks op 10-11; haalt hij hem niet, dan blijft dit gepland zonder inleg. Eerder: HLP-APR 3,75% (19-09), maand 6,7%: ver onder de ~8% waarop M5 gebouwd is. Opnieuw wegen als HLP aanhoudend boven ~6% staat.",
       "mijlpaal": "M5",
       "hypothese": "HLP levert over 4 weken geannualiseerd >= benchmark + 3pp bij een drawdown <= 5%.",
       "start_inleg_usd": 500,
@@ -163,7 +163,7 @@
       "status": "live",
       "trede": 3,
       "sinds": "2026-09-20",
-      "volgende_stap": "Besluit Bart 05-10: doorgaan op $255 zonder opschalen; herzien op 22-12. Grond: 60 dagen +10,5% tegen +1,6% voor dezelfde namen vasthouden, maar 16 jaar met herbeleggen = de Nasdaq-100 (+1.672% vs +1.666%); geen aangetoond structureel voordeel. Kost niets extra (VM draait toch voor kasbeheer). Op 22-12: resultaat per naam uit HL-fills (scripts/dipkoper_resultaat.py) tegen QQQ over dezelfde periode.",
+      "volgende_stap": "Besluit Bart 05-10: doorgaan op $255 zonder opschalen; herzien op 22-12. Grond: 60 dagen +10,5% tegen +1,6% voor dezelfde namen vasthouden, maar 16 jaar met herbeleggen = de Nasdaq-100 (+1.672% vs +1.666%); geen aangetoond structureel voordeel. Kost niets extra (VM draait toch voor kasbeheer). Op 22-12: resultaat per naam uit HL-fills (scripts/dipkoper_resultaat.py) tegen QQQ over dezelfde periode. Daarbij ook de divergentie-stempel evalueren (_divergence_stempel in utils/thematic_exposure_lab.py): de drie posities met ok=False (CRWV -$11,99, ORCL -$11,70, BABA open -$6,63) waren alle drie verliezers, samen ~$30, meer dan het H1-tekort van Q4; n=3 en padafhankelijk (audit 03-11).",
       "hypothese": "Index-achtig rendement; geen extra kapitaal (besluit 2026-09-15). Evaluatie 2026-09-25.",
       "alarm": {
         "drawdown_pct": 15.0
@@ -315,15 +315,16 @@
       }
     },
     "basis_aandelen_degiro": {
-      "status": "idee",
-      "trede": 0,
-      "sinds": "2026-10-12",
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-11-03",
       "soort": "nieuwe_bron",
       "hypothese": "Longs op de aandelen- en grondstofperps van de xyz-dex betalen structureel funding (retail wil 24/7 met hefboom long). Het echte aandeel (of goud-ETC) bij DeGiro kopen en dezelfde perp op Hyperliquid shorten int die funding zonder koersrisico: de HYPE-basis, maar met een hedge die wel bestaat.",
       "bron": "meting 12-10, HL fundingHistory (dex xyz), 12-04 t/m 12-10 (~4.400 uur): ORCL 11,1%/jr (89% van de uren positief), AVGO 11,2% (89%), BABA 11,3% (91%), NVDA 9,1% (92%), TSM 8,0% (86%), GOLD 7,7% (96%), TSLA 5,6% (85%). Keerzijde: de dip-koper BETAALT deze funding op zijn longs ($3,06 sinds 23-07, ~5%/jr op zijn budget).",
       "benchmark": "Aave v3 Arbitrum USDC + 2pp (marktneutraal, besluit 12-10)",
-      "volgende_stap": "Papier: (1) volledige fundinghistorie per naam sinds notering, per maand, slechtste maand; ALLEEN bull-data (xyz bestaat pas sinds eind 2025), een daling ontbreekt, dus regime-afhankelijkheid expliciet benoemen; (2) netto op kapitaal: aandeel 100% + perp-marge bij hefboom <= 2x (kapitaal ~1,5x de positie: 11% funding -> ~7% op kapitaal), DeGiro-kosten (EUR 1-3/order, AutoFX 0,25%), dividendbelasting 15% op de long, perpkosten; (3) basisrisico: perp handelt 24/7, aandeel niet (weekend- en nachtafwijking orakel vs slot); (4) margerisico: winst van de long staat bij DeGiro, niet bij HL; hoeveel buffer houdt een stijging van 40-50% uit, en hoe vaak bijstorten; (5) DeGiro heeft geen API: de long is handwerk, alleen de short wordt bewaakt. Nieuwe combinatie van venues: akkoord Bart voor geld.",
+      "volgende_stap": "GESTOPT 03-11 (werkronde gepland) na papierstap 1, 2 en 4 (research/aandelen_basis.py). (1) Funding is echt maar alleen in een stijgende markt gemeten (xyz sinds 11-2025, AVGO sinds 06-2026): 6,6-10,7%/jr op de positie (AAPL 2,2%), 83-91% van de uren positief, slechtste hele maand meestal +1,4 tot +8%, maar TSM 04-2026 -19% en AAPL drie negatieve maanden. (2) Op kapitaal na een rondgang (DeGiro 2 x EUR 2, AutoFX 2 x 0,25%, perp 2 x 0,045%), lat Aave 90d + 2pp = 4,95%: bij 1x marge hooguit de lat (AVGO/GOOGL 5,0% op $5.000), bij 2x zes van de tien erboven (5,1-6,7% op $5.000). (4) Doorslaggevend, het margerisico: de grootste stijging binnen 3 maanden sinds 2010 is 46-218% (ORCL 103, NVDA 113, AVGO 92, BABA 90, TSLA 218; goud 34%), binnen 12 maanden 82-1122%. De short liquideert rond +45% (2x) of +90% (1x). De hedge staat op twee rekeningen: bij een stijging staat de winst bij DeGiro en het verlies bij HL. Met 'nooit geld uit DeGiro' kan aanvullen alleen uit Aave, en een NVDA-achtige stijging vraagt een reserve groter dan de positie; met die reserve als kapitaal zakt het onder de lat. Stap 3 en 5 niet meer nodig. HEROPENEN als: de long en de short dezelfde onderpand-pot delen (zie basis_aandelen_token), OF Bart overboekingen DeGiro -> HL toestaat voor deze hedge. Keerzijde blijft staan: de dip-koper betaalt deze funding op zijn longs.",
       "kaart": {
+        "kort": "Gestopt: de vergoeding is er (7-11% per jaar), maar de hedge staat op twee rekeningen. Stijgt het aandeel hard, dan moet Hyperliquid bijgevuld worden terwijl de winst vastzit bij DeGiro.",
         "wat": "Een aandeel (bijv. Oracle) of goud kopen bij DeGiro en hetzelfde aandeel short zetten op Hyperliquid. De koers maakt dan niet uit; je ontvangt de vergoeding die kopers op Hyperliquid betalen.",
         "kosten": "uitzoekwerk; daarna twee rekeningen tegelijk (DeGiro met de hand), marge op Hyperliquid",
         "opbrengst": "onbekend; gemeten vergoeding 6-11% per jaar op de positie, naar schatting 4-7% op het kapitaal na marge en kosten, maar alleen gemeten in een stijgende markt",
@@ -365,15 +366,16 @@
       }
     },
     "basis_hype_khype": {
-      "status": "idee",
+      "status": "gestopt",
       "trede": 0,
-      "sinds": "2026-10-12",
+      "sinds": "2026-11-03",
       "soort": "tweak",
       "hypothese": "De spot-HYPE van de HYPE-basis kan via liquid staking (kHYPE) ~2% extra verdienen zonder de hedge te raken: op papier 5,7% -> 7,1% op kapitaal (2026).",
       "bron": "scripts/basis_sim.py HYPE (06-10), variant met kHYPE-staking",
       "benchmark": "de huidige HYPE-basis (tweak)",
-      "volgende_stap": "Papier: (1) kHYPE-koers vs HYPE sinds lancering: grootste afwijking (depeg) en hoe snel terug; (2) uitstappen: kan kHYPE binnen een dag terug naar HYPE als de basis moet afbouwen, en tegen welke kosten; (3) smart-contractrisico en audits van het protocol (Kinetiq); (4) staat kHYPE op HL-spot of alleen op HyperEVM (extra stap/brug). Geldcode: A1 voor bouw.",
+      "volgende_stap": "GESTOPT 03-11 (werkronde gepland, 22 dagen op trede 0) op omvang, niet op de premie: +1,4pp op het kapitaal van de HYPE-basis ($115) is ~$1,60 per jaar, tegen een extra smart contract en depeg-risico op de poot die bij een kill binnen een dag moet kunnen afbouwen. Zelfde afweging als Fluid (+$13/jaar, gestopt door Bart 05-10). De HYPE-basis zelf is nog niet geëvalueerd (12-08 tot 01-08). HEROPENEN als de HYPE-basis zijn evaluatie haalt EN het kapitaal zo groot wordt dat +1,4pp >= $25 per jaar oplevert (~$1.800). Dan de vier papiervragen: (1) kHYPE vs HYPE sinds lancering, grootste depeg en hersteltijd; (2) binnen een dag terug naar HYPE, tegen welke kosten; (3) contractrisico en audits (Kinetiq); (4) op HL-spot of alleen HyperEVM. Geldcode: A1.",
       "kaart": {
+        "kort": "Gestopt: ~$1,60 per jaar extra op de huidige HYPE-basis is een extra contract niet waard. Terug als de basis groter wordt.",
         "wat": "De HYPE die de basis vasthoudt laten staken voor ~2% extra per jaar.",
         "kosten": "een extra smart contract, en de kans dat kHYPE tijdelijk minder waard is dan HYPE",
         "opbrengst": "~1,4 procentpunt extra op het kapitaal van de HYPE-basis",
@@ -394,6 +396,22 @@
         "kosten": "uitzoekwerk per deal; spreiding over veel deals is nodig",
         "opbrengst": "onbekend; per deal klein, soms een verlies als de deal afketst",
         "start": "later op papier"
+      }
+    },
+    "basis_aandelen_token": {
+      "status": "idee",
+      "trede": 0,
+      "sinds": "2026-11-03",
+      "soort": "nieuwe_bron",
+      "hypothese": "Dezelfde funding als basis_aandelen_degiro (6,6-10,7%/jr op de positie, longs op de xyz-dex betalen), maar met de long als getokeniseerd aandeel in een eigen wallet naast Hyperliquid in plaats van bij DeGiro. Dan delen long en short een onderpand-pot (brug in minuten), en kan de marge in een rally uit de winst van de long komen in plaats van uit een reserve. Kapitaal ~1,5x de positie bij 2x: op papier 5,1-6,7% bij zes van de tien namen, maar dat geldt bij posities van $5.000 met DeGiro-kosten; op proeftuinomvang ($500) en met token-, brug- en swapkosten is het niet doorgerekend.",
+      "bron": "research/aandelen_basis.py (03-11); stopreden van basis_aandelen_degiro",
+      "benchmark": "Aave v3 Arbitrum USDC + 2pp (marktneutraal, besluit 12-10)",
+      "volgende_stap": "Papier: (1) welke getokeniseerde aandelen mag een NL-particulier in een eigen wallet houden (bijv. xStocks van Backed, Ondo Global Markets), op welke keten, met een brug naar HL of op HL-spot zelf; (2) uitgever, bewaring en reservebewijs, en of je kunt inwisselen voor het aandeel of alleen verkopen; dit is een nieuwe tegenpartij (les XMR1/Wagyu: het bewaarrisico zit bij de uitgever); (3) spread en diepte van de token tegen de xyz-perpkoers, ook buiten beurstijden; (4) dividend: krijgt de token het door; (5) de fundingtabel van research/aandelen_basis.py opnieuw met de kosten van de token, op $500 en op $5.000; (6) precedent basis_xyz_goud (gestopt 12-10): token + brug + 0,3% swap gaf 3,7-4,5% op kapitaal, onder de lat; die kosten eerst. Geld: nieuwe venue en tegenpartij, dus akkoord Bart, A1/A2.",
+      "kaart": {
+        "wat": "Hetzelfde als de aandelen-basis: een aandeel kopen en tegelijk short zetten op Hyperliquid. Alleen is het gekochte aandeel een token in onze eigen wallet, niet een aandeel bij DeGiro, zodat beide kanten bij elkaar staan.",
+        "kosten": "uitzoekwerk; daarna een nieuwe partij die het token uitgeeft en het echte aandeel bewaart",
+        "opbrengst": "onbekend; de vergoeding is 7-11% per jaar op de positie (gemeten, alleen in een stijgende markt), op papier 5-7% op het kapitaal",
+        "start": "eerst op papier: wie geeft het token uit, en mag jij het hebben"
       }
     },
     "e2_micro_poging_2": {
@@ -464,13 +482,13 @@
       "hypothese": "Een uitstapregel (Faber, 10-maandsgemiddelde) beschermt het wereldindexfonds (WEBN) tegen trage, diepe crashes: 'we moeten niet oneindig uitzitten' (Bart, 21-09).",
       "bron": "research/uitstapregel.py (VS 1927-2026), research/uitstapregel_wereld.py (buiten de VS en Europa 1991-2026), research/uitstapsignaal.py (schaduw, GitHub Actions), research/uitstap_signaal.json",
       "benchmark": "de markt vasthouden",
-      "volgende_stap": "Papier (na audit 21-09, eerlijk): een VERZEKERING TEGEN TRAGE CRASHES, geen beter beleggen. Met 2008 erin verlaagt de regel de diepste daling met een kwart tot ruim de helft, ook tegen een vaste mix met dezelfde blootstelling (2007-2026: x0,44 VS tot x0,74 Europa; ex-US 25% tegen 42%). Zonder zo'n crash (2010-2026) wint de mix: 1,4-2,9pp per jaar meer bij een ongeveer gelijke daling. De enige toets in euro's (IWDA 2010-2026, ons soort fonds) haalt criterium 1 NIET: 9,0% tegen 12,4% per jaar, daling x0,65 (grens x0,60). De VS-toets haalde zijn eigen rendementsgrens niet (-1,8pp); buiten de VS is pas 2007+ nieuw (EAFE zat in Fabers steekproef). Schaduw loopt sinds 21-09 (research/uitstapsignaal.py, meldt SCHADUW — GEEN ACTIE). Poort 03-11: (1) sep- en okt-slot vooruit vastgelegd met dezelfde STAND als de DeGiro-koers zou geven; (2) besluit aan Bart tussen de regel (verzekering: bij een 2008-achtige crash ~18-33% daling tegen 41-44% voor de mix, maar in gewone jaren ~1,5-3pp per jaar duurder) en een vaste mix van ~75% WEBN / 25% geldmarkt (altijd minder diep dan 100% WEBN, geen signalen, maar in een trage crash dieper dan de regel). Pas daarna ADVIES = True.",
-      "herzien": "2026-11-03",
+      "volgende_stap": "POORT 03-11 (werkronde gepland): (1) GEHAALD: 2026-09 en 2026-10 vooruit vastgelegd (teruggerekend=false, research/uitstap_signaal.json), beide 'in' met controle IWDA ook 'in'; slot 13,074 / 13,02 tegen gemiddelde 12,068 / 12,248 = +8,3% / +6,3%, dus een andere notering bij DeGiro (centen) kan de stand niet omdraaien. (2) BIJ BART (gemeld in de sessie van 03-11; de geplande Telegram viel weg doordat de pc om 09:56 in slaap ging). Advies bouwer, na audit r1 03-11 gecorrigeerd (de eerste versie vergeleek het geheel zonder regel met de kern met regel): beide op het niveau van het geheel ($5.337 op 03-11, ~50% risicodragend: kern 37%, GRID 4%, dip-koper 4,5%, crypto 4%) kost een 2008-achtige crash ZONDER regel ~28-30% en MET de regel op de kern ~15-20%. De regel is dus een echte verzekering: ~$500-750 minder verlies per trage crash, tegen ~$30-60 per jaar (1,5-3pp op 37% = 0,55-1,1pp op het geheel); bij een zo'n crash per 15-20 jaar ongeveer quitte. Advies blijft: geen regel. Doorslaggevend: de enige toets in euro's (IWDA 2010-2026, ons soort fonds) haalde criterium 1 niet (daling x0,65 tegen grens x0,60, 9,0% tegen 12,4% per jaar), en de regel betaalt alleen in een trage crash. De knop is de verhouding kern/veilig (kern-doel 40%, besluit 12-10). Voorbehouden: (a) dit geldt zolang het risicodeel <= ~55% van het geheel blijft; met kern 40% plus een risicodeel tot 20% kan het ~60% worden (dan ~34% daling); (b) de veilige helft is USDC in DeFi, geen geldmarktfonds (depeg naar $0,87 bij SVB 03-2023, opnamestop bij 100% benutting) en mag niet naar fiat (besluit 18-08), dus in een bankencrisis draagt die helft een eigen staartrisico. ADVIES blijft False tot Barts besluit; de schaduw kost niets en mag doorlopen. Open (audit 03-11): het september-slot in uitstap_signaal.json is van 29-09 (13,074), niet van 30-09 (13,094), omdat maandsloten() de laatste beschikbare dag neemt; zonder gevolg voor deze poort (marge 8%), maar repareren voordat ADVIES ooit True wordt. Eerder: Papier (na audit 21-09, eerlijk): een VERZEKERING TEGEN TRAGE CRASHES, geen beter beleggen. Met 2008 erin verlaagt de regel de diepste daling met een kwart tot ruim de helft, ook tegen een vaste mix met dezelfde blootstelling (2007-2026: x0,44 VS tot x0,74 Europa; ex-US 25% tegen 42%). Zonder zo'n crash (2010-2026) wint de mix: 1,4-2,9pp per jaar meer bij een ongeveer gelijke daling. De enige toets in euro's (IWDA 2010-2026, ons soort fonds) haalt criterium 1 NIET: 9,0% tegen 12,4% per jaar, daling x0,65 (grens x0,60). De VS-toets haalde zijn eigen rendementsgrens niet (-1,8pp); buiten de VS is pas 2007+ nieuw (EAFE zat in Fabers steekproef). Schaduw loopt sinds 21-09 (research/uitstapsignaal.py, meldt SCHADUW — GEEN ACTIE). Poort 03-11: (1) sep- en okt-slot vooruit vastgelegd met dezelfde STAND als de DeGiro-koers zou geven; (2) besluit aan Bart tussen de regel (verzekering: bij een 2008-achtige crash ~18-33% daling tegen 41-44% voor de mix, maar in gewone jaren ~1,5-3pp per jaar duurder) en een vaste mix van ~75% WEBN / 25% geldmarkt (altijd minder diep dan 100% WEBN, geen signalen, maar in een trage crash dieper dan de regel). Pas daarna ADVIES = True.",
+      "herzien": "2026-11-10",
       "kaart": {
         "wat": "Een maandelijks signaal voor je wereldindexfonds: zakt WEBN onder zijn gemiddelde van 10 maanden, dan uitstappen naar een geldmarktfonds.",
         "waarom_hier": "Loopt mee zonder geld om te zien of het signaal in de praktijk werkt. Een omslag wordt gemeld, maar is nog geen advies.",
-        "volgende": "Op 3 november kies jij: deze regel (verzekering tegen trage crashes) of een vaste mix van 75% WEBN en 25% geldmarkt.",
-        "wanneer": "2026-11-03",
+        "volgende": "Jij kiest: wel of geen regel. Bij een crash als 2008 scheelt de regel ~$500-750 (het geheel ~15-20% omlaag in plaats van ~28-30%); hij kost ~$30-60 per jaar. Advies: geen regel, want de enige toets in euro's haalde hem niet; de verhouding kern/veilig is de knop. Let op: de veilige helft is USDC, geen geldmarktfonds.",
+        "wanneer": "open",
         "uitstap": "Het signaal slaat om als WEBN op een maandslot onder zijn gemiddelde zakt.",
         "meter": {
           "bron": "uitstap_webn",
