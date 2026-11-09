@@ -8,7 +8,7 @@
       "revenue_usd": 773689000.0
     },
     "2025-09": {
-      "eps": 2.14,
+      "eps": 1.84,
       "fcf_quarter_usd": 284713000.0,
       "gross_profit_usd": 1048872000.0,
       "operating_income_usd": 367982000.0,
@@ -78,6 +78,13 @@
       "gross_profit_usd": 24726000.0,
       "operating_income_usd": 1717000.0,
       "revenue_usd": 94073000.0
+    },
+    "2026-09": {
+      "eps": 0.06,
+      "fcf_quarter_usd": 28780000.0,
+      "gross_profit_usd": 26530000.0,
+      "operating_income_usd": 4028000.0,
+      "revenue_usd": 94038000.0
     }
   },
   "CHKP": {
@@ -90,7 +97,7 @@
     },
     "2025-09": {
       "eps": 3.28,
-      "fcf_quarter_usd": 225800000.0,
+      "fcf_quarter_usd": 234700000.0,
       "gross_profit_usd": 589000000.0,
       "operating_income_usd": 199100000.0,
       "revenue_usd": 677500000.0
@@ -115,6 +122,13 @@
       "gross_profit_usd": 574100000.0,
       "operating_income_usd": 185100000.0,
       "revenue_usd": 673600000.0
+    },
+    "2026-09": {
+      "eps": 1.82,
+      "fcf_quarter_usd": 257900000.0,
+      "gross_profit_usd": 571700000.0,
+      "operating_income_usd": 177200000.0,
+      "revenue_usd": 669800000.0
     }
   },
   "CHRW": {
@@ -154,6 +168,13 @@
     },
     "2026-06": {
       "eps": 1.56
+    },
+    "2026-09": {
+      "eps": 1.67,
+      "fcf_quarter_usd": 106580000.0,
+      "gross_profit_usd": 448133000.0,
+      "operating_income_usd": 271807000.0,
+      "revenue_usd": 5358060000.0
     }
   },
   "DOCU": {
@@ -235,6 +256,13 @@
       "gross_profit_usd": 750861000.0,
       "operating_income_usd": 44395000.0,
       "revenue_usd": 911740000.0
+    },
+    "2026-09": {
+      "eps": 1.67,
+      "fcf_quarter_usd": 162070000.0,
+      "gross_profit_usd": 782885000.0,
+      "operating_income_usd": 72888000.0,
+      "revenue_usd": 947565000.0
     }
   },
   "ITRI": {
@@ -295,7 +323,7 @@
       "eps": 2.82,
       "fcf_quarter_usd": 680000000.0,
       "gross_profit_usd": 821000000.0,
-      "operating_income_usd": 535000000.0,
+      "operating_income_usd": 531000000.0,
       "revenue_usd": 4469000000.0
     },
     "2025-12": {
@@ -318,6 +346,13 @@
       "gross_profit_usd": 817000000.0,
       "operating_income_usd": 534000000.0,
       "revenue_usd": 4558000000.0
+    },
+    "2026-09": {
+      "eps": 3.28,
+      "fcf_quarter_usd": 476000000.0,
+      "gross_profit_usd": 820000000.0,
+      "operating_income_usd": 558000000.0,
+      "revenue_usd": 4630000000.0
     }
   },
   "LEA": {
@@ -355,6 +390,13 @@
       "gross_profit_usd": 470300000.0,
       "operating_income_usd": 267900000.0,
       "revenue_usd": 6209400000.0
+    },
+    "2026-09": {
+      "eps": 2.74,
+      "fcf_quarter_usd": 158400000.0,
+      "gross_profit_usd": 382300000.0,
+      "operating_income_usd": 197000000.0,
+      "revenue_usd": 5773000000.0
     }
   },
   "LEU": {
@@ -380,7 +422,7 @@
       "revenue_usd": 146200000.0
     },
     "2026-03": {
-      "eps": 0.51,
+      "eps": 0.45,
       "fcf_quarter_usd": -58300000.0,
       "gross_profit_usd": 31500000.0,
       "operating_income_usd": 800000.0,
@@ -392,6 +434,13 @@
       "gross_profit_usd": 49900000.0,
       "operating_income_usd": 10400000.0,
       "revenue_usd": 176100000.0
+    },
+    "2026-09": {
+      "eps": 1.41,
+      "fcf_quarter_usd": -126000000.0,
+      "gross_profit_usd": -10600000.0,
+      "operating_income_usd": -29700000.0,
+      "revenue_usd": 55500000.0
     }
   },
   "NTCT": {
@@ -466,6 +515,13 @@
       "gross_profit_usd": 1011472000.0,
       "operating_income_usd": 338559000.0,
       "revenue_usd": 1349026000.0
+    },
+    "2026-09": {
+      "eps": 0.64,
+      "fcf_quarter_usd": 138517000.0,
+      "gross_profit_usd": 905528000.0,
+      "operating_income_usd": 284101000.0,
+      "revenue_usd": 1236634000.0
     }
   },
   "PLPC": {
@@ -549,6 +605,13 @@
       "gross_profit_usd": 221000000.0,
       "operating_income_usd": 100000000.0,
       "revenue_usd": 2922000000.0
+    },
+    "2026-09": {
+      "eps": 29.23,
+      "fcf_quarter_usd": 165000000.0,
+      "gross_profit_usd": 132000000.0,
+      "operating_income_usd": 13000000.0,
+      "revenue_usd": 2771000000.0
     }
   },
   "TTD": {
