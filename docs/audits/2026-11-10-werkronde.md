@@ -113,3 +113,6 @@ Nagerekend door de auditor: HLP-poort (0,494%/jr, lat 5,657%, besluit klopt), Q4
 - 3 verwerkt: de grens is 26 uur, zodat ook een dagritme niet vals alarmeert; een afkapping van minder dan een dag kost ~$0,04.
 - 4 verwerkt (delta groter, mutant rood). 6 verwerkt. 7 verwerkt: veld geschrapt. 8 verwerkt, met toets.
 - 5 **open:** cooldown ongetoetst en geen doorbraak bij 5pp dieper; de dip-koper heeft zijn stops, het alarm stuurt niets aan.
+
+## Deploy (10-11)
+**Niet uitgevoerd.** CI groen op `7d5e1f2`, `predeploy.py` groen, A1 r2-voorwaarden verwerkt. `deploy.ps1` stopte in de pre-flight bij `check_connections`, vóór de build: in de geplande omgeving mist de venv Supabase en Secret Manager en de systeem-Python `ccxt`. Productie is niet aangeraakt. Niet omzeild met een hot-patch: nieuwe bestanden en config in de image horen volgens CLAUDE.md bij een full deploy. Tot die deploy schrijft de VM H1 nog met de oude definitie en stuurt de agenda nog de LDOS-regel.
