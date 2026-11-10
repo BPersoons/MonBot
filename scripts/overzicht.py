@@ -271,6 +271,31 @@ def _llama(pools, project):
     return max(kand, key=lambda p: p.get("tvlUsd") or 0) if kand else None
 
 
+def hlp_30d(maand):
+    """(%/jaar over de maandreeks, idem zonder de grootste en de kleinste stap). Tijdgewogen.
+
+    Strenger dan de poort, die alle stappen telt. Niet het `apr`-veld van HL: dat sprong op
+    08-11 door één stap van +1,5% naar 25%, een dag nadat de poort over vier weken op 0,5%
+    was uitgekomen. De kaart eist "een maand lang". Aan beide kanten trimmen: HLP verdient
+    juist met uitschieters, dus alleen de winststap schrappen zou hem structureel te laag
+    meten (A2 10-11).
+    """
+    av = [float(v) for _, v in maand["accountValueHistory"]]
+    pn = [float(v) for _, v in maand["pnlHistory"]]
+    t = [int(x) for x, _ in maand["pnlHistory"]]
+    stappen = [(pn[i] - pn[i - 1]) / av[i - 1] for i in range(1, len(pn)) if av[i - 1] > 0]
+    if len(stappen) < 20:
+        raise ValueError("te weinig punten in de HLP-maandreeks")
+    dagen = (t[-1] - t[0]) / 86400000.0
+
+    def per_jaar(reeks):
+        groei = 1.0
+        for s in reeks:
+            groei *= 1.0 + s
+        return (groei - 1.0) * 100.0 * 365.0 / dagen
+    return per_jaar(stappen), per_jaar(sorted(stappen)[1:-1])
+
+
 def _funding_apr(coin, dagen=30):
     import time
     start = int((time.time() - dagen * 86400) * 1000)
@@ -330,9 +355,10 @@ def meters(vm, schaduw_potjes, uitstap):
     veilig("fluid_spread", spread)
 
     def hlp():
-        apr = float(_hl({"type": "vaultDetails", "vaultAddress": HLP})["apr"]) * 100
-        return {"nu": round(apr, 2), "grens": round(aave + 3, 2) if aave else None,
-                "info": ("Aave nu %.1f%%" % aave) if aave else ""}
+        d = _hl({"type": "vaultDetails", "vaultAddress": HLP})
+        alles, getrimd = hlp_30d(dict(d["portfolio"])["month"])
+        return {"nu": round(getrimd, 2), "grens": round(aave + 3, 2) if aave else None,
+                "info": "met alle stappen %.1f%%%s" % (alles, (" · Aave nu %.1f%%" % aave) if aave else "")}
     veilig("hlp_apr", hlp)
 
     def basis():

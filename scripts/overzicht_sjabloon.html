@@ -295,7 +295,7 @@ function samenvatting(){
     <p class="klein" style="margin:.2rem 0 0;color:var(--zacht)">${verschil >= 0 ? usd(verschil) + " erbij" : usd(-verschil) + " eraf"} in 30 dagen (koersen en rente)</p>
     <ul>${groepen.map(([g,w]) => `<li><span><i class="stip" style="background:${kleur(g)}"></i>${esc(lab[g] || g)}</span><span>${usd(w)}</span></li>`).join("")}</ul></div>`;
   const kaart2 = `<div class="kaart-k"><h2>Ligt het op koers?</h2><ul>
-    <li><span>Verdient het project meer dan het kost?</span><span>${h1 ? oordeel(h1.doel_gehaald, "ja", "nog niet") + `<br><small>${h1.dagen} dagen: ${usd(h1.opbrengst_usd)} erin, ${usd(h1.kosten_usd)} kosten</small>` : "onbekend"}</span></li>
+    <li><span>Verdient het project meer dan het kost?</span><span>${h1 && h1.netto_usd != null ? oordeel(h1.doel_gehaald, "ja", "nog niet") + `<br><small>${h1.dagen} dagen: ${usd(h1.opbrengst_usd)} erin, ${usd(h1.kosten_usd)} kosten</small>` : "onbekend"}</span></li>
     <li><span>Rente beter dan gewoon Aave?</span><span>${h2 ? oordeel(h2.doel_gehaald, "ja", "nog niet") + `<br><small>${nl(h2.rendement_jaar_pct,1)}% tegen ${nl(h2.aave_apy_pct,1)}% per jaar</small>` : "onbekend"}</span></li>
     <li><span>Veilig? (verlies, bewaking, metingen)</span><span>${k.h3 ? oordeel(veilig, "in orde", "let op") : "onbekend"}</span></li>
     </ul></div>`;
@@ -526,7 +526,7 @@ function signalen(){
       <div class="meter" aria-hidden="true"><div class="meter-nul"></div><div class="meter-punt" style="left:${pos}%"></div></div><div class="meter-as"><span>20% eronder: uit</span><span>gemiddelde</span><span>20% erboven</span></div>
       <p class="klein" style="margin-top:.7rem">Loopt mee tot 3 november: een omslag wordt gemeld, maar is nog geen advies.</p></div>`);
   }
-  const doelen = [["Opbrengst hoger dan de kosten", k.h1], ["Beheerde potjes 2 procentpunt boven Aave", k.h2], ["Verlies van experimenten onder $250", k.h3], ["Een verlies binnen 10 minuten gezien", k.h4], ["Meting zonder gaten", k.h5]];
+  const doelen = [["Opbrengst hoger dan de kosten", k.h1 && k.h1.netto_usd != null ? k.h1 : null], ["Beheerde potjes 2 procentpunt boven Aave", k.h2], ["Verlies van experimenten onder $250", k.h3], ["Een verlies binnen 10 minuten gezien", k.h4], ["Meting zonder gaten", k.h5]];
   uit.push(`<div class="vlak"><div class="kaart-kop"><h3>Doelen voor 31 december</h3></div><table style="margin-top:.6rem"><tbody>${doelen.map(([n,d]) => `<tr><td>${esc(n)}</td><td class="r">${d==null?'<span class="pil zacht">onbekend</span>':d.doel_gehaald?'<span class="pil goed">gehaald</span>':'<span class="pil letop">nog niet</span>'}</td></tr>`).join("")}</tbody></table></div>`);
   const d = sc.dichtst;
   uit.push(`<div class="vlak"><div class="kaart-kop"><h3>Scorekaart</h3><span class="pil zacht">afrekenen feb 2027</span></div>

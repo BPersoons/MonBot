@@ -138,3 +138,21 @@ Poorten slagen, geen `?`, geen dimensie op `1`, waardering 4. **Naar de vier cri
 **Uitkomst:** volgens de regel is LDOS nu **KOOPBAAR**. Aan de prijsvoorwaarde is voldaan en er is geen these-breuk aangetoond. **Advies: wachten tot de Q3-cijfers van 3 november.** Dat kwartaal meet precies het beslissende getal (de operationele marge), de verwachtingen dalen, en het zorgsegment is niet geanalyseerd. Een gemiste winnaar kost een kans, een gekochte verliezer kost geld. Na 03-11 volgt `/scorecard LDOS rescore`.
 
 Bronnen: yfinance (koers, schattingen en sectorgenoten op 2026-10-05) · [BofA-downgrade, juni 2026](https://www.investing.com/news/analyst-ratings/bofa-cuts-leidos-stock-rating-on-healthcare-portfolio-pressure-93CH-4746958) · [Quiver: begrotingsrisico en het zorgsegment](https://www.quiverquant.com/news/Leidos+Falls+as+Investors+Weigh+Budget+Exposure+and+Health+Segment+Overhang)
+
+## Tussentijdse toets 2026-11-10: Q3 is binnen, koopvraag vervalt
+
+*Koers $135,76, weer boven de wachtprijs van $120. Dit is geen herscoring: alleen de wachtvoorwaarden en de these-breuken tegen het persbericht van 03-11.*
+
+| Toets | Stand |
+|---|---|
+| Operationele marge >= 12,0%, twee kwartalen | **Niet gehaald.** Q3 11,9% (553 / 4.630), Q2 11,7% |
+| Koers < ~$120 | **Niet meer.** $135,76 |
+| Operationele marge < 10,5% | nee, 11,9% |
+| Book-to-bill twee kwartalen < 1,0 | nee, Q3 1,2, laatste twaalf maanden 1,1 |
+| FY-guidance verlaagd | **gemengd.** Omzet $18,0-18,2 mrd (was 18,2-18,4), EPS $12,50-12,70 (was 12,20-12,50), kasstroom ~$1,90 mrd (was ~1,85). De verlaging volgt op de joint venture van 05-10 |
+| Netto schuld/EBITDA > 3,0x | niet opnieuw berekend |
+| Groot contract verloren | **open.** MHS GENESIS loopt door via een overbruggingscontract van 12 maanden ($318 mln, zonder aanbesteding); Health-omzet -12%, Health-marge 22,5% (was 26,8%) |
+
+**Uitkomst:** terug naar VOLGEN; geen koopvraag aan Bart. De organische groei was maar 0,6% en de vrije kasstroom daalde ($476 mln tegen $680 mln). De volledige herscoring (`/scorecard LDOS rescore`) staat nog open.
+
+Bron: [Leidos 8-K Q3 2026, SEC](https://www.sec.gov/Archives/edgar/data/0001336920/000133692026000290/ldos100226q3pressreleaseex.htm) · koers Yahoo 2026-11-10

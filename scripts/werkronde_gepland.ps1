@@ -88,6 +88,13 @@ Schrijf ('START modus=' + $modus + ' repo=' + $Repo)
 $pull = (& git -C $Repo pull --ff-only 2>&1 | Out-String).Trim()
 Schrijf ('git pull: ' + $pull)
 
+# Pc wakker houden zolang de ronde loopt: op 03-11 viel hij om 09:56 midden in de review in
+# slaap. Geldt voor deze thread en vervalt vanzelf als dit script eindigt.
+# 0x80000003 = ES_CONTINUOUS + ES_SYSTEM_REQUIRED + ES_DISPLAY_REQUIRED: deze pc heeft Modern
+# Standby (S0), daar kan alleen ES_SYSTEM_REQUIRED tekort schieten zodra het scherm uitgaat.
+Add-Type -Namespace AgentTrader -Name Slaap -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint esFlags);'
+if ([AgentTrader.Slaap]::SetThreadExecutionState([uint32]2147483651) -eq 0) { Schrijf 'WAKKER HOUDEN mislukt' }
+
 $exe = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
 $argumenten = '-p "/werkronde ' + $modus + '" --output-format stream-json --verbose --permission-mode auto --permission-prompts none'
 Schrijf ('claude ' + $argumenten)

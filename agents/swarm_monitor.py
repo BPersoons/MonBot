@@ -1295,7 +1295,7 @@ class SwarmMonitor:
         alert_key = "thematic_wallet_drawdown"
         last_sent = self._sent_alerts.get(alert_key)
         now = datetime.now(timezone.utc)
-        if last_sent and (now - last_sent).total_seconds() < DRAWDOWN_ALERT_COOLDOWN_SEC:
+        if last_sent and (now - last_sent).total_seconds() < self.THEMATIC_DRAWDOWN_ALERT_COOLDOWN_SEC:
             return
         self._sent_alerts[alert_key] = now
         self._send_telegram(
@@ -1316,6 +1316,9 @@ class SwarmMonitor:
     # key (agent/API wallets cannot transfer funds) — so this is flag-only.
     THEMATIC_XYZ_MIN_COLLATERAL = 65.0        # one T1 tranche (per_name_budget * 0.20)
     THEMATIC_XYZ_ALERT_COOLDOWN_SEC = 12 * 3600
+    # Eén keer per dag: het alarm blijft waar tot Bart beslist; zes per dag zei niets extra's
+    # (47 berichten tussen 02-11 en 10-11).
+    THEMATIC_DRAWDOWN_ALERT_COOLDOWN_SEC = 24 * 3600
 
     # Check 23: dagelijks herinneren is genoeg — dit is een "ga iets regelen"-alarm,
     # geen incident. Te vaak sturen leidt tot wegkijken.

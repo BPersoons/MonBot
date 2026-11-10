@@ -35,11 +35,11 @@ def test_h1_h2_flowgecorrigeerd_met_de_hand(register):
     # Kosten horen bij de BEGINdatum van het interval (snapshot om 00:05 = gisteren).
     kosten = {"2026-09-10": 0.44, "2026-09-11": 0.44}
     aave = {"2026-09-11": 2.5, "2026-09-12": 2.7}
-    dip = {"2026-09-11": 20.0, "2026-09-12": 23.5}
+    dip = {"2026-09-10": 20.0, "2026-09-11": 20.0, "2026-09-12": 23.5}
     uit = kpi.bereken(hist, stromen, register, kosten, aave, dip, {}, "2026-09-12")
     h1, h2 = uit["h1"], uit["h2"]
     assert h1["per_potje_usd"]["yield_core"] == 2.0
-    assert h1["dip_koper_gerealiseerd_usd"] == 3.5
+    assert h1["dip_koper_netto_usd"] == 3.5
     assert h1["opbrengst_usd"] == 5.5 and h1["kosten_usd"] == 0.88
     assert h1["netto_usd"] == 4.62 and h1["doel_gehaald"] and h1["voorlopig"]
     # r1 = 1/1000, r2 = 1/(1001 + 250) ; groei over 2 dagen, geannualiseerd
@@ -159,8 +159,139 @@ def test_h5_telt_gaten_vanaf_de_eerste_meting(register):
     assert not uit["h5"]["doel_gehaald"]
 
 
+def _ms(iso):
+    from datetime import datetime, timezone
+    return int(datetime.fromisoformat(iso).replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+
+EEN_FUNDING = [{"time": 1788998400000, "delta": {"type": "funding", "coin": "xyz:A", "usdc": "0"}}]
+
+
+def _hl_nep(fills=(), funding=EEN_FUNDING):
+    """Vervangt alleen het netwerk: de hele keten erboven blijft echt."""
+    def post(body):
+        if body["type"] == "clearinghouseState":
+            return {"assetPositions": []}
+        return list(fills if body["type"] == "userFillsByTime" else funding)
+    return post
+
+
+def _dip_omgeving(monkeypatch, post):
+    from utils import dip_netto
+    import utils.gcp_secrets as sec
+    monkeypatch.setattr(dip_netto, "_post", post)
+    monkeypatch.setattr(dip_netto, "HERHAAL_PAUZE_SEC", 0)
+    monkeypatch.setattr(sec, "get_secret", lambda naam, *a, **k: "0xtest")
+
+
+def _aave_bekend(tmp_path):
+    (tmp_path / "treasury_state.json").write_text(json.dumps({"opportunities": [
+        {"protocol_config": {"id": "aave-v3-arbitrum-usdc"}, "apy": 2.5}]}), encoding="utf-8")
+
+
+def test_dip_koper_telt_netto_uit_hyperliquid_niet_uit_het_boek(tmp_path, monkeypatch, register):
+    """Rood zodra fees, funding of de bron (HL i.p.v. eigen boek) terugvalt."""
+    from datetime import datetime, timezone
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "sleeve_nav.json").write_text(json.dumps(
+        {"history": [_snap(0, yield_core=1000.0), _snap(1, yield_core=1000.0),
+                     _snap(2, yield_core=1000.0)]}), encoding="utf-8")
+    (tmp_path / "cost_log.json").write_text(json.dumps(
+        {"history": {"2026-09-10": {"total_cost_usd": 0.5}, "2026-09-11": {"total_cost_usd": 0.5}}}),
+        encoding="utf-8")
+    # Het eigen boek zegt +99: mag H1 niet bereiken.
+    (tmp_path / "thematic_exposure_positions.json").write_text(
+        json.dumps({"realized_pnl_usd": 99.0}), encoding="utf-8")
+    monkeypatch.setattr(kpi, "REGISTER_FILE", os.path.join(REPO, "config", "experimenten.json"))
+    fills = [{"time": _ms("2026-09-10T12:00:00"), "closedPnl": "10.0", "fee": "0.25", "tid": 1},
+             {"time": _ms("2026-09-11T12:00:00"), "closedPnl": "-4.0", "fee": "0.25", "tid": 2}]
+    funding = [{"time": _ms("2026-09-10T13:00:00"), "delta": {"type": "funding", "usdc": "-1.0"}},
+               {"time": _ms("2026-09-11T13:00:00"), "delta": {"type": "funding", "usdc": "-0.5"}}]
+    _dip_omgeving(monkeypatch, _hl_nep(fills, funding))
+    _aave_bekend(tmp_path)
+    regel = kpi.update_kpi(nu=datetime(2026, 9, 12, 0, 10, tzinfo=timezone.utc),
+                           kpi_pad=str(tmp_path / "data" / "kpi.json"))
+    # (10 - 0,25 - 1) + (-4 - 0,25 - 0,5) = 8,75 - 4,75 = 4,00 over BEIDE dagen van het venster
+    assert regel["h1"]["dip_koper_netto_usd"] == 4.0
+    assert regel["h1"]["opbrengst_usd"] == 4.0 and regel["h1"]["netto_usd"] == 3.0
+    assert regel["dip_gerealiseerd_usd"] == 99.0     # het boek blijft alleen ter vergelijking
+    assert regel["h5"]["doel_gehaald"]
+
+
+def test_dip_koper_onbereikbaar_is_onmeetbaar_geen_nul(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "sleeve_nav.json").write_text(json.dumps(
+        {"history": [_snap(0, yield_core=1000.0), _snap(1, yield_core=1001.0)]}), encoding="utf-8")
+    (tmp_path / "cost_log.json").write_text(json.dumps(
+        {"history": {"2026-09-10": {"total_cost_usd": 0.5}}}), encoding="utf-8")
+    monkeypatch.setattr(kpi, "REGISTER_FILE", os.path.join(REPO, "config", "experimenten.json"))
+
+    def stuk(body):
+        raise OSError("HL onbereikbaar")
+    _dip_omgeving(monkeypatch, stuk)
+    _aave_bekend(tmp_path)
+    regel = kpi.update_kpi(nu=datetime(2026, 9, 11, 0, 10, tzinfo=timezone.utc),
+                           kpi_pad=str(tmp_path / "data" / "kpi.json"))
+    h1 = regel["h1"]
+    assert h1["netto_usd"] is None and h1["opbrengst_usd"] is None and h1["dip_koper_netto_usd"] is None
+    assert not h1["doel_gehaald"]
+    assert "dip_koper_netto" in regel["h5"]["onmeetbaar"] and not regel["h5"]["doel_gehaald"]
+    # De rente hangt niet af van HL: H2 blijft staan.
+    assert regel["h2"]["verschil_pp"] is not None
+
+
+def test_dip_venster_begint_bij_de_beginsnapshot(register):
+    """Zonder dit valt de eerste dag van het venster weg (de oude fout: 84 van 85 dagen)."""
+    hist = [_snap(0, yield_core=1000.0), _snap(1, yield_core=1000.0), _snap(2, yield_core=1000.0)]
+    kosten = {"2026-09-10": 0.5, "2026-09-11": 0.5}
+    dip = {"2026-09-10": 0.0, "2026-09-11": 7.0, "2026-09-12": 9.0}
+    uit = kpi.bereken(hist, [], register, kosten, {}, dip, {}, "2026-09-12")
+    assert uit["h1"]["dip_koper_netto_usd"] == 9.0
+
+
+def test_nan_in_het_boek_blokkeert_de_kpi_niet(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "sleeve_nav.json").write_text(json.dumps(
+        {"history": [_snap(0, yield_core=1000.0), _snap(1, yield_core=1000.0)]}), encoding="utf-8")
+    (tmp_path / "cost_log.json").write_text(json.dumps(
+        {"history": {"2026-09-10": {"total_cost_usd": 0.5}}}), encoding="utf-8")
+    (tmp_path / "thematic_exposure_positions.json").write_text('{"realized_pnl_usd": NaN}', encoding="utf-8")
+    monkeypatch.setattr(kpi, "REGISTER_FILE", os.path.join(REPO, "config", "experimenten.json"))
+    _dip_omgeving(monkeypatch, _hl_nep())
+    regel = kpi.update_kpi(nu=datetime(2026, 9, 11, 0, 10, tzinfo=timezone.utc),
+                           kpi_pad=str(tmp_path / "data" / "kpi.json"))
+    assert regel["dip_gerealiseerd_usd"] is None and regel["h1"]["netto_usd"] is not None
+
+
+def test_dag_zonder_kosten_telt_ook_niet_voor_de_dip_koper(register):
+    """Rood bij een verschil van eerste tot laatste dag: dan telt de winst van de gat-dag mee."""
+    hist = [_snap(0, yield_core=1000.0), _snap(1, yield_core=1000.0), _snap(2, yield_core=1000.0),
+            _snap(3, yield_core=1000.0)]
+    kosten = {"2026-09-10": 0.5, "2026-09-12": 0.5}     # 09-11 ontbreekt
+    dip = {"2026-09-10": 0.0, "2026-09-11": 1.0, "2026-09-12": 10.0, "2026-09-13": 12.0}
+    h1 = kpi.bereken(hist, [], register, kosten, {}, dip, {}, "2026-09-13")["h1"]
+    assert h1["dagen"] == 2 and h1["kosten_usd"] == 1.0
+    assert h1["dip_koper_netto_usd"] == 3.0     # 1 + 2, zonder de +9 van de gat-dag
+
+
+def test_reeks_met_een_ontbrekende_datum_is_onmeetbaar(register):
+    """De oude fout: een reeks die later begint dan het venster gaf stil te weinig."""
+    hist = [_snap(0, yield_core=1000.0), _snap(1, yield_core=1000.0), _snap(2, yield_core=1000.0)]
+    kosten = {"2026-09-10": 0.5, "2026-09-11": 0.5}
+    uit = kpi.bereken(hist, [], register, kosten, {}, {"2026-09-11": 2.0, "2026-09-12": 9.0}, {}, "2026-09-12")
+    assert uit["h1"]["netto_usd"] is None and uit["h1"]["opbrengst_usd"] is None
+    assert uit["h1"]["dip_koper_netto_usd"] is None and not uit["h1"]["doel_gehaald"]
+    assert "dip_koper_reeks:2026-09-11" in uit["h5"]["onmeetbaar"]
+
+
 def test_kosten_blijven_bewaard_als_cost_log_ze_kwijt_is(tmp_path, monkeypatch):
     from datetime import datetime, timezone
+    _dip_omgeving(monkeypatch, _hl_nep())
     monkeypatch.chdir(tmp_path)
     (tmp_path / "data").mkdir()
     (tmp_path / "data" / "sleeve_nav.json").write_text(json.dumps(

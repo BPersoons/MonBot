@@ -3,8 +3,8 @@
   "items": [
     {"datum": "2026-10-17", "vraag": "Kern bijstorten: ~16 stuks WEBN",
      "uitleg": "Stort ~€175 op DeGiro en koop ~16 WEBN (met de €41 kas). Brengt de kern van 37% naar 40%. Daarna in een sessie: /boek-order. Al gekocht? Geef aantal en prijs door, dan verdwijnt deze regel."},
-    {"datum": "2026-11-03", "vraag": "LDOS kopen bij de broker?",
-     "uitleg": "Zakte onder de wachtprijs ($117 < $120) en is volgens de regels koopbaar, maar de verwachtingen dalen en de kwartaalcijfers van 3 november meten precies het twijfelpunt. Advies: wachten tot dan."},
+    {"datum": "2026-11-17", "vraag": "Dip-koper: herbeoordeling naar voren halen?",
+     "uitleg": "Staat ~20% onder zijn top ($292 op 22-09), boven de alarmgrens van 15%. Vier stops in dit kwartaal kostten $46,64, tegen $8,24 aan rente en basis samen. Advies: de vergelijking met de Nasdaq-100 van 22-12 naar de werkronde van 17-11 halen. Akkoord of niet? Zo niet, dan blijft het 22-12."},
     {"datum": "2026-12-22", "vraag": "Dip-koper: doorgaan?",
      "uitleg": "Herbeoordeling na een kwartaal: verdient hij meer dan de Nasdaq-100 over dezelfde periode, gecorrigeerd voor beta?"}
   ]

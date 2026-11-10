@@ -72,8 +72,8 @@
       "sleeve": "house",
       "status": "gepland",
       "trede": 1,
-      "sinds": "2026-09-19",
-      "volgende_stap": "Stand 03-11 (werkronde): HLP 30 dagen +0,045% (~0,5%/jr geannualiseerd), 7 dagen -0,21%, vault-APR -0,09% (vaultDetails); lat Aave + 3pp ~5,7%. Poort 07-11 wordt gemeten in de werkronde van 10-11, als het venster dicht is. Vooraf vastgelegd (audit 03-11): lat = gemiddelde Aave v3 Arbitrum USDC-APY over het venster + 3pp (hypothese 19-09; ligt boven de noordster-lat Aave + 2pp); venster 10-10 00:00 t/m 07-11 00:00 UTC uit pnlHistory/accountValueHistory, niet de 'month'-reeks op 10-11; haalt hij hem niet, dan blijft dit gepland zonder inleg. Eerder: HLP-APR 3,75% (19-09), maand 6,7%: ver onder de ~8% waarop M5 gebouwd is. Opnieuw wegen als HLP aanhoudend boven ~6% staat.",
+      "sinds": "2026-11-10",
+      "volgende_stap": "POORT 07-11 NIET GEHAALD, blijft gepland zonder inleg (gemeten 10-11, werkronde gepland, afspraak audit 03-11). Venster: de maandreeks van 10-11, afgesneden op 10-10 22:56 t/m 06-11 20:42 UTC (26,9 dagen; afwijking van de afspraak 'niet de month-reeks', want de allTime-reeks heeft maar een punt per ~13 dagen): tijdgewogen +0,036% = 0,49%/jr, grootste daling 0,31%. Lat: gemiddelde Aave 2,657% (kpi.json, 29 dagen) + 3pp = 5,66%. De daling haalt de grens (5%), het rendement ruim niet. NA het venster: +1,51% in een enkele stap op 08-11 (30 dagen nu 17%/jr, vault-APR 25%); valt buiten de poort en is niet 'aanhoudend'; zonder de grootste en kleinste stap +2,65%/jr. De meter op de overzichtspagina meet sinds 10-11 de 30 dagen zonder grootste en kleinste stap: strenger dan de poort. TVL zakte van $174 mln (26-10) naar $149 mln. Opnieuw wegen als die meter een volle maand boven Aave + 3pp staat (lat ongewijzigd); M5 b en c blijven dan eerst nodig. Eerder: Stand 03-11 (werkronde): HLP 30 dagen +0,045% (~0,5%/jr geannualiseerd), 7 dagen -0,21%, vault-APR -0,09% (vaultDetails); lat Aave + 3pp ~5,7%. Poort 07-11 wordt gemeten in de werkronde van 10-11, als het venster dicht is. Vooraf vastgelegd (audit 03-11): lat = gemiddelde Aave v3 Arbitrum USDC-APY over het venster + 3pp (hypothese 19-09; ligt boven de noordster-lat Aave + 2pp); venster 10-10 00:00 t/m 07-11 00:00 UTC uit pnlHistory/accountValueHistory, niet de 'month'-reeks op 10-11; haalt hij hem niet, dan blijft dit gepland zonder inleg. Eerder: HLP-APR 3,75% (19-09), maand 6,7%: ver onder de ~8% waarop M5 gebouwd is. Opnieuw wegen als HLP aanhoudend boven ~6% staat.",
       "mijlpaal": "M5",
       "hypothese": "HLP levert over 4 weken geannualiseerd >= benchmark + 3pp bij een drawdown <= 5%.",
       "start_inleg_usd": 500,
@@ -98,11 +98,11 @@
       "kaart": {
         "wat": "Geld in de HLP-vault van Hyperliquid: die verdient aan het handelen van anderen (market-making).",
         "waarom_hier": "Staat klaar, maar de opbrengst is nu te laag voor het risico.",
-        "volgende": "Starten als HLP een maand lang minstens 3 procentpunt boven de Aave-rente blijft.",
-        "wanneer": "zodra de meter groen is",
+        "volgende": "De poort van 7 november is niet gehaald (0,5% per jaar tegen 5,7% nodig). Starten als HLP een maand lang minstens 3 procentpunt boven de Aave-rente blijft, ook zonder zijn grootste en kleinste stap.",
+        "wanneer": "als de meter een volle maand groen is",
         "meter": {
           "bron": "hlp_apr",
-          "label": "HLP-rente per jaar (nodig: Aave + 3)",
+          "label": "HLP per jaar over 30 dagen, zonder grootste en kleinste stap (nodig: Aave + 3)",
           "grens": "aave+3",
           "eenheid": "%",
           "richting": "boven"
@@ -163,7 +163,7 @@
       "status": "live",
       "trede": 3,
       "sinds": "2026-09-20",
-      "volgende_stap": "Besluit Bart 05-10: doorgaan op $255 zonder opschalen; herzien op 22-12. Grond: 60 dagen +10,5% tegen +1,6% voor dezelfde namen vasthouden, maar 16 jaar met herbeleggen = de Nasdaq-100 (+1.672% vs +1.666%); geen aangetoond structureel voordeel. Kost niets extra (VM draait toch voor kasbeheer). Op 22-12: resultaat per naam uit HL-fills (scripts/dipkoper_resultaat.py) tegen QQQ over dezelfde periode. Daarbij ook de divergentie-stempel evalueren (_divergence_stempel in utils/thematic_exposure_lab.py): de drie posities met ok=False (CRWV -$11,99, ORCL -$11,70, BABA open -$6,63) waren alle drie verliezers, samen ~$30, meer dan het H1-tekort van Q4; n=3 en padafhankelijk (audit 03-11).",
+      "volgende_stap": "ALARM sinds 02-11: ~20% onder de top ($292 op 22-09, grens 15%). Vier stops in Q4 kostten $46,64 (CRWV, SKHX, ORCL, CBRS), tegen $8,24 rente + basis. Bij Bart (10-11): herbeoordeling naar voren halen? Besluit Bart 05-10: doorgaan op $255 zonder opschalen; herzien op 22-12. Grond: 60 dagen +10,5% tegen +1,6% voor dezelfde namen vasthouden, maar 16 jaar met herbeleggen = de Nasdaq-100 (+1.672% vs +1.666%); geen aangetoond structureel voordeel. Kost niets extra (VM draait toch voor kasbeheer). Op 22-12: resultaat per naam uit HL-fills (scripts/dipkoper_resultaat.py) tegen QQQ over dezelfde periode. Daarbij ook de divergentie-stempel evalueren (_divergence_stempel in utils/thematic_exposure_lab.py): de drie posities met ok=False (CRWV -$11,99, ORCL -$11,70, BABA open -$6,63) waren alle drie verliezers, samen ~$30, meer dan het H1-tekort van Q4; n=3 en padafhankelijk (audit 03-11).",
       "hypothese": "Index-achtig rendement; geen extra kapitaal (besluit 2026-09-15). Evaluatie 2026-09-25.",
       "alarm": {
         "drawdown_pct": 15.0
@@ -383,15 +383,16 @@
       }
     },
     "fusie_arbitrage": {
-      "status": "idee",
-      "trede": 0,
-      "sinds": "2026-10-12",
+      "status": "gestopt",
+      "trede": 1,
+      "sinds": "2026-11-10",
       "soort": "nieuwe_bron",
       "hypothese": "Na een aangekondigde overname noteert het doelwit onder het bod; dat gat is een vergoeding voor het risico dat de deal afketst (fusie-arbitrage). Over veel deals is die premie historisch positief, zonder de richting van de markt te voorspellen.",
       "bron": "bekende risicopremie (merger arbitrage); mandaat verruimd 12-10",
       "benchmark": "Aave v3 Arbitrum USDC + 2pp; beta tegen WEBN meten (de premie valt weg in crashes)",
-      "volgende_stap": "Papier, later: (1) historische spreads en afketskansen van aangekondigde cash-deals (VS/EU), geannualiseerd, na kosten; (2) hoeveel deals tegelijk nodig zijn voor spreiding; op ons bedrag mogelijk te weinig; (3) uitvoering via DeGiro (handwerk). Prioriteit lager dan de basis-ideeen.",
+      "volgende_stap": "GESTOPT 10-11 (werkronde gepland, 29 dagen op trede 0) met een proxy voor papierstap 1 (fondsrendementen na kosten, niet de spreads van losse deals) en papierstap 3 (research/fusie_arbitrage.py, criteria in de docstring). De premie bestaat, met lage beta (0,09-0,14), maar is klein: fondsen na kosten MERFX +1,65 / ARBFX +1,63 / MNA +1,29 pp per jaar boven kas (2007 of 2010 t/m 2026), tweede helft +1,58 / +1,06 / +0,02 pp; lat +2,0 pp in beide helften door geen enkel fonds gehaald. Op onze omvang eten de kosten hem op (DeGiro EUR 2 + AutoFX 2 x 0,25% per deal, 3 deals per positie per jaar): op $500 -5 tot -13 pp boven kas, op $5.000 hooguit +1,1 pp. MNA daalde in crashmaanden mee (beta 0,81 bij markt < -5%), MERFX en ARBFX niet (0,10-0,16). De fondsen zelf zijn voor een EU-particulier niet koopbaar. Papierstap 2 (losse deals en afketskansen) niet meer nodig. HEROPENEN als het exces van MERFX/ARBFX over 5 jaar >= 2 pp ligt EN er een koopbare route zonder valutakosten per deal is.",
       "kaart": {
+        "kort": "Gestopt: de premie bestaat (fondsen ~1,5 procentpunt boven kasrente) maar haalt de lat niet, en op ons bedrag eten de kosten per deal hem helemaal op.",
         "wat": "Aandelen kopen van bedrijven die worden overgenomen, net onder het bod, en het verschil ontvangen als de overname doorgaat.",
         "kosten": "uitzoekwerk per deal; spreiding over veel deals is nodig",
         "opbrengst": "onbekend; per deal klein, soms een verlies als de deal afketst",

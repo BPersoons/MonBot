@@ -10,9 +10,11 @@
 
 Definities (vastgelegd, zodat ze niet stil kunnen verschuiven):
 - **Opbrengst** = flow-gecorrigeerde winst van `yield_core`, `house` en `basis`, plus de
-  toename van het GEREALISEERDE resultaat van de dip-koper. Koersbeweging van de kern,
-  de dip-koper-posities en crypto-vasthouden telt niet: dat is markt, geen opbrengst.
-- **Kosten** = `total_cost_usd` uit cost_log.json (VM + LLM + fees) per dag.
+  toename van het GEREALISEERDE resultaat van de dip-koper, NA fees en funding, uit
+  Hyperliquid zelf (`utils/dip_netto.py`). Koersbeweging van de kern, de dip-koper-posities
+  en crypto-vasthouden telt niet: dat is markt, geen opbrengst.
+- **Kosten** = `total_cost_usd` uit cost_log.json (VM + LLM) per dag. Beursfees zitten in de
+  potjes en, bij de dip-koper, in de netto-reeks.
 - **Rendement per dag** = Modified Dietz: (V1 - V0 - F) / (V0 + F/2).
 - Het venster telt alleen dagen waarvoor snapshot én kosten bekend zijn; minder dan 90
   dagen heet `voorlopig`.
@@ -27,6 +29,7 @@ import math
 import os
 from datetime import datetime, timedelta, timezone
 
+from utils import dip_netto
 from utils import experimenten as exp_register
 from utils import flows
 
@@ -85,6 +88,8 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
     groei = 1.0
     dagen = 0
     datums = []
+    dip_delta = 0.0
+    dip_gaten = []
     for vorige, huidige in zip(stukken, stukken[1:]):
         d = huidige["date"]
         # Snapshots vallen rond 00:05 UTC: het interval (vorige, huidige] beslaat de dagen
@@ -115,9 +120,19 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
         kosten += sum(float(kosten_per_dag[k]) for k in bekend)
         dagen += 1
         datums.append(d)
+        # Per meegeteld interval, net als de potjes en de kosten: een dag zonder kosten telt
+        # voor niemand mee (A1 10-11: 23 en 24-08 telden wel voor de dip-koper, +$8,87).
+        # Leeg = niet aangeleverd; update_kpi markeert dat zelf als onmeetbaar.
+        if dip_per_dag:
+            begin, eind = dip_per_dag.get(vorige["date"]), dip_per_dag.get(d)
+            if begin is None or eind is None:
+                dip_gaten.append(d)
+            else:
+                dip_delta += eind - begin
 
-    dip = [dip_per_dag[d] for d in sorted(dip_per_dag) if datums and datums[0] <= d <= datums[-1]]
-    dip_delta = (dip[-1] - dip[0]) if len(dip) >= 2 else 0.0
+    if dip_gaten:
+        onmeetbaar.append("dip_koper_reeks:%s" % dip_gaten[0])
+    dip_meetbaar = not dip_gaten
     opbrengst = sum(opbrengst_potjes.values()) + dip_delta
 
     rendement_jaar_pct = ((groei ** (365.0 / dagen) - 1.0) * 100.0) if dagen else None
@@ -126,12 +141,12 @@ def bereken(hist, stromen, register, kosten_per_dag, aave_apy_per_dag,
     if rendement_jaar_pct is not None and aave_gem is None:
         onmeetbaar.append("aave_apy")
 
-    h1 = {"opbrengst_usd": round(opbrengst, 2), "kosten_usd": round(kosten, 2),
-          "netto_usd": round(opbrengst - kosten, 2), "dagen": dagen,
+    h1 = {"opbrengst_usd": round(opbrengst, 2) if dip_meetbaar else None, "kosten_usd": round(kosten, 2),
+          "netto_usd": round(opbrengst - kosten, 2) if dip_meetbaar else None, "dagen": dagen,
           "voorlopig": dagen < venster,
           "per_potje_usd": {k: round(v, 2) for k, v in opbrengst_potjes.items()},
-          "dip_koper_gerealiseerd_usd": round(dip_delta, 2),
-          "doel_gehaald": (opbrengst - kosten) > 0}
+          "dip_koper_netto_usd": round(dip_delta, 2) if dip_meetbaar else None,
+          "doel_gehaald": dip_meetbaar and (opbrengst - kosten) > 0}
     h2 = {"rendement_jaar_pct": None if rendement_jaar_pct is None else round(rendement_jaar_pct, 2),
           "aave_apy_pct": None if aave_gem is None else round(aave_gem, 3),
           "verschil_pp": (None if rendement_jaar_pct is None or aave_gem is None
@@ -270,15 +285,21 @@ def update_kpi(nu=None, kpi_pad=KPI_FILE):
     if aave_vandaag is not None:
         aave[vandaag] = aave_vandaag
 
-    them = _lees(THEMATIC_FILE, {}) or {}
-    dip_vandaag = them.get("realized_pnl_usd")
-    dip = {e["date"]: e["dip_gerealiseerd_usd"] for e in oud
-           if e.get("dip_gerealiseerd_usd") is not None}
+    # Alleen ter vergelijking; H1 rekent met de netto-reeks uit Hyperliquid.
+    boek_vandaag = (_lees(THEMATIC_FILE, {}) or {}).get("realized_pnl_usd")
+    if isinstance(boek_vandaag, float) and not math.isfinite(boek_vandaag):
+        boek_vandaag = None     # alleen ter vergelijking: mag de KPI-regel niet blokkeren
+
+    dip = {}
     try:
-        if dip_vandaag is not None and math.isfinite(float(dip_vandaag)):
-            dip[vandaag] = float(dip_vandaag)
-    except (TypeError, ValueError):
-        pass
+        from utils.gcp_secrets import get_secret
+        adres = get_secret("HL_THEMATIC_WALLET_ADDRESS")
+        if not adres:
+            raise ValueError("geen adres voor de dip-koper-wallet")
+        dip = dip_netto.haal_cumulatief(adres, vandaag)
+    except Exception as e:      # netwerk, data of secret: nooit stil als nul meetellen
+        logger.error("KPI: dip-koper netto onmeetbaar: %s", e)
+        onmeetbaar_extra.append("dip_koper_netto")
 
     uitkomst = bereken(hist, stromen, register, kosten, aave, dip,
                        _lees(VERLIES_STATE_FILE, {}) or {}, vandaag)
@@ -286,10 +307,15 @@ def update_kpi(nu=None, kpi_pad=KPI_FILE):
     if onmeetbaar_extra:
         uitkomst["h5"]["doel_gehaald"] = False
         uitkomst["h1"]["netto_usd"] = None
-        uitkomst["h2"]["verschil_pp"] = None
+        uitkomst["h1"]["doel_gehaald"] = False
+        if "dip_koper_netto" in onmeetbaar_extra:
+            uitkomst["h1"]["opbrengst_usd"] = None
+            uitkomst["h1"]["dip_koper_netto_usd"] = None
+        if "flows" in onmeetbaar_extra:
+            uitkomst["h2"]["verschil_pp"] = None
 
     regel = {"date": vandaag, "ts": nu.isoformat(), "kosten_usd": kosten.get(vandaag),
-             "aave_apy_pct": aave_vandaag, "dip_gerealiseerd_usd": dip.get(vandaag)}
+             "aave_apy_pct": aave_vandaag, "dip_gerealiseerd_usd": boek_vandaag}
     regel.update(uitkomst)
     vuil = niet_eindig(regel)
     if vuil:
