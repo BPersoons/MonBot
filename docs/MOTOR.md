@@ -41,6 +41,11 @@ schaduwfase nodig), maar dat staat dan expliciet in het register.
    (`scripts/blootstelling.py`). Rendement van een protocol komt uit de share price
    (`utils/rendement.py`). Nooit uit een lijst trades alleen — die mist de verliezers
    (memory `feedback_meet_het_potje_met_geld`).
+   **Sinds 16-11 (Bart):** het oordeel valt in procentpunten op doelschaal (€100k+), na box 3
+   en in euro's, niet in dollars op het proefbedrag. Marktneutraal: de dollarrente zonder
+   risico (T-bill-token) + 2pp, en een spaarrekening in euro's als tweede maatstaf. Een kleine
+   opbrengst op het proefbedrag is geen stopreden; een bron die in schokken betaalt krijgt een
+   venster van ≥ 12 maanden. Zie `docs/PLAN_2026-08.md` § "Stand en route naar winst".
 2. **Het proeftuinkapitaal is $500 in totaal** (Bart 22-09). Geen vast maximum aantal
    experimenten: het kapitaal begrenst. Elk potje mag **hooguit 50%** verliezen voor het stopt,
    dus het verliesbudget blijft $250 (alarm $125). Per potje het **minimum**: elke geplande order
