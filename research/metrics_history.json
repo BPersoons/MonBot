@@ -478,6 +478,13 @@
       "gross_profit_usd": 165933000.0,
       "operating_income_usd": 14502000.0,
       "revenue_usd": 210423000.0
+    },
+    "2026-09": {
+      "eps": 0.47,
+      "fcf_quarter_usd": -17799000.0,
+      "gross_profit_usd": 176650000.0,
+      "operating_income_usd": 37618000.0,
+      "revenue_usd": 222185000.0
     }
   },
   "OTEX": {
@@ -623,7 +630,7 @@
       "revenue_usd": 694039000.0
     },
     "2025-09": {
-      "eps": 23.0,
+      "eps": 0.23,
       "fcf_quarter_usd": 154996000.0,
       "gross_profit_usd": 577279000.0,
       "operating_income_usd": 161219000.0,
@@ -649,6 +656,13 @@
       "gross_profit_usd": 530724000.0,
       "operating_income_usd": 101577000.0,
       "revenue_usd": 715057000.0
+    },
+    "2026-09": {
+      "eps": 0.08,
+      "fcf_quarter_usd": 153322000.0,
+      "gross_profit_usd": 535802000.0,
+      "operating_income_usd": 92606000.0,
+      "revenue_usd": 735965000.0
     }
   },
   "WIX": {
@@ -686,6 +700,13 @@
       "gross_profit_usd": 370341000.0,
       "operating_income_usd": -31690000.0,
       "revenue_usd": 563058000.0
+    },
+    "2026-09": {
+      "eps": -0.32,
+      "fcf_quarter_usd": 74471000.0,
+      "gross_profit_usd": 386816000.0,
+      "operating_income_usd": -16411000.0,
+      "revenue_usd": 570165000.0
     }
   },
   "WLDN": {
@@ -723,6 +744,13 @@
       "gross_profit_usd": 87454000.0,
       "operating_income_usd": 19734000.0,
       "revenue_usd": 231028000.0
+    },
+    "2026-09": {
+      "eps": 0.76,
+      "fcf_quarter_usd": 11913000.0,
+      "gross_profit_usd": 82453000.0,
+      "operating_income_usd": 16304000.0,
+      "revenue_usd": 214527000.0
     }
   }
 }
