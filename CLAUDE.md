@@ -22,6 +22,7 @@ Diepere naslag (letterlijk verplaatst uit deze file op 2026-09-15): `docs/valkui
 - **Geen experimentgeld vóór de meter er staat** (KPI's + verliesbewaking).
 - Melden aan Bart **alleen** bij mijlpaal, poort, kill, budget ≥ $125 of een onbetrouwbare KPI. Kort: conclusie + aanbeveling. Daarnaast de agenda-herinnering van de VM (`config/agenda.json`: zaterdag wat binnen 7 dagen vervalt, anders alleen de vervaldag). De werkronde start zelf: dinsdag 09:00 via de Taakplanner op Barts pc (`scripts/werkronde_gepland.ps1`, logs in `logs/werkronde/`), Telegram alleen bij `MELDEN: ja` of een mislukte ronde — afgehandeld = regel weg.
 - **Noordster (Bart, 2026-10-12):** per bron bewijzen dat opschalen loont (na variabele kosten, zonder vaste VM-kosten, tegen de eigen benchmark: marktneutraal Aave + 2pp, risicodragend de index beta-gecorrigeerd). H1 is een ondergrens per kwartaal. Risicodeel ≤ 20%. Mandaat: structurele premies, ook met marktrisico — **nooit richting voorspellen**. Bart laat de keuze van premies aan de bouwer en wil ideeën waar hij zelf niet aan dacht.
+- **Meetlat (Bart, 2026-11-16):** oordeel in **procentpunten op doelschaal (€100k+), na box 3, in euro's** — niet in dollars op het proefbedrag. Marktneutraal: dollarrente zonder risico (T-bill-token) + 2pp, vervangt "Aave + 2pp". "Levert maar $X/jaar op" is geen stopreden; vaste VM-kosten zijn niet de knop. Een bron die in schokken betaalt: venster ≥ 12 maanden.
 
 ## Werkwijze: bouwer + controle-agent
 
