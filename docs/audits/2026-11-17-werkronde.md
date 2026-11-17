@@ -70,3 +70,7 @@ Nagerekend zonder bevinding: dip-koper bij HL ($219,13, 25,05% onder top, 5 posi
 8. **Open**, vastgelegd in `dip_koper`; eigen A1.
 9. Erkend; geen gevolg.
 - Modern Standby: de geplande ronde startte vandaag om 09:00 en liep door (`logs/werkronde/2026-11-17_0900_gepland.log`). Punt 6 van 10-11 gesloten.
+
+## Deploy (17-11)
+**Uitgevoerd** na commit 2238b11 (V1+V2 verwerkt): `deploy.ps1` met de venv voorop in het PATH, pre-flight groen (ook `check_connections`), live verificatie 10/10. Na ~3 min: dashboard 200, `utils/dip_netto.py` aanwezig, agenda in de container met de twee regels op 18-11, 0 ERROR/Traceback in 5 min logs. NAV $5.241,85 om 08:51 UTC; het verschil met 08:30 (−$36) zit bij de broker (live koers na de opening), niet in de swarm-potjes. De eerste KPI-regel met de nieuwe H1 komt om ~00:04 UTC op 18-11.
+- Overzichtspagina gebouwd (0 niet-ASCII-bytes), **niet gepubliceerd**: geen artifact-tool in de geplande sessie.
