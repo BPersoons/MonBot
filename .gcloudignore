@@ -63,3 +63,7 @@ stocks_watchlist.json
 
 # Backtest-uitvoer (scripts/sleeve_harness.py) — ~2,5 MB, hoort niet in de image
 sleeve_harness_*.json
+
+# Werkronde 17-11 (A4): skills van derden horen niet in de image
+.agents/
+skills-lock.json
