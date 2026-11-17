@@ -40,8 +40,8 @@
           "hoogste_winst_pct": 10.658471475462793
         }
       },
-      "kas_eur": -0.7731415230314959,
-      "laatste_dag": "2026-11-13",
+      "kas_eur": -0.8121645092743104,
+      "laatste_dag": "2026-11-16",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -276,6 +276,12 @@
           "waarde_eur": 90.9747,
           "kern_eur": 101.0246,
           "thema_eur": 88.469
+        },
+        {
+          "dag": "2026-11-16",
+          "waarde_eur": 85.5114,
+          "kern_eur": 100.1223,
+          "thema_eur": 84.0025
         }
       ]
     },
@@ -329,7 +335,7 @@
         }
       },
       "kas_eur": 93.02259608944328,
-      "laatste_dag": "2026-11-13",
+      "laatste_dag": "2026-11-16",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -570,6 +576,12 @@
           "waarde_eur": 363.4403,
           "kern_eur": 505.1231,
           "thema_eur": 412.2826
+        },
+        {
+          "dag": "2026-11-16",
+          "waarde_eur": 348.6227,
+          "kern_eur": 500.6117,
+          "thema_eur": 395.0583
         }
       ]
     },
@@ -637,7 +649,7 @@
         }
       },
       "kas_eur": 0.0,
-      "laatste_dag": "2026-11-13",
+      "laatste_dag": "2026-11-16",
       "kern_stuks": 0.0,
       "maatstaf_start": {
         "kern": 13.07800006866455,
@@ -872,6 +884,12 @@
           "waarde_eur": 425.524,
           "kern_eur": 505.1231,
           "thema_eur": 465.1057
+        },
+        {
+          "dag": "2026-11-16",
+          "waarde_eur": 416.9104,
+          "kern_eur": 500.6117,
+          "thema_eur": 457.817
         }
       ]
     }
